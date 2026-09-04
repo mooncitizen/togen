@@ -37,14 +37,22 @@ func TestValidatePassesAValidProject(t *testing.T) {
 		"provider":    "aws",
 		"region":      "eu-west-2",
 		"environment": "dev",
-		"nodes":       []any{map[string]any{"id": "n1", "type": "gateway", "name": "api"}},
-		"edges":       []any{},
+		"nodes": []any{
+			map[string]any{"id": "n1", "type": "gateway", "name": "api"},
+			map[string]any{
+				"id":         "n2",
+				"type":       "service",
+				"name":       "web",
+				"properties": map[string]any{"image": "nginx:1.27", "port": 80, "public": true},
+			},
+		},
+		"edges": []any{},
 	})
 	result := Validate(cwd)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	want := []string{"togen/project.json is valid (1 node, 0 edges)"}
+	want := []string{"togen/project.json is valid (2 nodes, 0 edges)"}
 	if diff := cmp.Diff(want, result.Lines); diff != "" {
 		t.Errorf("lines (-want +got):\n%s", diff)
 	}

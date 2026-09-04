@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 	"testing"
@@ -22,10 +23,17 @@ func example() *ir.Project {
 			{ID: "n1", Type: ir.NodeGateway, Name: "api"},
 			{ID: "n2", Type: ir.NodeFunction, Name: "handler"},
 			{ID: "n3", Type: ir.NodeDatabase, Name: "main-db"},
+			{
+				ID:         "n4",
+				Type:       ir.NodeService,
+				Name:       "web",
+				Properties: json.RawMessage(`{"image":"nginx:1.27","port":80,"public":true}`),
+			},
 		},
 		Edges: []ir.Edge{
 			{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes},
 			{ID: "e2", From: "n2", To: "n3", Relation: ir.RelReads},
+			{ID: "e3", From: "n4", To: "n3", Relation: ir.RelReads},
 		},
 	}
 }
@@ -72,6 +80,12 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		"aws_db_instance",
 		"aws_vpc_security_group_ingress_rule",
 		"aws_iam_role_policy",
+		"aws_ecs_cluster",
+		"aws_ecs_service",
+		"aws_ecs_task_definition",
+		"aws_lb",
+		"aws_lb_listener",
+		"aws_lb_target_group",
 	} {
 		if !slices.Contains(types, want) {
 			t.Errorf("missing %s", want)
@@ -92,7 +106,7 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		outputs = append(outputs, o.Name)
 	}
 	slices.Sort(outputs)
-	if diff := cmp.Diff([]string{"api_url", "main_db_endpoint"}, outputs); diff != "" {
+	if diff := cmp.Diff([]string{"api_url", "main_db_endpoint", "web_url"}, outputs); diff != "" {
 		t.Errorf("outputs (-want +got):\n%s", diff)
 	}
 	var variables []string
@@ -191,5 +205,28 @@ func TestResolveRejectsNamesThatExceedAWSLimits(t *testing.T) {
 	}
 	if errs[0].NodeID != "n2" || !strings.Contains(errs[0].Message, "64") {
 		t.Errorf("error = %+v", errs[0])
+	}
+}
+
+func TestResolveRejectsServiceNamesThatExceedTheLoadBalancerLimit(t *testing.T) {
+	p := example()
+	p.Nodes = []ir.Node{{
+		ID:         "n4",
+		Type:       ir.NodeService,
+		Name:       "a-very-long-public-service-name",
+		Properties: json.RawMessage(`{"image":"nginx:1.27","port":80,"public":true}`),
+	}}
+	p.Edges = nil
+	errs := runErrors(t, p)
+	if len(errs) != 2 {
+		t.Fatalf("errors = %v", errs)
+	}
+	for i, want := range []string{"aws_lb ", "aws_lb_target_group "} {
+		if errs[i].NodeID != "n4" || !strings.Contains(errs[i].Message, "32") {
+			t.Errorf("errors[%d] = %+v", i, errs[i])
+		}
+		if !strings.HasPrefix(errs[i].Message, want) {
+			t.Errorf("errors[%d].Message = %q, want it to start with %q", i, errs[i].Message, want)
+		}
 	}
 }
