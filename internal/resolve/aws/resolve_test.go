@@ -29,11 +29,15 @@ func example() *ir.Project {
 				Name:       "web",
 				Properties: json.RawMessage(`{"image":"nginx:1.27","port":80,"public":true}`),
 			},
+			{ID: "n5", Type: ir.NodeQueue, Name: "jobs"},
+			{ID: "n6", Type: ir.NodeFunction, Name: "worker"},
 		},
 		Edges: []ir.Edge{
 			{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes},
 			{ID: "e2", From: "n2", To: "n3", Relation: ir.RelReads},
 			{ID: "e3", From: "n4", To: "n3", Relation: ir.RelReads},
+			{ID: "e4", From: "n2", To: "n5", Relation: ir.RelPublishes},
+			{ID: "e5", From: "n6", To: "n5", Relation: ir.RelConsumes},
 		},
 	}
 }
@@ -86,6 +90,8 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		"aws_lb",
 		"aws_lb_listener",
 		"aws_lb_target_group",
+		"aws_sqs_queue",
+		"aws_lambda_event_source_mapping",
 	} {
 		if !slices.Contains(types, want) {
 			t.Errorf("missing %s", want)
@@ -106,14 +112,14 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		outputs = append(outputs, o.Name)
 	}
 	slices.Sort(outputs)
-	if diff := cmp.Diff([]string{"api_url", "main_db_endpoint", "web_url"}, outputs); diff != "" {
+	if diff := cmp.Diff([]string{"api_url", "jobs_url", "main_db_endpoint", "web_url"}, outputs); diff != "" {
 		t.Errorf("outputs (-want +got):\n%s", diff)
 	}
 	var variables []string
 	for _, v := range g.Variables {
 		variables = append(variables, v.Name)
 	}
-	if diff := cmp.Diff([]string{"handler_package"}, variables); diff != "" {
+	if diff := cmp.Diff([]string{"handler_package", "worker_package"}, variables); diff != "" {
 		t.Errorf("variables (-want +got):\n%s", diff)
 	}
 	if len(g.Data) != 1 || g.Data[0].Type != "aws_availability_zones" {
@@ -151,9 +157,9 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 
 func TestResolveRejectsNodeTypesThisMilestoneDoesNotSupport(t *testing.T) {
 	p := example()
-	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeQueue, Name: "jobs"})
+	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeBucket, Name: "uploads"})
 	errs := runErrors(t, p)
-	if len(errs) != 1 || !strings.Contains(errs[0].Message, "queue") {
+	if len(errs) != 1 || !strings.Contains(errs[0].Message, "bucket") {
 		t.Errorf("errors = %v", errs)
 	}
 }
@@ -161,22 +167,22 @@ func TestResolveRejectsNodeTypesThisMilestoneDoesNotSupport(t *testing.T) {
 func TestResolveReportsEveryUnsupportedNodeAndEdgeInFileOrder(t *testing.T) {
 	p := example()
 	p.Nodes = append(p.Nodes,
-		ir.Node{ID: "n9", Type: ir.NodeQueue, Name: "jobs"},
-		ir.Node{ID: "n10", Type: ir.NodeFunction, Name: "worker"},
+		ir.Node{ID: "n9", Type: ir.NodeCache, Name: "sessions"},
+		ir.Node{ID: "n10", Type: ir.NodeFunction, Name: "mailer"},
 		ir.Node{ID: "n11", Type: ir.NodeBucket, Name: "uploads"},
 	)
-	p.Edges = append(p.Edges, ir.Edge{ID: "e3", From: "n2", To: "n10", Relation: ir.RelCalls})
+	p.Edges = append(p.Edges, ir.Edge{ID: "e6", From: "n2", To: "n10", Relation: ir.RelCalls})
 	errs := runErrors(t, p)
 	if len(errs) != 3 {
 		t.Fatalf("errors = %v", errs)
 	}
-	want := [][2]string{{"n9", ""}, {"n11", ""}, {"", "e3"}}
+	want := [][2]string{{"n9", ""}, {"n11", ""}, {"", "e6"}}
 	for i, w := range want {
 		if errs[i].NodeID != w[0] || errs[i].EdgeID != w[1] {
 			t.Errorf("errors[%d] = %+v, want node %q edge %q", i, errs[i], w[0], w[1])
 		}
 	}
-	for i, fragment := range []string{"queue", "bucket", "'calls' edges"} {
+	for i, fragment := range []string{"cache", "bucket", "'calls' edges"} {
 		if !strings.Contains(errs[i].Message, fragment) {
 			t.Errorf("errors[%d].Message = %q, want %q in it", i, errs[i].Message, fragment)
 		}
@@ -185,8 +191,8 @@ func TestResolveReportsEveryUnsupportedNodeAndEdgeInFileOrder(t *testing.T) {
 
 func TestResolveReportsTheUnsupportedNodeOnceWhenAnEdgePointsAtIt(t *testing.T) {
 	p := example()
-	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeQueue, Name: "jobs"})
-	p.Edges = append(p.Edges, ir.Edge{ID: "e3", From: "n2", To: "n9", Relation: ir.RelPublishes})
+	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeCache, Name: "sessions"})
+	p.Edges = append(p.Edges, ir.Edge{ID: "e6", From: "n2", To: "n9", Relation: ir.RelReads})
 	errs := runErrors(t, p)
 	if len(errs) != 1 || errs[0].NodeID != "n9" {
 		t.Errorf("errors = %v", errs)
@@ -205,6 +211,21 @@ func TestResolveRejectsNamesThatExceedAWSLimits(t *testing.T) {
 	}
 	if errs[0].NodeID != "n2" || !strings.Contains(errs[0].Message, "64") {
 		t.Errorf("error = %+v", errs[0])
+	}
+}
+
+func TestResolveRejectsQueueNamesThatExceedTheSQSLimit(t *testing.T) {
+	p := example()
+	p.Nodes = []ir.Node{{ID: "n5", Type: ir.NodeQueue, Name: strings.Repeat("j", 72)}}
+	p.Edges = nil
+	errs := runErrors(t, p)
+	if len(errs) != 2 {
+		t.Fatalf("errors = %v", errs)
+	}
+	for i, err := range errs {
+		if err.NodeID != "n5" || !strings.Contains(err.Message, "80") {
+			t.Errorf("errors[%d] = %+v", i, err)
+		}
 	}
 }
 

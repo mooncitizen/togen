@@ -2,7 +2,7 @@
 
 Sketch a system as boxes and edges, get a starting infrastructure repo. Local, deterministic, no accounts needed to generate.
 
-Status: milestone one. AWS, Terraform HCL, three node types.
+Status: milestone one. AWS, Terraform HCL, five node types.
 
 ## Try it
 
