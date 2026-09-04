@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "name": "shop",
+  "provider": "aws",
+  "region": "eu-west-2",
+  "environment": "dev",
+  "nodes": [
+    { "id": "gateway-1", "type": "gateway", "name": "api" },
+    {
+      "id": "function-1",
+      "type": "function",
+      "name": "orders",
+      "properties": { "runtime": "node", "handler": "index.handler", "env": { "LOG_LEVEL": "info" } }
+    },
+    {
+      "id": "database-1",
+      "type": "database",
+      "name": "orders-db",
+      "properties": { "engine": "postgres", "size": "small" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "gateway-1",
+      "to": "function-1",
+      "relation": "routes",
+      "properties": { "path": "/orders", "methods": ["GET", "POST"] }
+    },
+    { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" },
+    { "id": "edge-3", "from": "function-1", "to": "database-1", "relation": "writes" }
+  ]
+}

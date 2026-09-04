@@ -1,0 +1,11 @@
+.superpowers/
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.tgz
+.terraform/
+.terraform.lock.hcl
+.direnv/
+bin/
+examples/*/infra/

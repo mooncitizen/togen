@@ -1,0 +1,63 @@
+{
+  "relations": {
+    "calls": {
+      "from": [
+        "service",
+        "function"
+      ],
+      "to": [
+        "service",
+        "function"
+      ]
+    },
+    "consumes": {
+      "from": [
+        "service",
+        "function"
+      ],
+      "to": [
+        "queue"
+      ]
+    },
+    "publishes": {
+      "from": [
+        "service",
+        "function"
+      ],
+      "to": [
+        "queue"
+      ]
+    },
+    "reads": {
+      "from": [
+        "service",
+        "function"
+      ],
+      "to": [
+        "database",
+        "bucket",
+        "cache"
+      ]
+    },
+    "routes": {
+      "from": [
+        "gateway"
+      ],
+      "to": [
+        "service",
+        "function"
+      ]
+    },
+    "writes": {
+      "from": [
+        "service",
+        "function"
+      ],
+      "to": [
+        "database",
+        "bucket",
+        "cache"
+      ]
+    }
+  }
+}

@@ -1,0 +1,535 @@
+{
+  "$id": "https://togen.dev/schema/project.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "edges": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "description": "Id of the node the edge starts at",
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable identifier for this edge",
+            "minLength": 1,
+            "type": "string"
+          },
+          "properties": {
+            "additionalProperties": false,
+            "default": {},
+            "description": "Settings for this edge",
+            "properties": {
+              "methods": {
+                "default": [
+                  "ANY"
+                ],
+                "description": "HTTP methods the route accepts",
+                "items": {
+                  "enum": [
+                    "ANY",
+                    "GET",
+                    "POST",
+                    "PUT",
+                    "PATCH",
+                    "DELETE",
+                    "HEAD",
+                    "OPTIONS"
+                  ],
+                  "type": "string"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "path": {
+                "default": "/",
+                "description": "Path the gateway routes to the target",
+                "pattern": "^/",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "relation": {
+            "description": "What the two nodes do to each other",
+            "enum": [
+              "routes",
+              "calls",
+              "reads",
+              "writes",
+              "publishes",
+              "consumes"
+            ],
+            "type": "string"
+          },
+          "to": {
+            "description": "Id of the node the edge ends at",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from",
+          "to",
+          "relation"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "environment": {
+      "maxLength": 16,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 32,
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+      "type": "string"
+    },
+    "nodes": {
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the service",
+                "properties": {
+                  "env": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "default": {},
+                    "description": "Environment variables to set on the container",
+                    "propertyNames": {
+                      "pattern": "^[A-Z][A-Z0-9_]*$"
+                    },
+                    "type": "object"
+                  },
+                  "image": {
+                    "description": "Container image to run",
+                    "type": "string"
+                  },
+                  "maxReplicas": {
+                    "default": 2,
+                    "description": "Most tasks to scale out to",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "minReplicas": {
+                    "default": 1,
+                    "description": "Fewest tasks to keep running",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "port": {
+                    "default": 8080,
+                    "description": "Port the container listens on",
+                    "maximum": 65535,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "public": {
+                    "default": false,
+                    "description": "Reachable from the internet",
+                    "type": "boolean"
+                  },
+                  "size": {
+                    "default": "small",
+                    "description": "Memory and CPU tier",
+                    "enum": [
+                      "small",
+                      "medium",
+                      "large"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "image"
+                ],
+                "type": "object"
+              },
+              "type": {
+                "const": "service",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name",
+              "properties"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the function",
+                "properties": {
+                  "env": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "default": {},
+                    "description": "Environment variables to set on the function",
+                    "propertyNames": {
+                      "pattern": "^[A-Z][A-Z0-9_]*$"
+                    },
+                    "type": "object"
+                  },
+                  "handler": {
+                    "default": "index.handler",
+                    "description": "Entry point the runtime calls",
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "runtime": {
+                    "default": "node",
+                    "description": "Language runtime the code needs",
+                    "enum": [
+                      "node",
+                      "python",
+                      "go"
+                    ],
+                    "type": "string"
+                  },
+                  "size": {
+                    "default": "small",
+                    "description": "Memory and CPU tier",
+                    "enum": [
+                      "small",
+                      "medium",
+                      "large"
+                    ],
+                    "type": "string"
+                  },
+                  "timeoutSeconds": {
+                    "default": 30,
+                    "description": "Seconds a single invocation may run for",
+                    "maximum": 900,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
+              },
+              "type": {
+                "const": "function",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the database",
+                "properties": {
+                  "engine": {
+                    "default": "postgres",
+                    "description": "Database engine to run",
+                    "enum": [
+                      "postgres",
+                      "mysql"
+                    ],
+                    "type": "string"
+                  },
+                  "highAvailability": {
+                    "default": false,
+                    "description": "Run a standby in a second availability zone",
+                    "type": "boolean"
+                  },
+                  "size": {
+                    "default": "small",
+                    "description": "Memory and CPU tier",
+                    "enum": [
+                      "small",
+                      "medium",
+                      "large"
+                    ],
+                    "type": "string"
+                  },
+                  "storageGb": {
+                    "default": 20,
+                    "description": "Disk to allocate in gigabytes",
+                    "minimum": 20,
+                    "type": "integer"
+                  },
+                  "version": {
+                    "description": "Engine version. Defaults to the newest supported one",
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "type": {
+                "const": "database",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the gateway",
+                "properties": {},
+                "type": "object"
+              },
+              "type": {
+                "const": "gateway",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the queue",
+                "properties": {
+                  "deadLetter": {
+                    "default": true,
+                    "description": "Park messages that keep failing on a second queue",
+                    "type": "boolean"
+                  },
+                  "fifo": {
+                    "default": false,
+                    "description": "Deliver messages in order exactly once",
+                    "type": "boolean"
+                  },
+                  "retentionDays": {
+                    "default": 4,
+                    "description": "Days an unread message is kept",
+                    "maximum": 14,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
+              },
+              "type": {
+                "const": "queue",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the bucket",
+                "properties": {
+                  "public": {
+                    "default": false,
+                    "description": "Readable from the internet",
+                    "type": "boolean"
+                  },
+                  "versioning": {
+                    "default": true,
+                    "description": "Keep previous versions of overwritten objects",
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              },
+              "type": {
+                "const": "bucket",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "description": "Stable identifier edges point at",
+                "minLength": 1,
+                "type": "string"
+              },
+              "name": {
+                "description": "Human name used for resource names and outputs",
+                "maxLength": 32,
+                "minLength": 1,
+                "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "properties": {
+                "additionalProperties": false,
+                "description": "Settings for the cache",
+                "properties": {
+                  "size": {
+                    "default": "small",
+                    "description": "Memory and CPU tier",
+                    "enum": [
+                      "small",
+                      "medium",
+                      "large"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "type": {
+                "const": "cache",
+                "description": "Kind of thing this node is"
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "name"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "provider": {
+      "enum": [
+        "aws",
+        "gcp",
+        "azure"
+      ],
+      "type": "string"
+    },
+    "region": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    }
+  },
+  "required": [
+    "version",
+    "name",
+    "provider",
+    "region",
+    "environment",
+    "nodes",
+    "edges"
+  ],
+  "title": "Togen project",
+  "type": "object"
+}
