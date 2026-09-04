@@ -13,3 +13,12 @@ var lambdaMemory = map[ir.Size]float64{
 	ir.SizeMedium: 1024,
 	ir.SizeLarge:  2048,
 }
+
+// Fargate only accepts fixed cpu and memory pairs, and the provider takes both as strings.
+type fargateSize struct{ CPU, Memory string }
+
+var fargateSizes = map[ir.Size]fargateSize{
+	ir.SizeSmall:  {CPU: "256", Memory: "512"},
+	ir.SizeMedium: {CPU: "1024", Memory: "2048"},
+	ir.SizeLarge:  {CPU: "2048", Memory: "4096"},
+}

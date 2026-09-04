@@ -10,7 +10,9 @@ import (
 )
 
 func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) {
-	if _, ok := from.Exports.(resolve.FunctionExports); !ok {
+	switch from.Exports.(type) {
+	case resolve.FunctionExports, resolve.ServiceExports:
+	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
 			Message: fmt.Sprintf("%s from a %s is not supported by the aws resolver yet", edge.Relation, from.Node.Type),

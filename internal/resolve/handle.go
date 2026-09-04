@@ -14,9 +14,17 @@ type FunctionExports struct{ ARN, InvokeARN, FunctionName ir.Value }
 
 type GatewayExports struct{ APIID, ExecutionARN, URL ir.Value }
 
+// ServiceExports carries a nil URL when the service is not reachable from the internet.
+type ServiceExports struct {
+	Port   ir.Value
+	Public bool
+	URL    ir.Value
+}
+
 func (DatabaseExports) isExports() {}
 func (FunctionExports) isExports() {}
 func (GatewayExports) isExports()  {}
+func (ServiceExports) isExports()  {}
 
 type Handle struct {
 	Node          ir.Node

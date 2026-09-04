@@ -17,6 +17,12 @@
       "type": "database",
       "name": "orders-db",
       "properties": { "engine": "postgres", "size": "small" }
+    },
+    {
+      "id": "service-1",
+      "type": "service",
+      "name": "web",
+      "properties": { "image": "nginx:1.27", "port": 80, "size": "small", "public": true }
     }
   ],
   "edges": [
@@ -28,6 +34,7 @@
       "properties": { "path": "/orders", "methods": ["GET", "POST"] }
     },
     { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" },
-    { "id": "edge-3", "from": "function-1", "to": "database-1", "relation": "writes" }
+    { "id": "edge-3", "from": "function-1", "to": "database-1", "relation": "writes" },
+    { "id": "edge-4", "from": "service-1", "to": "database-1", "relation": "reads" }
   ]
 }

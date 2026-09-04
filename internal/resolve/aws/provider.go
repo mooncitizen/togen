@@ -26,11 +26,15 @@ func (provider) NameLimits() []resolve.NameLimit {
 	return []resolve.NameLimit{
 		{Type: "aws_lambda_function", Arg: "function_name", Max: 64},
 		{Type: "aws_db_instance", Arg: "identifier", Max: 63},
+		{Type: "aws_lb", Arg: "name", Max: 32},
+		{Type: "aws_lb_target_group", Arg: "name", Max: 32},
 	}
 }
 
 func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, bool) {
 	switch n.Type {
+	case ir.NodeService:
+		return resolveService(ctx, n), true
 	case ir.NodeGateway:
 		return resolveGateway(ctx, n), true
 	case ir.NodeFunction:

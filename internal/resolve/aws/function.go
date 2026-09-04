@@ -39,14 +39,7 @@ func resolveFunction(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 		SourceLabel: node.Name,
 		Args: ir.Attrs{
 			ir.A("name", ir.Str(ctx.Named(node.Name))),
-			ir.A("assume_role_policy", ir.J(ir.M(
-				ir.A("Version", ir.Str("2012-10-17")),
-				ir.A("Statement", ir.L(ir.M(
-					ir.A("Effect", ir.Str("Allow")),
-					ir.A("Principal", ir.M(ir.A("Service", ir.Str("lambda.amazonaws.com")))),
-					ir.A("Action", ir.Str("sts:AssumeRole")),
-				))),
-			))),
+			ir.A("assume_role_policy", assumeRolePolicy("lambda.amazonaws.com")),
 		},
 	})
 	roleID := ir.ID{Type: role.Type, Name: role.Name}

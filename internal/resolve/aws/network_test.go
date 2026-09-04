@@ -172,6 +172,8 @@ func TestProviderBlock(t *testing.T) {
 	wantLimits := []resolve.NameLimit{
 		{Type: "aws_lambda_function", Arg: "function_name", Max: 64},
 		{Type: "aws_db_instance", Arg: "identifier", Max: 63},
+		{Type: "aws_lb", Arg: "name", Max: 32},
+		{Type: "aws_lb_target_group", Arg: "name", Max: 32},
 	}
 	if diff := cmp.Diff(wantLimits, New().NameLimits()); diff != "" {
 		t.Errorf("name limits (-want +got):\n%s", diff)

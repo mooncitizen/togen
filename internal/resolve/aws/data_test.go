@@ -125,3 +125,61 @@ func TestDataAccessReportsAnUnsupportedTarget(t *testing.T) {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }
+
+func TestDataAccessFromAServiceWiresTheTaskRoleAndSecurityGroup(t *testing.T) {
+	ctx, project := newContext(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		{ID: "n3", Type: ir.NodeDatabase, Name: "main-db", Properties: props(t, ir.DatabaseProps{
+			Engine: ir.EnginePostgres, Size: ir.SizeSmall, StorageGB: 20,
+		})},
+	}, []ir.Edge{{ID: "e1", From: "n4", To: "n3", Relation: ir.RelReads}})
+	svc := resolveService(ctx, project.Nodes[0])
+	db := resolveDatabase(ctx, project.Nodes[1])
+	resolveDataAccess(ctx, project.Edges[0], svc, db)
+	svc.Finalise()
+
+	rule := named(t, ctx, ir.ID{Type: "aws_vpc_security_group_ingress_rule", Name: "main_db_from_web"})
+	want := ir.Attrs{
+		ir.A("security_group_id", ir.R(ir.ID{Type: "aws_security_group", Name: "main_db"}, ir.Field("id"))),
+		ir.A("referenced_security_group_id", ir.R(svcSGID, ir.Field("id"))),
+		ir.A("from_port", ir.Num(5432)),
+		ir.A("to_port", ir.Num(5432)),
+		ir.A("ip_protocol", ir.Str("tcp")),
+		ir.A("description", ir.Str("web to main-db")),
+	}
+	if diff := cmp.Diff(want, rule.Args); diff != "" {
+		t.Errorf("ingress rule args (-want +got):\n%s", diff)
+	}
+
+	definitions, _ := named(t, ctx, svcTaskDef).Args.Get("container_definitions")
+	container := ir.Attrs(definitions.(ir.JSON).Value.(ir.List)[0].(ir.Map))
+	env, _ := container.Get("environment")
+	secret := ir.R(dbID, ir.Field("master_user_secret"), ir.Index(0), ir.Field("secret_arn"))
+	wantEnv := ir.L(
+		ir.M(ir.A("name", ir.Str("MAIN_DB_HOST")), ir.A("value", ir.R(dbID, ir.Field("address")))),
+		ir.M(ir.A("name", ir.Str("MAIN_DB_NAME")), ir.A("value", ir.Str("main_db"))),
+		ir.M(ir.A("name", ir.Str("MAIN_DB_PORT")), ir.A("value", ir.Str("5432"))),
+		ir.M(ir.A("name", ir.Str("MAIN_DB_SECRET_ARN")), ir.A("value", secret)),
+	)
+	if diff := cmp.Diff(ir.Value(wantEnv), env); diff != "" {
+		t.Errorf("container environment (-want +got):\n%s", diff)
+	}
+
+	policy := firstOfType(t, ctx, "aws_iam_role_policy")
+	role, _ := policy.Args.Get("role")
+	if diff := cmp.Diff(ir.Value(ir.R(svcRoleID, ir.Field("id"))), role); diff != "" {
+		t.Errorf("policy role (-want +got):\n%s", diff)
+	}
+	statements, _ := policy.Args.Get("policy")
+	wantStatements := ir.J(ir.M(
+		ir.A("Version", ir.Str("2012-10-17")),
+		ir.A("Statement", ir.L(ir.M(
+			ir.A("Effect", ir.Str("Allow")),
+			ir.A("Action", ir.L(ir.Str("secretsmanager:GetSecretValue"))),
+			ir.A("Resource", secret),
+		))),
+	))
+	if diff := cmp.Diff(ir.Value(wantStatements), statements); diff != "" {
+		t.Errorf("policy statements (-want +got):\n%s", diff)
+	}
+}
