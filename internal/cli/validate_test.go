@@ -161,14 +161,14 @@ func TestValidateReportsUnsupportedNodesFromTheResolver(t *testing.T) {
 		"provider":    "aws",
 		"region":      "eu-west-2",
 		"environment": "dev",
-		"nodes":       []any{map[string]any{"id": "q1", "type": "queue", "name": "jobs"}},
+		"nodes":       []any{map[string]any{"id": "b1", "type": "bucket", "name": "uploads"}},
 		"edges":       []any{},
 	})
 	result := Validate(cwd)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "queue") || !strings.Contains(result.Lines[0], "node q1") {
+	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "bucket") || !strings.Contains(result.Lines[0], "node b1") {
 		t.Fatalf("lines = %v", result.Lines)
 	}
 }

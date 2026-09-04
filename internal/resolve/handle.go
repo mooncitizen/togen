@@ -21,10 +21,16 @@ type ServiceExports struct {
 	URL    ir.Value
 }
 
+type QueueExports struct {
+	ARN, URL, Name ir.Value
+	FIFO           bool
+}
+
 func (DatabaseExports) isExports() {}
 func (FunctionExports) isExports() {}
 func (GatewayExports) isExports()  {}
 func (ServiceExports) isExports()  {}
+func (QueueExports) isExports()    {}
 
 type Handle struct {
 	Node          ir.Node

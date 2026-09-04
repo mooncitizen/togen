@@ -28,6 +28,7 @@ func (provider) NameLimits() []resolve.NameLimit {
 		{Type: "aws_db_instance", Arg: "identifier", Max: 63},
 		{Type: "aws_lb", Arg: "name", Max: 32},
 		{Type: "aws_lb_target_group", Arg: "name", Max: 32},
+		{Type: "aws_sqs_queue", Arg: "name", Max: 80},
 	}
 }
 
@@ -41,6 +42,8 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 		return resolveFunction(ctx, n), true
 	case ir.NodeDatabase:
 		return resolveDatabase(ctx, n), true
+	case ir.NodeQueue:
+		return resolveQueue(ctx, n), true
 	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,
@@ -55,6 +58,8 @@ func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.H
 		resolveRoutes(ctx, e, from, to)
 	case ir.RelReads, ir.RelWrites:
 		resolveDataAccess(ctx, e, from, to)
+	case ir.RelPublishes, ir.RelConsumes:
+		resolveMessaging(ctx, e, from, to)
 	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  e.ID,

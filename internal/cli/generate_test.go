@@ -397,15 +397,15 @@ func TestGenerateSurfacesResolverErrorsWithTheNode(t *testing.T) {
 	cwd := generateCwd(t)
 	project := exampleProject()
 	project["nodes"] = append(project["nodes"].([]any),
-		map[string]any{"id": "n9", "type": "queue", "name": "jobs"})
+		map[string]any{"id": "n9", "type": "bucket", "name": "uploads"})
 	writeProject(t, cwd, project)
 
 	result := Generate(cwd, "", "", false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
-	if !strings.Contains(result.Lines[0], "queue") {
-		t.Errorf("line = %q, want it to mention queue", result.Lines[0])
+	if !strings.Contains(result.Lines[0], "bucket") {
+		t.Errorf("line = %q, want it to mention bucket", result.Lines[0])
 	}
 	if !strings.Contains(result.Lines[0], "n9") {
 		t.Errorf("line = %q, want it to name the node", result.Lines[0])
