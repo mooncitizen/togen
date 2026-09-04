@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"togen/internal/cli"
+	"github.com/mooncitizen/togen/internal/cli"
 )
 
 func main() {

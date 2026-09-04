@@ -11,7 +11,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 const (
@@ -159,6 +159,9 @@ func propsSchema(props any) map[string]any {
 	reflector := &jsonschema.Reflector{DoNotReference: true, ExpandedStruct: true}
 	doc := toMap(reflector.Reflect(props))
 	delete(doc, "$schema")
+	// The reflector derives an $id from the module path. A nested $id resets the
+	// base URI inside the document and has no use here, so it goes.
+	delete(doc, "$id")
 	doc["additionalProperties"] = false
 
 	fields, _ := doc["properties"].(map[string]any)

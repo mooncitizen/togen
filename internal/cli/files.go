@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"slices"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 type CliError struct{ Message string }

@@ -1,6 +1,6 @@
 package aws
 
-import "togen/internal/ir"
+import "github.com/mooncitizen/togen/internal/ir"
 
 var dbSizes = map[ir.Size]string{
 	ir.SizeSmall:  "db.t4g.micro",

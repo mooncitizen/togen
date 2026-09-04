@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"togen/internal/ir"
-	"togen/internal/resolve"
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
 )
 
 var (

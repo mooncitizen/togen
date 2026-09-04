@@ -3,8 +3,8 @@ package aws
 import (
 	"fmt"
 
-	"togen/internal/ir"
-	"togen/internal/resolve"
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
 )
 
 func resolveGateway(ctx *resolve.Context, node ir.Node) *resolve.Handle {

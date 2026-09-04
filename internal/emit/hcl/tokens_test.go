@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2/hclwrite"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 func render(t *testing.T, v ir.Value) string {

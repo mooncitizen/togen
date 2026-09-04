@@ -3,7 +3,7 @@ package resolve
 import (
 	"fmt"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {

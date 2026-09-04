@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"togen/internal/ir"
-	"togen/internal/resolve"
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
 )
 
 func props(t *testing.T, v any) json.RawMessage {

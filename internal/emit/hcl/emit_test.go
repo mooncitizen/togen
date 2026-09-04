@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 var update = flag.Bool("update", false, "rewrite the golden files")

@@ -1,6 +1,6 @@
 package resolve
 
-import "togen/internal/ir"
+import "github.com/mooncitizen/togen/internal/ir"
 
 type NameLimit struct {
 	Type string

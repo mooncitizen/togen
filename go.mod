@@ -1,4 +1,4 @@
-module togen
+module github.com/mooncitizen/togen
 
 go 1.24
 

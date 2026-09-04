@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"togen/internal/schema"
+	"github.com/mooncitizen/togen/internal/schema"
 )
 
 const embedCopy = "internal/ir/project.schema.json"

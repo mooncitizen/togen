@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"togen/internal/ir"
-	"togen/internal/resolve"
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
 )
 
 type runtimeSpec struct {

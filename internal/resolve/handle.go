@@ -3,7 +3,7 @@ package resolve
 import (
 	"reflect"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 type Exports interface{ isExports() }

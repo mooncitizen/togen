@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"togen/internal/ir"
-	"togen/internal/resolve"
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
 )
 
 func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) {

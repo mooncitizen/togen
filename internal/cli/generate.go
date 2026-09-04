@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"togen/internal/emit/hcl"
-	"togen/internal/ir"
-	"togen/internal/resolve"
-	"togen/internal/resolve/aws"
+	"github.com/mooncitizen/togen/internal/emit/hcl"
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
+	"github.com/mooncitizen/togen/internal/resolve/aws"
 )
 
 var resolvers = map[ir.CloudProvider]func() resolve.Provider{ir.ProviderAWS: aws.New}

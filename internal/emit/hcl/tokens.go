@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 var ident = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_-]*$`)

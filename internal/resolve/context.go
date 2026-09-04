@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 type Context struct {

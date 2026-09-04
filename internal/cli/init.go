@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 var regions = map[ir.CloudProvider]string{

@@ -1,6 +1,6 @@
 package cli
 
-import "togen/internal/ir"
+import "github.com/mooncitizen/togen/internal/ir"
 
 type Result struct {
 	Code  int
