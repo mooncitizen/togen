@@ -116,3 +116,68 @@ func TestValidateReportsAFutureVersion(t *testing.T) {
 		t.Errorf("line = %q, want it to mention version 9", result.Lines[0])
 	}
 }
+
+func TestValidateReportsResolverErrors(t *testing.T) {
+	cwd := t.TempDir()
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "aws",
+		"region":      "eu-west-2",
+		"environment": "dev",
+		"nodes": []any{
+			map[string]any{"id": "n1", "type": "gateway", "name": "api"},
+			map[string]any{"id": "n2", "type": "function", "name": "orders"},
+			map[string]any{"id": "n3", "type": "function", "name": "users"},
+		},
+		"edges": []any{
+			map[string]any{"id": "e1", "from": "n1", "to": "n2", "relation": "routes"},
+			map[string]any{"id": "e2", "from": "n1", "to": "n3", "relation": "routes"},
+		},
+	})
+	result := Validate(cwd)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	want := []string{"project (edge e2): route 'ANY /' on gateway 'api' is already used by edge 'e1'"}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
+	}
+}
+
+func TestValidateReportsUnsupportedNodesFromTheResolver(t *testing.T) {
+	cwd := t.TempDir()
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "aws",
+		"region":      "eu-west-2",
+		"environment": "dev",
+		"nodes":       []any{map[string]any{"id": "q1", "type": "queue", "name": "jobs"}},
+		"edges":       []any{},
+	})
+	result := Validate(cwd)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "queue") || !strings.Contains(result.Lines[0], "node q1") {
+		t.Fatalf("lines = %v", result.Lines)
+	}
+}
+
+func TestValidateSkipsResolverChecksWhenThereIsNoResolver(t *testing.T) {
+	cwd := t.TempDir()
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "gcp",
+		"region":      "europe-west2",
+		"environment": "dev",
+		"nodes":       []any{map[string]any{"id": "q1", "type": "queue", "name": "jobs"}},
+		"edges":       []any{},
+	})
+	result := Validate(cwd)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+}
