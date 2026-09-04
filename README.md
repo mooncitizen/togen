@@ -2,7 +2,7 @@
 
 Sketch a system as boxes and edges, get a starting infrastructure repo. Local, deterministic, no accounts needed to generate.
 
-Status: milestone one. AWS, Terraform HCL, three node types. See `docs/superpowers/specs/2026-09-04-togen-design.md` for where it is going and `docs/adrs/` for why.
+Status: milestone one. AWS, Terraform HCL, three node types.
 
 ## Try it
 
