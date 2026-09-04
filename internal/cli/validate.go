@@ -1,6 +1,11 @@
 package cli
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+
+	"github.com/mooncitizen/togen/internal/resolve"
+)
 
 func Validate(cwd string) Result {
 	project, errs, err := LoadProject(cwd)
@@ -9,6 +14,17 @@ func Validate(cwd string) Result {
 	}
 	if len(errs) > 0 {
 		return Result{Code: 1, Lines: errorLines(errs)}
+	}
+	// The resolver knows things the schema cannot, such as route key clashes
+	// and name limits, so a project only counts as valid once it resolves.
+	if newProvider, ok := resolvers[project.Provider]; ok {
+		if _, err := resolve.Run(project, newProvider()); err != nil {
+			var resolveErr *resolve.ResolveError
+			if errors.As(err, &resolveErr) {
+				return Result{Code: 1, Lines: errorLines(resolveErr.Errors)}
+			}
+			return Result{Code: 1, Lines: []string{err.Error()}}
+		}
 	}
 	return Result{Code: 0, Lines: []string{fmt.Sprintf(
 		"togen/project.json is valid (%s, %s)",
