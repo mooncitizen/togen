@@ -34,6 +34,9 @@
 
             # acceptance
             terraform
+
+            # github
+            gh
           ];
 
           shellHook = ''
