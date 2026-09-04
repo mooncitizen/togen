@@ -45,7 +45,7 @@ func ApplyDefaults(p *Project) (*Project, error) {
 			}
 		}
 		fillEnv(props)
-		raw, err := json.Marshal(props)
+		raw, err := marshalEveryField(props)
 		if err != nil {
 			return nil, err
 		}
@@ -76,6 +76,30 @@ func NodeProps[T any](n Node) (T, error) {
 	}
 	fillEnv(&v)
 	return v, nil
+}
+
+// Properties are written out in full rather than through omitempty, so applying defaults twice
+// gives the same answer. A property like versioning, false against a default of true, would
+// otherwise vanish on the way out and come back as the default on the next pass.
+func marshalEveryField(ptr any) ([]byte, error) {
+	v := reflect.ValueOf(ptr).Elem()
+	t := v.Type()
+	out := make(map[string]any, t.NumField())
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		switch name {
+		case "-":
+			continue
+		case "":
+			name = f.Name
+		}
+		out[name] = v.Field(i).Interface()
+	}
+	return json.Marshal(out)
 }
 
 func setTagDefaults(ptr any) error {

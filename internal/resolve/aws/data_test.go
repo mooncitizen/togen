@@ -126,6 +126,110 @@ func TestDataAccessReportsAnUnsupportedTarget(t *testing.T) {
 	}
 }
 
+func setupBucketAccess(t *testing.T, relations ...ir.Relation) (*resolve.Context, *resolve.Handle) {
+	t.Helper()
+	edges := make([]ir.Edge, len(relations))
+	for i, r := range relations {
+		edges[i] = ir.Edge{ID: "e" + string(rune('0'+i)), From: "n2", To: "n7", Relation: r}
+	}
+	ctx, project := newContext(t, []ir.Node{
+		{ID: "n2", Type: ir.NodeFunction, Name: "handler", Properties: props(t, defaultFunction)},
+		{ID: "n7", Type: ir.NodeBucket, Name: "uploads"},
+	}, edges)
+	fn := resolveFunction(ctx, project.Nodes[0])
+	bucket := resolveBucket(ctx, project.Nodes[1])
+	for _, e := range project.Edges {
+		resolveDataAccess(ctx, e, fn, bucket)
+	}
+	return ctx, fn
+}
+
+var (
+	bucketARN     = ir.R(bucketID, ir.Field("arn"))
+	bucketObjects = ir.C(bucketARN, ir.Str("/*"))
+	readObjects   = ir.M(
+		ir.A("Effect", ir.Str("Allow")),
+		ir.A("Action", ir.L(ir.Str("s3:GetObject"))),
+		ir.A("Resource", bucketObjects),
+	)
+	listBucket = ir.M(
+		ir.A("Effect", ir.Str("Allow")),
+		ir.A("Action", ir.L(ir.Str("s3:ListBucket"))),
+		ir.A("Resource", bucketARN),
+	)
+	writeObjects = ir.M(
+		ir.A("Effect", ir.Str("Allow")),
+		ir.A("Action", ir.L(ir.Str("s3:PutObject"), ir.Str("s3:DeleteObject"))),
+		ir.A("Resource", bucketObjects),
+	)
+	bucketEnv = ir.Attrs{ir.A("UPLOADS_BUCKET", ir.R(bucketID, ir.Field("id")))}
+)
+
+func TestReadsFromABucketGrantsGetAndList(t *testing.T) {
+	_, fn := setupBucketAccess(t, ir.RelReads)
+
+	if diff := cmp.Diff([]ir.Value{readObjects, listBucket}, fn.Statements); diff != "" {
+		t.Errorf("statements (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(bucketEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+}
+
+func TestWritesToABucketGrantsPutAndDelete(t *testing.T) {
+	_, fn := setupBucketAccess(t, ir.RelWrites)
+
+	if diff := cmp.Diff([]ir.Value{writeObjects}, fn.Statements); diff != "" {
+		t.Errorf("statements (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(bucketEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+}
+
+func TestBucketAccessKeepsTheReaderOutOfTheVPC(t *testing.T) {
+	ctx, fn := setupBucketAccess(t, ir.RelReads, ir.RelWrites, ir.RelReads)
+
+	if diff := cmp.Diff([]ir.Value{readObjects, listBucket, writeObjects}, fn.Statements); diff != "" {
+		t.Errorf("statements (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(bucketEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+	if fn.NeedsNetwork || fn.SecurityGroup != nil {
+		t.Error("a bucket pulled the function into the vpc")
+	}
+	for _, typ := range []string{"aws_security_group", "aws_vpc", "aws_vpc_security_group_ingress_rule"} {
+		if got := countOfType(ctx, typ); got != 0 {
+			t.Errorf("%s = %d", typ, got)
+		}
+	}
+}
+
+func TestReadsFromAServiceToABucketGrantsTheTaskRole(t *testing.T) {
+	ctx, project := newContext(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		{ID: "n7", Type: ir.NodeBucket, Name: "uploads"},
+	}, []ir.Edge{{ID: "e1", From: "n4", To: "n7", Relation: ir.RelReads}})
+	svc := resolveService(ctx, project.Nodes[0])
+	bucket := resolveBucket(ctx, project.Nodes[1])
+	resolveDataAccess(ctx, project.Edges[0], svc, bucket)
+	svc.Finalise()
+
+	policy := named(t, ctx, ir.ID{Type: "aws_iam_role_policy", Name: "web"})
+	statements, _ := policy.Args.Get("policy")
+	want := ir.J(ir.M(
+		ir.A("Version", ir.Str("2012-10-17")),
+		ir.A("Statement", ir.L(readObjects, listBucket)),
+	))
+	if diff := cmp.Diff(ir.Value(want), statements); diff != "" {
+		t.Errorf("policy statements (-want +got):\n%s", diff)
+	}
+	if countOfType(ctx, "aws_vpc_security_group_ingress_rule") != 0 {
+		t.Error("a bucket was given an ingress rule")
+	}
+}
+
 func TestDataAccessFromAServiceWiresTheTaskRoleAndSecurityGroup(t *testing.T) {
 	ctx, project := newContext(t, []ir.Node{
 		serviceNode(t, "n4", "web", defaultService),

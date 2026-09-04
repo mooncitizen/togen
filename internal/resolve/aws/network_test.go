@@ -175,6 +175,7 @@ func TestProviderBlock(t *testing.T) {
 		{Type: "aws_lb", Arg: "name", Max: 32},
 		{Type: "aws_lb_target_group", Arg: "name", Max: 32},
 		{Type: "aws_sqs_queue", Arg: "name", Max: 80},
+		{Type: "aws_s3_bucket", Arg: "bucket_prefix", Max: 37},
 	}
 	if diff := cmp.Diff(wantLimits, New().NameLimits()); diff != "" {
 		t.Errorf("name limits (-want +got):\n%s", diff)

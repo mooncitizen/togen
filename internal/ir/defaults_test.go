@@ -48,6 +48,39 @@ func TestApplyDefaultsFillsNodeAndEdgeProperties(t *testing.T) {
 	}
 }
 
+func TestApplyDefaultsKeepsAFalseThatOverridesATrueDefault(t *testing.T) {
+	p := &Project{Nodes: []Node{
+		{ID: "b1", Type: NodeBucket, Name: "uploads", Properties: json.RawMessage(`{"versioning":false}`)},
+		{ID: "q1", Type: NodeQueue, Name: "jobs", Properties: json.RawMessage(`{"deadLetter":false}`)},
+	}}
+	// The CLI applies defaults on the way out of validation and the resolver applies them
+	// again, so a second pass has to give the same answer as the first.
+	out, err := ApplyDefaults(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err = ApplyDefaults(out); err != nil {
+		t.Fatal(err)
+	}
+	bucket, err := NodeProps[BucketProps](out.Nodes[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bucket.Versioning {
+		t.Error("versioning came back on")
+	}
+	queue, err := NodeProps[QueueProps](out.Nodes[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if queue.DeadLetter {
+		t.Error("the dead letter queue came back on")
+	}
+	if queue.RetentionDays != 4 {
+		t.Errorf("retentionDays = %d", queue.RetentionDays)
+	}
+}
+
 func TestApplyDefaultsRejectsUnknownNodeType(t *testing.T) {
 	p := &Project{Nodes: []Node{{ID: "n1", Type: "mainframe", Name: "big"}}}
 	if _, err := ApplyDefaults(p); err == nil {
