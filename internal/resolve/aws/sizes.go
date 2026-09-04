@@ -8,6 +8,12 @@ var dbSizes = map[ir.Size]string{
 	ir.SizeLarge:  "db.r6g.large",
 }
 
+var cacheSizes = map[ir.Size]string{
+	ir.SizeSmall:  "cache.t4g.micro",
+	ir.SizeMedium: "cache.t4g.medium",
+	ir.SizeLarge:  "cache.r7g.large",
+}
+
 var lambdaMemory = map[ir.Size]float64{
 	ir.SizeSmall:  512,
 	ir.SizeMedium: 1024,

@@ -24,6 +24,8 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 		connectDatabase(ctx, from, to, target)
 	case resolve.BucketExports:
 		grantBucket(ctx, edge, from, to, target)
+	case resolve.CacheExports:
+		connectPrivately(ctx, from, to, target.Host, target.Port)
 	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
@@ -33,12 +35,27 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 }
 
 func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target resolve.DatabaseExports) {
+	prefix := connectPrivately(ctx, from, to, target.Host, target.Port)
+	from.SetEnv(prefix+"_NAME", target.Name)
+	from.SetEnv(prefix+"_SECRET_ARN", target.SecretARN)
+
+	from.AddStatement(ir.M(
+		ir.A("Effect", ir.Str("Allow")),
+		ir.A("Action", ir.L(ir.Str("secretsmanager:GetSecretValue"))),
+		ir.A("Resource", target.SecretARN),
+	))
+}
+
+// A database and a cache both sit on the private network, so the caller joins the VPC and the
+// target's security group takes an ingress rule from the caller's. The returned prefix is the
+// target's name upper-snake-cased, which the caller uses for any further env var it sets.
+func connectPrivately(ctx *resolve.Context, from, to *resolve.Handle, host, port ir.Value) string {
 	if to.SecurityGroup == nil {
-		ctx.Fail(fmt.Sprintf("database '%s' has no security group", to.Node.Name))
+		ctx.Fail(fmt.Sprintf("%s '%s' has no security group", to.Node.Type, to.Node.Name))
 	}
-	port, ok := target.Port.(ir.Number)
+	number, ok := port.(ir.Number)
 	if !ok {
-		ctx.Fail(fmt.Sprintf("database '%s' exports a port that is not a number", to.Node.Name))
+		ctx.Fail(fmt.Sprintf("%s '%s' exports a port that is not a number", to.Node.Type, to.Node.Name))
 	}
 
 	sourceSG := ensureSecurityGroup(ctx, from)
@@ -55,8 +72,8 @@ func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target reso
 			Args: ir.Attrs{
 				ir.A("security_group_id", ir.R(*to.SecurityGroup, ir.Field("id"))),
 				ir.A("referenced_security_group_id", ir.R(sourceSG, ir.Field("id"))),
-				ir.A("from_port", port),
-				ir.A("to_port", port),
+				ir.A("from_port", number),
+				ir.A("to_port", number),
 				ir.A("ip_protocol", ir.Str("tcp")),
 				ir.A("description", ir.Str(from.Node.Name+" to "+to.Node.Name)),
 			},
@@ -64,16 +81,9 @@ func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target reso
 	}
 
 	prefix := strings.ToUpper(ctx.Local(to.Node.Name))
-	from.SetEnv(prefix+"_HOST", target.Host)
-	from.SetEnv(prefix+"_PORT", ir.Str(strconv.FormatFloat(float64(port), 'f', -1, 64)))
-	from.SetEnv(prefix+"_NAME", target.Name)
-	from.SetEnv(prefix+"_SECRET_ARN", target.SecretARN)
-
-	from.AddStatement(ir.M(
-		ir.A("Effect", ir.Str("Allow")),
-		ir.A("Action", ir.L(ir.Str("secretsmanager:GetSecretValue"))),
-		ir.A("Resource", target.SecretARN),
-	))
+	from.SetEnv(prefix+"_HOST", host)
+	from.SetEnv(prefix+"_PORT", ir.Str(strconv.FormatFloat(float64(number), 'f', -1, 64)))
+	return prefix
 }
 
 // A bucket is reached over the public S3 endpoint, so nothing here joins the VPC.

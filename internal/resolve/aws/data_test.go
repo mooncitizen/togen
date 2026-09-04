@@ -287,3 +287,98 @@ func TestDataAccessFromAServiceWiresTheTaskRoleAndSecurityGroup(t *testing.T) {
 		t.Errorf("policy statements (-want +got):\n%s", diff)
 	}
 }
+
+func setupCacheAccess(t *testing.T, relations ...ir.Relation) (*resolve.Context, *resolve.Handle) {
+	t.Helper()
+	edges := make([]ir.Edge, len(relations))
+	for i, r := range relations {
+		edges[i] = ir.Edge{ID: "e" + string(rune('0'+i)), From: "n2", To: "n8", Relation: r}
+	}
+	ctx, project := newContext(t, []ir.Node{
+		{ID: "n2", Type: ir.NodeFunction, Name: "handler", Properties: props(t, defaultFunction)},
+		{ID: "n8", Type: ir.NodeCache, Name: "sessions", Properties: props(t, ir.CacheProps{Size: ir.SizeSmall})},
+	}, edges)
+	fn := resolveFunction(ctx, project.Nodes[0])
+	cache := resolveCache(ctx, project.Nodes[1])
+	for _, e := range project.Edges {
+		resolveDataAccess(ctx, e, fn, cache)
+	}
+	return ctx, fn
+}
+
+var cacheEnv = ir.Attrs{
+	ir.A("SESSIONS_HOST", cacheHost),
+	ir.A("SESSIONS_PORT", ir.Str("6379")),
+}
+
+func TestReadsFromACacheOpensRedisAndInjectsTheEndpoint(t *testing.T) {
+	ctx, fn := setupCacheAccess(t, ir.RelReads)
+
+	rule := named(t, ctx, ir.ID{Type: "aws_vpc_security_group_ingress_rule", Name: "sessions_from_handler"})
+	if rule.SourceNode != "n8" || rule.SourceLabel != "sessions" {
+		t.Errorf("rule source = %q/%q", rule.SourceNode, rule.SourceLabel)
+	}
+	want := ir.Attrs{
+		ir.A("security_group_id", ir.R(cacheSGID, ir.Field("id"))),
+		ir.A("referenced_security_group_id", ir.R(fnSGID, ir.Field("id"))),
+		ir.A("from_port", ir.Num(6379)),
+		ir.A("to_port", ir.Num(6379)),
+		ir.A("ip_protocol", ir.Str("tcp")),
+		ir.A("description", ir.Str("handler to sessions")),
+	}
+	if diff := cmp.Diff(want, rule.Args); diff != "" {
+		t.Errorf("ingress rule args (-want +got):\n%s", diff)
+	}
+
+	if diff := cmp.Diff(cacheEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+	if !fn.NeedsNetwork {
+		t.Error("the function did not join the vpc")
+	}
+	if len(fn.Statements) != 0 {
+		t.Errorf("statements = %v", fn.Statements)
+	}
+}
+
+func TestCacheAccessDoesNotDuplicateWiringForReadsAndWrites(t *testing.T) {
+	ctx, fn := setupCacheAccess(t, ir.RelReads, ir.RelWrites)
+
+	if countOfType(ctx, "aws_vpc_security_group_ingress_rule") != 1 {
+		t.Error("the ingress rule was created twice")
+	}
+	if diff := cmp.Diff(cacheEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+}
+
+func TestReadsFromAServiceToACacheUsesTheServiceSecurityGroup(t *testing.T) {
+	ctx, project := newContext(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		{ID: "n8", Type: ir.NodeCache, Name: "sessions", Properties: props(t, ir.CacheProps{Size: ir.SizeSmall})},
+	}, []ir.Edge{{ID: "e1", From: "n4", To: "n8", Relation: ir.RelReads}})
+	svc := resolveService(ctx, project.Nodes[0])
+	cache := resolveCache(ctx, project.Nodes[1])
+	resolveDataAccess(ctx, project.Edges[0], svc, cache)
+	svc.Finalise()
+
+	rule := named(t, ctx, ir.ID{Type: "aws_vpc_security_group_ingress_rule", Name: "sessions_from_web"})
+	referenced, _ := rule.Args.Get("referenced_security_group_id")
+	if diff := cmp.Diff(ir.Value(ir.R(svcSGID, ir.Field("id"))), referenced); diff != "" {
+		t.Errorf("referenced security group (-want +got):\n%s", diff)
+	}
+
+	definitions, _ := named(t, ctx, svcTaskDef).Args.Get("container_definitions")
+	container := ir.Attrs(definitions.(ir.JSON).Value.(ir.List)[0].(ir.Map))
+	env, _ := container.Get("environment")
+	wantEnv := ir.L(
+		ir.M(ir.A("name", ir.Str("SESSIONS_HOST")), ir.A("value", cacheHost)),
+		ir.M(ir.A("name", ir.Str("SESSIONS_PORT")), ir.A("value", ir.Str("6379"))),
+	)
+	if diff := cmp.Diff(ir.Value(wantEnv), env); diff != "" {
+		t.Errorf("container environment (-want +got):\n%s", diff)
+	}
+	if countOfType(ctx, "aws_iam_role_policy") != 0 {
+		t.Error("a cache produced an iam policy")
+	}
+}

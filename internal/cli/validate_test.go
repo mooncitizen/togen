@@ -153,7 +153,7 @@ func TestValidateReportsResolverErrors(t *testing.T) {
 	}
 }
 
-func TestValidateReportsUnsupportedNodesFromTheResolver(t *testing.T) {
+func TestValidateReportsResolverErrorsAgainstTheNode(t *testing.T) {
 	cwd := t.TempDir()
 	writeProject(t, cwd, map[string]any{
 		"version":     1,
@@ -161,14 +161,16 @@ func TestValidateReportsUnsupportedNodesFromTheResolver(t *testing.T) {
 		"provider":    "aws",
 		"region":      "eu-west-2",
 		"environment": "dev",
-		"nodes":       []any{map[string]any{"id": "c1", "type": "cache", "name": "sessions"}},
-		"edges":       []any{},
+		"nodes": []any{
+			map[string]any{"id": "c1", "type": "bucket", "name": strings.Repeat("u", 30)},
+		},
+		"edges": []any{},
 	})
 	result := Validate(cwd)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "cache") || !strings.Contains(result.Lines[0], "node c1") {
+	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "the limit is 37") || !strings.Contains(result.Lines[0], "node c1") {
 		t.Fatalf("lines = %v", result.Lines)
 	}
 }

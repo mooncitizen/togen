@@ -28,12 +28,15 @@ type QueueExports struct {
 
 type BucketExports struct{ ARN, Name ir.Value }
 
+type CacheExports struct{ Host, Port ir.Value }
+
 func (DatabaseExports) isExports() {}
 func (FunctionExports) isExports() {}
 func (GatewayExports) isExports()  {}
 func (ServiceExports) isExports()  {}
 func (QueueExports) isExports()    {}
 func (BucketExports) isExports()   {}
+func (CacheExports) isExports()    {}
 
 type Handle struct {
 	Node          ir.Node
