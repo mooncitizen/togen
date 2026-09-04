@@ -26,11 +26,14 @@ type QueueExports struct {
 	FIFO           bool
 }
 
+type BucketExports struct{ ARN, Name ir.Value }
+
 func (DatabaseExports) isExports() {}
 func (FunctionExports) isExports() {}
 func (GatewayExports) isExports()  {}
 func (ServiceExports) isExports()  {}
 func (QueueExports) isExports()    {}
+func (BucketExports) isExports()   {}
 
 type Handle struct {
 	Node          ir.Node

@@ -29,6 +29,8 @@ func (provider) NameLimits() []resolve.NameLimit {
 		{Type: "aws_lb", Arg: "name", Max: 32},
 		{Type: "aws_lb_target_group", Arg: "name", Max: 32},
 		{Type: "aws_sqs_queue", Arg: "name", Max: 80},
+		// 63 minus the 26 character suffix Terraform appends to a bucket prefix.
+		{Type: "aws_s3_bucket", Arg: "bucket_prefix", Max: 37},
 	}
 }
 
@@ -44,6 +46,8 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 		return resolveDatabase(ctx, n), true
 	case ir.NodeQueue:
 		return resolveQueue(ctx, n), true
+	case ir.NodeBucket:
+		return resolveBucket(ctx, n), true
 	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,

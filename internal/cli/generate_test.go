@@ -397,18 +397,83 @@ func TestGenerateSurfacesResolverErrorsWithTheNode(t *testing.T) {
 	cwd := generateCwd(t)
 	project := exampleProject()
 	project["nodes"] = append(project["nodes"].([]any),
-		map[string]any{"id": "n9", "type": "bucket", "name": "uploads"})
+		map[string]any{"id": "n9", "type": "cache", "name": "sessions"})
 	writeProject(t, cwd, project)
 
 	result := Generate(cwd, "", "", false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
-	if !strings.Contains(result.Lines[0], "bucket") {
-		t.Errorf("line = %q, want it to mention bucket", result.Lines[0])
+	if !strings.Contains(result.Lines[0], "cache") {
+		t.Errorf("line = %q, want it to mention cache", result.Lines[0])
 	}
 	if !strings.Contains(result.Lines[0], "n9") {
 		t.Errorf("line = %q, want it to name the node", result.Lines[0])
+	}
+}
+
+// Issue #22: ApplyDefaults ran twice on the way from LoadProject to resolve.Run, and the second
+// pass used to re-default a false property back to its jsonschema default. These check the fix
+// at the CLI boundary, not just inside the IR package.
+func TestGenerateHonoursAFalseAgainstATrueDefault(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop"); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "aws",
+		"region":      "eu-west-2",
+		"environment": "dev",
+		"nodes": []any{
+			map[string]any{"id": "q1", "type": "queue", "name": "jobs", "properties": map[string]any{"deadLetter": false}},
+		},
+		"edges": []any{},
+	})
+
+	result := Generate(cwd, "", "", false)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+
+	main := readFileText(t, filepath.Join(cwd, "infra", "hcl", "main.tf"))
+	if !strings.Contains(main, `resource "aws_sqs_queue" "jobs"`) {
+		t.Error("main.tf has no aws_sqs_queue resource for jobs")
+	}
+	if strings.Contains(main, "jobs_dlq") {
+		t.Error("main.tf has a dead-letter queue despite deadLetter: false")
+	}
+	if strings.Contains(main, "redrive_policy") {
+		t.Error("main.tf has a redrive_policy despite deadLetter: false")
+	}
+}
+
+func TestGenerateHonoursAFalseAgainstATrueDefaultForABucket(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop"); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "aws",
+		"region":      "eu-west-2",
+		"environment": "dev",
+		"nodes": []any{
+			map[string]any{"id": "b1", "type": "bucket", "name": "uploads", "properties": map[string]any{"versioning": false}},
+		},
+		"edges": []any{},
+	})
+
+	result := Generate(cwd, "", "", false)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+
+	main := readFileText(t, filepath.Join(cwd, "infra", "hcl", "main.tf"))
+	if strings.Contains(main, "aws_s3_bucket_versioning") {
+		t.Error("main.tf has an aws_s3_bucket_versioning resource despite versioning: false")
 	}
 }
 

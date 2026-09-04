@@ -31,6 +31,7 @@ func example() *ir.Project {
 			},
 			{ID: "n5", Type: ir.NodeQueue, Name: "jobs"},
 			{ID: "n6", Type: ir.NodeFunction, Name: "worker"},
+			{ID: "n7", Type: ir.NodeBucket, Name: "uploads"},
 		},
 		Edges: []ir.Edge{
 			{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes},
@@ -38,6 +39,8 @@ func example() *ir.Project {
 			{ID: "e3", From: "n4", To: "n3", Relation: ir.RelReads},
 			{ID: "e4", From: "n2", To: "n5", Relation: ir.RelPublishes},
 			{ID: "e5", From: "n6", To: "n5", Relation: ir.RelConsumes},
+			{ID: "e6", From: "n2", To: "n7", Relation: ir.RelWrites},
+			{ID: "e7", From: "n6", To: "n7", Relation: ir.RelReads},
 		},
 	}
 }
@@ -92,6 +95,10 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		"aws_lb_target_group",
 		"aws_sqs_queue",
 		"aws_lambda_event_source_mapping",
+		"aws_s3_bucket",
+		"aws_s3_bucket_versioning",
+		"aws_s3_bucket_server_side_encryption_configuration",
+		"aws_s3_bucket_public_access_block",
 	} {
 		if !slices.Contains(types, want) {
 			t.Errorf("missing %s", want)
@@ -107,12 +114,26 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		t.Error("the lambda has no environment")
 	}
 
+	// worker only reads the bucket, so it stays out of the vpc.
+	j := slices.IndexFunc(g.Resources, func(r ir.Resource) bool {
+		return r.Type == "aws_lambda_function" && r.Name == "worker"
+	})
+	if _, ok := g.Resources[j].Args.Get("vpc_config"); ok {
+		t.Error("the worker lambda joined the vpc for a bucket")
+	}
+	for _, r := range g.Resources {
+		if r.Type == "aws_vpc_security_group_ingress_rule" && strings.Contains(r.Name, "uploads") {
+			t.Errorf("the bucket was given an ingress rule: %s", r.Name)
+		}
+	}
+
 	var outputs []string
 	for _, o := range g.Outputs {
 		outputs = append(outputs, o.Name)
 	}
 	slices.Sort(outputs)
-	if diff := cmp.Diff([]string{"api_url", "jobs_url", "main_db_endpoint", "web_url"}, outputs); diff != "" {
+	wantOutputs := []string{"api_url", "jobs_url", "main_db_endpoint", "uploads_bucket", "web_url"}
+	if diff := cmp.Diff(wantOutputs, outputs); diff != "" {
 		t.Errorf("outputs (-want +got):\n%s", diff)
 	}
 	var variables []string
@@ -157,9 +178,9 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 
 func TestResolveRejectsNodeTypesThisMilestoneDoesNotSupport(t *testing.T) {
 	p := example()
-	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeBucket, Name: "uploads"})
+	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeCache, Name: "sessions"})
 	errs := runErrors(t, p)
-	if len(errs) != 1 || !strings.Contains(errs[0].Message, "bucket") {
+	if len(errs) != 1 || !strings.Contains(errs[0].Message, "cache") {
 		t.Errorf("errors = %v", errs)
 	}
 }
@@ -169,20 +190,20 @@ func TestResolveReportsEveryUnsupportedNodeAndEdgeInFileOrder(t *testing.T) {
 	p.Nodes = append(p.Nodes,
 		ir.Node{ID: "n9", Type: ir.NodeCache, Name: "sessions"},
 		ir.Node{ID: "n10", Type: ir.NodeFunction, Name: "mailer"},
-		ir.Node{ID: "n11", Type: ir.NodeBucket, Name: "uploads"},
+		ir.Node{ID: "n11", Type: ir.NodeCache, Name: "rate-limits"},
 	)
-	p.Edges = append(p.Edges, ir.Edge{ID: "e6", From: "n2", To: "n10", Relation: ir.RelCalls})
+	p.Edges = append(p.Edges, ir.Edge{ID: "e8", From: "n2", To: "n10", Relation: ir.RelCalls})
 	errs := runErrors(t, p)
 	if len(errs) != 3 {
 		t.Fatalf("errors = %v", errs)
 	}
-	want := [][2]string{{"n9", ""}, {"n11", ""}, {"", "e6"}}
+	want := [][2]string{{"n9", ""}, {"n11", ""}, {"", "e8"}}
 	for i, w := range want {
 		if errs[i].NodeID != w[0] || errs[i].EdgeID != w[1] {
 			t.Errorf("errors[%d] = %+v, want node %q edge %q", i, errs[i], w[0], w[1])
 		}
 	}
-	for i, fragment := range []string{"cache", "bucket", "'calls' edges"} {
+	for i, fragment := range []string{"cache", "cache", "'calls' edges"} {
 		if !strings.Contains(errs[i].Message, fragment) {
 			t.Errorf("errors[%d].Message = %q, want %q in it", i, errs[i].Message, fragment)
 		}
@@ -192,7 +213,7 @@ func TestResolveReportsEveryUnsupportedNodeAndEdgeInFileOrder(t *testing.T) {
 func TestResolveReportsTheUnsupportedNodeOnceWhenAnEdgePointsAtIt(t *testing.T) {
 	p := example()
 	p.Nodes = append(p.Nodes, ir.Node{ID: "n9", Type: ir.NodeCache, Name: "sessions"})
-	p.Edges = append(p.Edges, ir.Edge{ID: "e6", From: "n2", To: "n9", Relation: ir.RelReads})
+	p.Edges = append(p.Edges, ir.Edge{ID: "e8", From: "n2", To: "n9", Relation: ir.RelReads})
 	errs := runErrors(t, p)
 	if len(errs) != 1 || errs[0].NodeID != "n9" {
 		t.Errorf("errors = %v", errs)

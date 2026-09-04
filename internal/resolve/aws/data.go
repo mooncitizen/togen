@@ -19,14 +19,20 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 		})
 		return
 	}
-	target, ok := to.Exports.(resolve.DatabaseExports)
-	if !ok {
+	switch target := to.Exports.(type) {
+	case resolve.DatabaseExports:
+		connectDatabase(ctx, from, to, target)
+	case resolve.BucketExports:
+		grantBucket(ctx, edge, from, to, target)
+	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
 			Message: fmt.Sprintf("%s to a %s is not supported by the aws resolver yet", edge.Relation, to.Node.Type),
 		})
-		return
 	}
+}
+
+func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target resolve.DatabaseExports) {
 	if to.SecurityGroup == nil {
 		ctx.Fail(fmt.Sprintf("database '%s' has no security group", to.Node.Name))
 	}
@@ -68,4 +74,28 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 		ir.A("Action", ir.L(ir.Str("secretsmanager:GetSecretValue"))),
 		ir.A("Resource", target.SecretARN),
 	))
+}
+
+// A bucket is reached over the public S3 endpoint, so nothing here joins the VPC.
+func grantBucket(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle, target resolve.BucketExports) {
+	objects := ir.C(target.ARN, ir.Str("/*"))
+	if edge.Relation == ir.RelReads {
+		from.AddStatement(ir.M(
+			ir.A("Effect", ir.Str("Allow")),
+			ir.A("Action", ir.L(ir.Str("s3:GetObject"))),
+			ir.A("Resource", objects),
+		))
+		from.AddStatement(ir.M(
+			ir.A("Effect", ir.Str("Allow")),
+			ir.A("Action", ir.L(ir.Str("s3:ListBucket"))),
+			ir.A("Resource", target.ARN),
+		))
+	} else {
+		from.AddStatement(ir.M(
+			ir.A("Effect", ir.Str("Allow")),
+			ir.A("Action", ir.L(ir.Str("s3:PutObject"), ir.Str("s3:DeleteObject"))),
+			ir.A("Resource", objects),
+		))
+	}
+	from.SetEnv(strings.ToUpper(ctx.Local(to.Node.Name))+"_BUCKET", target.Name)
 }
