@@ -25,7 +25,7 @@ const placed: Layout = {
 type Screen = Awaited<ReturnType<typeof show>>;
 
 function badged(screen: Screen, id: string): boolean {
-  return screen.container.querySelector(`.svelte-flow__node[data-id="${id}"] .bg-red-600`) !== null;
+  return screen.container.querySelector(`.svelte-flow__node[data-id="${id}"] .bg-err`) !== null;
 }
 
 function marked(screen: Screen, id: string): boolean {

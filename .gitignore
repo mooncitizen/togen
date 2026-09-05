@@ -9,6 +9,7 @@ coverage/
 bin/
 examples/*/infra/
 ui/dist/
+ui/src/fonts/
 ui/.vitest/
 internal/server/dist/*
 !internal/server/dist/.gitkeep

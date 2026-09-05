@@ -44,6 +44,16 @@ export type Generated = {
   files: string[];
 };
 
+export type ThemeSetting = 'dark' | 'light' | 'system';
+
+export type Config = {
+  version: number;
+  targets: string[];
+  outDir: string;
+  style?: { theme?: ThemeSetting };
+  deprecated?: string;
+};
+
 export type ValidationError = {
   path: string;
   nodeId?: string;

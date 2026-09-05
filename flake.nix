@@ -51,6 +51,9 @@
             # ui/package.json pins the npm playwright to the same version.
             export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
             export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
+
+            # The canvas embeds IBM Plex; `just fonts` copies the faces from here.
+            export IBM_PLEX="${pkgs.ibm-plex}/share/fonts/opentype"
           '';
         };
       });

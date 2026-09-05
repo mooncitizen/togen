@@ -117,7 +117,7 @@ function ringed(screen: Screen, id: string): boolean {
 }
 
 function reason(screen: Screen): string | null {
-  return panel(screen).querySelector('.text-red-700')?.textContent ?? null;
+  return panel(screen).querySelector('.text-err')?.textContent ?? null;
 }
 
 beforeEach(() => {

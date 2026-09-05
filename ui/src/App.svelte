@@ -5,28 +5,39 @@
   import { events } from './lib/api.ts';
   import Canvas from './lib/components/Canvas.svelte';
   import Inspector from './lib/components/Inspector.svelte';
-  import Palette from './lib/components/Palette.svelte';
+  import Rail from './lib/components/Rail.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import { Store, setStore } from './lib/store.svelte.ts';
+  import { Theme, setTheme } from './lib/theme.svelte.ts';
 
   const store = new Store();
   setStore(store);
+  const theme = new Theme(() => store.config?.style?.theme ?? 'dark');
+  setTheme(theme);
 
   onMount(() => {
     void store.load();
-    return events((name) => {
+    const detach = theme.attach();
+    const stop = events((name) => {
       if (name === 'project-changed' || name === 'layout-changed') {
         store.reload();
       }
+      if (name === 'config-changed') {
+        void store.loadConfig();
+      }
     });
+    return () => {
+      stop();
+      detach();
+    };
   });
 </script>
 
 <SvelteFlowProvider>
-  <div class="flex h-full flex-col bg-stone-50 text-stone-900">
+  <div class="flex h-full flex-col bg-canvas text-text">
     <TopBar />
     <main class="flex min-h-0 flex-1">
-      <Palette />
+      <Rail />
       <Canvas />
       <Inspector />
     </main>

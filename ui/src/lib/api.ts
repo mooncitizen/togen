@@ -1,4 +1,4 @@
-import type { Generated, Layout, Project, ValidationError } from './types.ts';
+import type { Config, Generated, Layout, Project, ValidationError } from './types.ts';
 
 export class ApiError extends Error {
   status: number;
@@ -26,6 +26,10 @@ export function getLayout(): Promise<Layout> {
 
 export function putLayout(layout: Layout): Promise<void> {
   return write('/api/layout', layout);
+}
+
+export function getConfig(): Promise<Config> {
+  return read<Config>('/api/config');
 }
 
 export async function generate(target?: string): Promise<Generated[]> {

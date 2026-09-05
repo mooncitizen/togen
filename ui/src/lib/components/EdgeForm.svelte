@@ -46,34 +46,34 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-3">
+<div class="flex flex-col gap-3.5 p-4">
   <div class="flex flex-col gap-1">
-    <span class="text-xs font-medium text-stone-700">Endpoints</span>
-    <p class="text-sm text-stone-900">{from} → {to}</p>
-    <p class="text-xs text-stone-500">The {edge.relation} edge between these two.</p>
+    <span class="text-xs font-medium">Endpoints</span>
+    <p class="text-[13px]">{from} → {to}</p>
+    <p class="text-[11px] text-faint">The {edge.relation} edge between these two.</p>
   </div>
 
   {#if edge.relation === 'routes'}
     <div class="flex flex-col gap-1">
-      <label class="text-xs font-medium text-stone-700" for="{edge.id}-path">{path.label}</label>
+      <label class="text-xs font-medium" for="{edge.id}-path">{path.label}</label>
       <input
         id="{edge.id}-path"
-        class="rounded border border-stone-300 px-1.5 py-1 text-sm"
+        class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
         type="text"
         pattern={path.pattern}
         placeholder={path.placeholder}
         value={String(edge.properties?.path ?? '')}
         oninput={(event) => setPath(event.currentTarget.value)}
       />
-      {#if reason}<p class="text-xs text-red-700">{reason}</p>{/if}
-      <p class="text-xs text-stone-500">{path.description}</p>
+      {#if reason}<p class="text-xs text-err">{reason}</p>{/if}
+      <p class="text-[11px] text-faint">{path.description}</p>
     </div>
 
     <div class="flex flex-col gap-1.5">
-      <span class="text-xs font-medium text-stone-700">Methods</span>
+      <span class="text-xs font-medium">Methods</span>
       <div class="flex flex-wrap gap-x-3 gap-y-1">
         {#each methods as method (method)}
-          <label class="flex items-center gap-1 text-xs text-stone-700" for="{edge.id}-{method}">
+          <label class="flex items-center gap-1 text-xs" for="{edge.id}-{method}">
             <input
               id="{edge.id}-{method}"
               type="checkbox"
@@ -84,7 +84,7 @@
           </label>
         {/each}
       </div>
-      <p class="text-xs text-stone-500">HTTP methods the route accepts. None means ANY.</p>
+      <p class="text-[11px] text-faint">HTTP methods the route accepts. None means ANY.</p>
     </div>
   {/if}
 </div>
