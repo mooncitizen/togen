@@ -58,6 +58,8 @@ func (s *Server) eventFor(changed string) (path, name string, ok bool) {
 		return workspace.ProjectPath(s.dir), "project-changed", true
 	case "layout.json":
 		return workspace.LayoutPath(s.dir), "layout-changed", true
+	case workspace.ConfigName:
+		return workspace.ConfigPath(s.dir), "config-changed", true
 	}
 	return "", "", false
 }

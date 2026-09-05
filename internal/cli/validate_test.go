@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 func writeProject(t *testing.T, cwd string, value any) {
@@ -189,5 +191,48 @@ func TestValidateSkipsResolverChecksWhenThereIsNoResolver(t *testing.T) {
 	result := Validate(cwd)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+}
+
+func legacyConfig(t *testing.T, cwd string) {
+	t.Helper()
+	if err := os.Remove(workspace.ConfigPath(cwd)); err != nil {
+		t.Fatal(err)
+	}
+	writeFileText(t, workspace.LegacyConfigPath(cwd), `{"version":1,"targets":["hcl"],"outDir":"infra"}`)
+}
+
+func TestValidateNotesTheLegacyConfig(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	if result := Validate(cwd); result.Note != "" {
+		t.Errorf("note = %q, want none", result.Note)
+	}
+
+	legacyConfig(t, cwd)
+	result := Validate(cwd)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	if result.Note != workspace.LegacyNote {
+		t.Errorf("note = %q, want %q", result.Note, workspace.LegacyNote)
+	}
+}
+
+func TestValidateReportsAnInvalidConfig(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	writeFileText(t, workspace.ConfigPath(cwd), "style:\n  theme: neon\n")
+	result := Validate(cwd)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, want 1", result.Code)
+	}
+	want := []string{"style.theme: value must be one of 'dark', 'light', 'system'"}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
 	}
 }

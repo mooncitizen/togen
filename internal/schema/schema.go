@@ -12,6 +12,7 @@ import (
 	"github.com/invopop/jsonschema"
 
 	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 const (
@@ -59,6 +60,56 @@ func Project() map[string]any {
 	}
 }
 
+func Config() map[string]any {
+	doc := reflected(&workspace.Config{})
+	doc["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+	doc["$id"] = "https://togen.dev/schema/togen.schema.json"
+	doc["title"] = "Togen configuration"
+	// A missing key means the default, so nothing here is required.
+	delete(doc, "required")
+
+	fields, _ := doc["properties"].(map[string]any)
+	style, _ := fields["style"].(map[string]any)
+	styleFields, _ := style["properties"].(map[string]any)
+	theme, _ := styleFields["theme"].(map[string]any)
+	theme["enum"] = anyValues(workspace.Themes)
+	theme["default"] = workspace.DefaultTheme
+	keyedBy(styleFields, "kinds", oneOfPattern(ir.NodeTypes), "Style for every node of a type")
+	keyedBy(styleFields, "nodes", kebabPattern, "Style for one node by name")
+	return doc
+}
+
+// patternProperties rather than propertyNames: an unknown key is then reported against
+// the block that holds it and names the key, where a propertyNames failure carries neither.
+func keyedBy(fields map[string]any, name, keys, text string) {
+	sub, ok := fields[name].(map[string]any)
+	if !ok {
+		return
+	}
+	style, ok := sub["additionalProperties"].(map[string]any)
+	if !ok {
+		return
+	}
+	style["additionalProperties"] = false
+	if shape, ok := style["properties"].(map[string]any)["shape"].(map[string]any); ok {
+		shape["enum"] = anyValues(workspace.Shapes)
+	}
+	fields[name] = map[string]any{
+		"type":                 "object",
+		"description":          text,
+		"patternProperties":    map[string]any{keys: style},
+		"additionalProperties": false,
+	}
+}
+
+func oneOfPattern[T ~string](values []T) string {
+	names := make([]string, len(values))
+	for i, v := range values {
+		names[i] = string(v)
+	}
+	return "^(" + strings.Join(names, "|") + ")$"
+}
+
 func Relations() map[string]any {
 	rules := ir.RelationRules()
 	rel := make(map[string]any, len(ir.Relations))
@@ -98,6 +149,7 @@ func Write(dir string) error {
 		doc  map[string]any
 	}{
 		{"project.schema.json", Project()},
+		{"togen.schema.json", Config()},
 		{"relations.json", Relations()},
 		{"engines.json", Engines()},
 	}
@@ -155,15 +207,19 @@ var enumsByType = map[reflect.Type][]any{
 	reflect.TypeFor[ir.Engine]():  anyValues(ir.EngineTypes),
 }
 
-func propsSchema(props any) map[string]any {
+func reflected(value any) map[string]any {
 	reflector := &jsonschema.Reflector{DoNotReference: true, ExpandedStruct: true}
-	doc := toMap(reflector.Reflect(props))
+	doc := toMap(reflector.Reflect(value))
 	delete(doc, "$schema")
 	// The reflector derives an $id from the module path. A nested $id resets the
 	// base URI inside the document and has no use here, so it goes.
 	delete(doc, "$id")
 	doc["additionalProperties"] = false
+	return doc
+}
 
+func propsSchema(props any) map[string]any {
+	doc := reflected(props)
 	fields, _ := doc["properties"].(map[string]any)
 	t := reflect.TypeOf(props).Elem()
 	for i := range t.NumField() {

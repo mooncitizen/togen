@@ -43,9 +43,12 @@ func New(opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := watcher.Add(workspace.TogenDir(opts.Dir)); err != nil {
-		_ = watcher.Close()
-		return nil, err
+	// togen.yml sits at the root, the project files a directory down.
+	for _, dir := range []string{workspace.TogenDir(opts.Dir), opts.Dir} {
+		if err := watcher.Add(dir); err != nil {
+			_ = watcher.Close()
+			return nil, err
+		}
 	}
 
 	s := &Server{
@@ -57,7 +60,7 @@ func New(opts Options) (*Server, error) {
 		done:    make(chan struct{}),
 		hashes:  map[string][sha256.Size]byte{},
 	}
-	for _, p := range []string{workspace.ProjectPath(opts.Dir), workspace.LayoutPath(opts.Dir)} {
+	for _, p := range []string{workspace.ProjectPath(opts.Dir), workspace.LayoutPath(opts.Dir), workspace.ConfigPath(opts.Dir)} {
 		if hash, ok := fileHash(p); ok {
 			s.hashes[p] = hash
 		}

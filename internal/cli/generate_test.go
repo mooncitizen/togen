@@ -34,7 +34,7 @@ func exampleProject() map[string]any {
 func generateCwd(t *testing.T) string {
 	t.Helper()
 	cwd := t.TempDir()
-	if result := Init(cwd, "", "shop"); result.Code != 0 {
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
 		t.Fatalf("init: %v", result.Lines)
 	}
 	writeProject(t, cwd, exampleProject())
@@ -419,7 +419,7 @@ func TestGenerateSurfacesResolverErrorsWithTheNode(t *testing.T) {
 // at the CLI boundary, not just inside the IR package.
 func TestGenerateHonoursAFalseAgainstATrueDefault(t *testing.T) {
 	cwd := t.TempDir()
-	if result := Init(cwd, "", "shop"); result.Code != 0 {
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
 		t.Fatalf("init: %v", result.Lines)
 	}
 	writeProject(t, cwd, map[string]any{
@@ -453,7 +453,7 @@ func TestGenerateHonoursAFalseAgainstATrueDefault(t *testing.T) {
 
 func TestGenerateHonoursAFalseAgainstATrueDefaultForABucket(t *testing.T) {
 	cwd := t.TempDir()
-	if result := Init(cwd, "", "shop"); result.Code != 0 {
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
 		t.Fatalf("init: %v", result.Lines)
 	}
 	writeProject(t, cwd, map[string]any{
@@ -481,7 +481,7 @@ func TestGenerateHonoursAFalseAgainstATrueDefaultForABucket(t *testing.T) {
 
 func TestGenerateReportsAMissingProject(t *testing.T) {
 	cwd := t.TempDir()
-	if result := Init(cwd, "", "shop"); result.Code != 0 {
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
 		t.Fatalf("init: %v", result.Lines)
 	}
 	if err := os.Remove(workspace.ProjectPath(cwd)); err != nil {
@@ -493,5 +493,21 @@ func TestGenerateReportsAMissingProject(t *testing.T) {
 	}
 	if want := "togen/project.json not found. Run 'togen init' first."; result.Lines[0] != want {
 		t.Errorf("line = %q, want %q", result.Lines[0], want)
+	}
+}
+
+func TestGenerateNotesTheLegacyConfig(t *testing.T) {
+	cwd := generateCwd(t)
+	if result := Generate(cwd, "", "", false); result.Note != "" {
+		t.Errorf("note = %q, want none", result.Note)
+	}
+
+	legacyConfig(t, cwd)
+	result := Generate(cwd, "", "", true)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	if result.Note != workspace.LegacyNote {
+		t.Errorf("note = %q, want %q", result.Note, workspace.LegacyNote)
 	}
 }

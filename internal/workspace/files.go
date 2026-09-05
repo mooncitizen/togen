@@ -2,29 +2,16 @@ package workspace
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-
-	"github.com/mooncitizen/togen/internal/ir"
 )
 
 type Error struct{ Message string }
 
 func (e *Error) Error() string { return e.Message }
-
-type Config struct {
-	Version int      `json:"version"`
-	Targets []string `json:"targets"`
-	OutDir  string   `json:"outDir"`
-}
-
-func DefaultConfig() Config {
-	return Config{Version: 1, Targets: []string{"hcl"}, OutDir: "infra"}
-}
 
 func ReadJSONFile(path, cwd string) ([]byte, error) {
 	raw, err := os.ReadFile(path)
@@ -73,29 +60,6 @@ func WriteRaw(path string, raw []byte) error {
 		return err
 	}
 	return os.Rename(name, path)
-}
-
-func LoadConfig(cwd string) (Config, error) {
-	shown := shownPath(cwd, ConfigPath(cwd))
-	raw, err := ReadJSONFile(ConfigPath(cwd), cwd)
-	if err != nil {
-		return Config{}, err
-	}
-	config := DefaultConfig()
-	if err := json.Unmarshal(raw, &config); err != nil {
-		var mismatch *json.UnmarshalTypeError
-		if errors.As(err, &mismatch) {
-			return Config{}, &Error{fmt.Sprintf("%s: %s must be a %s", shown, mismatch.Field, jsonTypeName(mismatch.Type))}
-		}
-		return Config{}, &Error{fmt.Sprintf("%s: %s", shown, err)}
-	}
-	if config.Version > ir.Version {
-		return Config{}, &Error{fmt.Sprintf("%s is version %d but this Togen only understands up to %d", shown, config.Version, ir.Version)}
-	}
-	if len(config.Targets) == 0 {
-		return Config{}, &Error{fmt.Sprintf("%s has no targets", shown)}
-	}
-	return config, nil
 }
 
 func jsonTypeName(t reflect.Type) string {

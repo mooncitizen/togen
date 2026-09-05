@@ -47,13 +47,17 @@ func (s *Server) getLayout(w http.ResponseWriter, _ *http.Request) {
 	s.sendFile(w, workspace.LayoutPath(s.dir))
 }
 
+// A missing file is not a problem: it means every default (ADR 0007).
 func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
-	config, err := workspace.LoadConfig(s.dir)
+	config, note, err := workspace.LoadConfig(s.dir)
 	if err != nil {
-		writeError(w, missingOrBroken(workspace.ConfigPath(s.dir)), err.Error())
+		writeRefusal(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, config)
+	writeJSON(w, http.StatusOK, struct {
+		workspace.Config
+		Deprecated string `json:"deprecated,omitempty"`
+	}{config, note})
 }
 
 func (s *Server) putProject(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +110,7 @@ func (s *Server) postGenerate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	generated, err := workspace.Generate(s.dir, request.Target, "", false)
+	generated, _, err := workspace.Generate(s.dir, request.Target, "", false)
 	if err != nil {
 		var stranger *workspace.StrangerError
 		if errors.As(err, &stranger) {

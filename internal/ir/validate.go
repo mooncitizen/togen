@@ -63,7 +63,7 @@ func ValidateProject(raw []byte) (*Project, Errors) {
 		if !errors.As(err, &invalid) {
 			return nil, Errors{{Message: err.Error()}}
 		}
-		return nil, schemaErrors(invalid, instance)
+		return nil, SchemaErrors(invalid, instance)
 	}
 	var p Project
 	if err := json.Unmarshal(raw, &p); err != nil {
@@ -102,7 +102,9 @@ func projectSchema() (*jsonschema.Schema, error) {
 	return compiledSchema, schemaErr
 }
 
-func schemaErrors(root *jsonschema.ValidationError, instance any) Errors {
+// Exported so the config loader can share the shape: dotted instance paths and, for a
+// project, the node or edge the error sits on.
+func SchemaErrors(root *jsonschema.ValidationError, instance any) Errors {
 	var out Errors
 	var walk func(e *jsonschema.ValidationError, loc []string)
 	walk = func(e *jsonschema.ValidationError, loc []string) {

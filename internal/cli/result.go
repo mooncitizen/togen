@@ -9,6 +9,7 @@ import (
 type Result struct {
 	Code  int
 	Lines []string
+	Note  string
 }
 
 func errorLines(errs ir.Errors) []string {
@@ -21,4 +22,9 @@ func errorLines(errs ir.Errors) []string {
 
 func failure(err error) Result {
 	return Result{Code: 1, Lines: strings.Split(err.Error(), "\n")}
+}
+
+func noted(result Result, note string) Result {
+	result.Note = note
+	return result
 }

@@ -5,10 +5,12 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-func TestInitCommandWritesTheProjectFile(t *testing.T) {
+func inTempDir(t *testing.T) string {
+	t.Helper()
 	dir := t.TempDir()
 	previous, err := os.Getwd()
 	if err != nil {
@@ -22,14 +24,23 @@ func TestInitCommandWritesTheProjectFile(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
+	return dir
+}
 
+func execute(t *testing.T, args ...string) {
+	t.Helper()
 	root := newRootCommand()
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
-	root.SetArgs([]string{"init", "--provider", "gcp", "--name", "shop"})
+	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
+		t.Fatalf("execute %v: %v", args, err)
 	}
+}
+
+func TestInitCommandWritesTheProjectFile(t *testing.T) {
+	dir := inTempDir(t)
+	execute(t, "init", "--provider", "gcp", "--name", "shop")
 
 	raw, err := os.ReadFile(filepath.Join(dir, "togen", "project.json"))
 	if err != nil {
@@ -41,5 +52,30 @@ func TestInitCommandWritesTheProjectFile(t *testing.T) {
 	}
 	if project["name"] != "shop" || project["provider"] != "gcp" {
 		t.Errorf("project = %v", project)
+	}
+}
+
+func TestInitMigrateCommandRewritesTheLegacyConfig(t *testing.T) {
+	dir := inTempDir(t)
+	execute(t, "init", "--name", "shop")
+	if err := os.Remove(filepath.Join(dir, "togen.yml")); err != nil {
+		t.Fatal(err)
+	}
+	legacy := filepath.Join(dir, "togen", "togen.json")
+	if err := os.WriteFile(legacy, []byte(`{"version":1,"targets":["hcl"],"outDir":"build"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	execute(t, "init", "--migrate")
+
+	raw, err := os.ReadFile(filepath.Join(dir, "togen.yml"))
+	if err != nil {
+		t.Fatalf("togen.yml: %v", err)
+	}
+	if !strings.Contains(string(raw), "outDir: build") {
+		t.Errorf("togen.yml = %s", raw)
+	}
+	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
+		t.Errorf("togen/togen.json survived: %v", err)
 	}
 }

@@ -55,6 +55,13 @@ func writeDoc(t *testing.T, path string, value any) {
 	}
 }
 
+func writeConfig(t *testing.T, dir, text string) {
+	t.Helper()
+	if err := workspace.WriteRaw(workspace.ConfigPath(dir), []byte(text)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func harness(t *testing.T) (string, *httptest.Server, *Server) {
 	t.Helper()
 	dir := t.TempDir()
@@ -67,9 +74,7 @@ func harness(t *testing.T) (string, *httptest.Server, *Server) {
 		"nodes":    map[string]any{},
 		"viewport": map[string]any{"x": 0, "y": 0, "zoom": 1},
 	})
-	if err := workspace.WriteJSONFile(workspace.ConfigPath(dir), workspace.DefaultConfig()); err != nil {
-		t.Fatal(err)
-	}
+	writeConfig(t, dir, "version: 1\ntargets: [hcl]\noutDir: infra\n")
 
 	studio, err := New(Options{Dir: dir})
 	if err != nil {
@@ -439,18 +444,72 @@ func TestPutLayoutRefusesAnotherVersion(t *testing.T) {
 	}
 }
 
-func TestGetConfigReturnsTheTargets(t *testing.T) {
-	_, front, _ := harness(t)
+func getConfig(t *testing.T, front *httptest.Server, want int) map[string]any {
+	t.Helper()
 	code, raw := send(t, front, http.MethodGet, "/api/config", nil)
-	if code != http.StatusOK {
-		t.Fatalf("code = %d, body = %s", code, raw)
+	if code != want {
+		t.Fatalf("code = %d, want %d, body = %s", code, want, raw)
 	}
-	var config workspace.Config
-	if err := json.Unmarshal(raw, &config); err != nil {
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatalf("parse %s: %v", raw, err)
+	}
+	return body
+}
+
+func TestGetConfigReturnsTheFileWithItsDefaults(t *testing.T) {
+	dir, front, _ := harness(t)
+	writeConfig(t, dir, "targets: [hcl]\nstyle:\n  kinds:\n    database:\n      color: \"#C925D1\"\n")
+	want := map[string]any{
+		"version": float64(1),
+		"targets": []any{"hcl"},
+		"outDir":  "infra",
+		"style": map[string]any{
+			"theme": "dark",
+			"kinds": map[string]any{"database": map[string]any{"color": "#C925D1"}},
+		},
+	}
+	if diff := cmp.Diff(want, getConfig(t, front, http.StatusOK)); diff != "" {
+		t.Errorf("config (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetConfigAnswersWithDefaultsWhenTheFileIsMissing(t *testing.T) {
+	dir, front, _ := harness(t)
+	if err := os.Remove(workspace.ConfigPath(dir)); err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(workspace.DefaultConfig(), config); diff != "" {
-		t.Errorf("config (-want +got):\n%s", diff)
+	got := getConfig(t, front, http.StatusOK)
+	style, _ := got["style"].(map[string]any)
+	if style["theme"] != workspace.DefaultTheme {
+		t.Errorf("config = %v", got)
+	}
+}
+
+func TestGetConfigReportsAnInvalidFile(t *testing.T) {
+	dir, front, _ := harness(t)
+	writeConfig(t, dir, "style:\n  theme: neon\n")
+	_, raw := send(t, front, http.MethodGet, "/api/config", nil)
+	want := []string{"style.theme: value must be one of 'dark', 'light', 'system'"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+	if code, _ := send(t, front, http.MethodGet, "/api/config", nil); code != http.StatusUnprocessableEntity {
+		t.Errorf("code = %d, want 422", code)
+	}
+}
+
+func TestGetConfigNamesTheLegacyFile(t *testing.T) {
+	dir, front, _ := harness(t)
+	if err := os.Remove(workspace.ConfigPath(dir)); err != nil {
+		t.Fatal(err)
+	}
+	if err := workspace.WriteRaw(workspace.LegacyConfigPath(dir), []byte(`{"version":1,"targets":["hcl"],"outDir":"infra"}`)); err != nil {
+		t.Fatal(err)
+	}
+	got := getConfig(t, front, http.StatusOK)
+	if got["deprecated"] != workspace.LegacyNote {
+		t.Errorf("deprecated = %v, want %q", got["deprecated"], workspace.LegacyNote)
 	}
 }
 
@@ -651,6 +710,17 @@ func TestRenameOverwriteFiresOneChangeEvent(t *testing.T) {
 	}
 
 	expectEvent(t, events, "project-changed")
+	expectNoEvent(t, events)
+}
+
+func TestEventsFollowTheConfig(t *testing.T) {
+	dir, front, studio := harness(t)
+	events := listen(t, front, studio)
+
+	writeConfig(t, dir, "targets: [hcl]\noutDir: build\n")
+	expectEvent(t, events, "config-changed")
+
+	writeConfig(t, dir, "targets: [hcl]\noutDir: build\n")
 	expectNoEvent(t, events)
 }
 

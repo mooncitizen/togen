@@ -31,7 +31,10 @@ type viewport struct {
 	Zoom float64 `json:"zoom"`
 }
 
-func Init(cwd, provider, name string) Result {
+func Init(cwd, provider, name string, migrate bool) Result {
+	if migrate {
+		return migrateConfig(cwd)
+	}
 	if provider == "" {
 		provider = string(ir.ProviderAWS)
 	}
@@ -45,6 +48,9 @@ func Init(cwd, provider, name string) Result {
 	dir := workspace.TogenDir(cwd)
 	if workspace.Exists(dir) {
 		return Result{Code: 1, Lines: []string{fmt.Sprintf("togen/ already exists in %s", cwd)}}
+	}
+	if workspace.Exists(workspace.ConfigPath(cwd)) {
+		return Result{Code: 1, Lines: []string{fmt.Sprintf("%s already exists in %s", workspace.ConfigName, cwd)}}
 	}
 
 	if name == "" {
@@ -76,16 +82,59 @@ func Init(cwd, provider, name string) Result {
 	}{
 		{workspace.ProjectPath(cwd), project},
 		{workspace.LayoutPath(cwd), layout{Version: 1, Nodes: map[string]any{}, Viewport: viewport{Zoom: 1}}},
-		{workspace.ConfigPath(cwd), workspace.DefaultConfig()},
 	}
 	for _, w := range written {
 		if err := workspace.WriteJSONFile(w.path, w.value); err != nil {
 			return Result{Code: 1, Lines: []string{err.Error()}}
 		}
 	}
+	defaults := workspace.DefaultConfig()
+	if err := workspace.WriteRaw(workspace.ConfigPath(cwd), configFile(defaults.Targets, defaults.OutDir)); err != nil {
+		return Result{Code: 1, Lines: []string{err.Error()}}
+	}
 	return Result{Code: 0, Lines: []string{
-		"created togen/project.json, togen/layout.json and togen/togen.json",
+		"created togen/project.json, togen/layout.json and " + workspace.ConfigName,
 	}}
+}
+
+func migrateConfig(cwd string) Result {
+	if workspace.Exists(workspace.ConfigPath(cwd)) {
+		return Result{Code: 1, Lines: []string{workspace.ConfigName + " already exists, so there is nothing to migrate"}}
+	}
+	if !workspace.Exists(workspace.LegacyConfigPath(cwd)) {
+		return Result{Code: 1, Lines: []string{"there is no togen/togen.json to migrate"}}
+	}
+	config, _, err := workspace.LoadConfig(cwd)
+	if err != nil {
+		return failure(err)
+	}
+	if err := workspace.WriteRaw(workspace.ConfigPath(cwd), configFile(config.Targets, config.OutDir)); err != nil {
+		return Result{Code: 1, Lines: []string{err.Error()}}
+	}
+	if err := os.Remove(workspace.LegacyConfigPath(cwd)); err != nil {
+		return Result{Code: 1, Lines: []string{err.Error()}}
+	}
+	return Result{Code: 0, Lines: []string{"moved togen/togen.json to " + workspace.ConfigName}}
+}
+
+// The style block is commented out: it is here to be read and uncommented, and
+// the studio reads this file but never writes it (ADR 0007).
+func configFile(targets []string, outDir string) []byte {
+	return fmt.Appendf(nil, `version: %d
+targets: [%s]
+outDir: %s
+
+# style:
+#   theme: dark            # dark, light or system
+#   kinds:                 # every node of a type
+#     database:
+#       color: "#C925D1"
+#       icon: aws/rds      # a bundled icon id, or a path relative to this file
+#       shape: cylinder
+#   nodes:                 # one node, by name
+#     orders-db:
+#       color: "#DD344C"
+`, ir.Version, strings.Join(targets, ", "), outDir)
 }
 
 var (
