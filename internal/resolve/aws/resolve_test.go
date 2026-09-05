@@ -45,6 +45,10 @@ func example() *ir.Project {
 			{ID: "e8", From: "n4", To: "n8", Relation: ir.RelReads},
 			{ID: "e9", From: "n4", To: "n2", Relation: ir.RelCalls},
 			{ID: "e10", From: "n6", To: "n4", Relation: ir.RelCalls},
+			{
+				ID: "e11", From: "n1", To: "n4", Relation: ir.RelRoutes,
+				Properties: ir.EdgeProperties{Path: "/web", Methods: []ir.Method{ir.MethodGet}},
+			},
 		},
 	}
 }
@@ -107,6 +111,7 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		"aws_elasticache_replication_group",
 		"aws_service_discovery_private_dns_namespace",
 		"aws_service_discovery_service",
+		"aws_apigatewayv2_vpc_link",
 	} {
 		if !slices.Contains(types, want) {
 			t.Errorf("missing %s", want)

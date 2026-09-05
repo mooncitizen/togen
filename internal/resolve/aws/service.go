@@ -112,17 +112,15 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 		},
 	})
 
-	var url ir.Value
-	if p.Public {
-		url = publishService(ctx, node, p, sgID, svc)
-	}
-
 	h.Primary = ir.ID{Type: svc.Type, Name: svc.Name}
 	h.Exports = resolve.ServiceExports{
 		Port:   ir.Num(float64(p.Port)),
 		Public: p.Public,
-		URL:    url,
 	}
+	if p.Public {
+		ensureLoadBalancer(ctx, h, false)
+	}
+
 	h.Finalise = func() {
 		definition.Args.Set("container_definitions", ir.J(ir.L(ir.M(
 			ir.A("name", ir.Str(local)),
@@ -162,45 +160,54 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 	return h
 }
 
-// publishService puts an application load balancer in front of the tasks and returns the
-// URL it serves on. It also wires the service resource to the listener, which has to exist
-// before ECS will register a target.
-func publishService(
-	ctx *resolve.Context,
-	node ir.Node,
-	p ir.ServiceProps,
-	serviceSG ir.ID,
-	svc *ir.Resource,
-) ir.Value {
+// A public service asks for this at node time and a routed private one at edge time, so it must be idempotent.
+func ensureLoadBalancer(ctx *resolve.Context, h *resolve.Handle, internal bool) (ir.ID, resolve.ServiceExports) {
+	node := h.Node
 	local := ctx.Local(node.Name)
+	albSGID := ir.ID{Type: "aws_security_group", Name: local + "_alb"}
+	exports, ok := h.Exports.(resolve.ServiceExports)
+	if !ok {
+		ctx.Fail(fmt.Sprintf("%s '%s' has no service exports to put a load balancer in front of", node.Type, node.Name))
+	}
+	if ctx.HasResource(ir.ID{Type: "aws_lb", Name: local}) {
+		return albSGID, exports
+	}
+	if h.SecurityGroup == nil {
+		ctx.Fail(fmt.Sprintf("service '%s' has no security group", node.Name))
+	}
 	network := ensureNetwork(ctx)
+	subnets, reach := network.PublicSubnets, "Public access to "+node.Name
+	if internal {
+		subnets, reach = network.PrivateSubnets, "Internal access to "+node.Name
+	}
 
-	albSG := ctx.Add(ir.Resource{
-		Type:        "aws_security_group",
-		Name:        local + "_alb",
+	ctx.Add(ir.Resource{
+		Type:        albSGID.Type,
+		Name:        albSGID.Name,
 		SourceNode:  node.ID,
 		SourceLabel: node.Name,
 		Args: ir.Attrs{
 			ir.A("name", ir.Str(ctx.Named(node.Name)+"-alb")),
-			ir.A("description", ir.Str("Public access to "+node.Name)),
+			ir.A("description", ir.Str(reach)),
 			ir.A("vpc_id", ir.R(network.VPC, ir.Field("id"))),
 		},
 	})
-	albSGID := ir.ID{Type: albSG.Type, Name: albSG.Name}
-	ctx.Add(ir.Resource{
-		Type:        "aws_vpc_security_group_ingress_rule",
-		Name:        local + "_alb_http",
-		SourceNode:  node.ID,
-		SourceLabel: node.Name,
-		Args: ir.Attrs{
-			ir.A("security_group_id", ir.R(albSGID, ir.Field("id"))),
-			ir.A("cidr_ipv4", ir.Str("0.0.0.0/0")),
-			ir.A("from_port", ir.Num(80)),
-			ir.A("to_port", ir.Num(80)),
-			ir.A("ip_protocol", ir.Str("tcp")),
-			ir.A("description", ir.Str("Internet to "+node.Name)),
-		},
-	})
+	if !internal {
+		ctx.Add(ir.Resource{
+			Type:        "aws_vpc_security_group_ingress_rule",
+			Name:        local + "_alb_http",
+			SourceNode:  node.ID,
+			SourceLabel: node.Name,
+			Args: ir.Attrs{
+				ir.A("security_group_id", ir.R(albSGID, ir.Field("id"))),
+				ir.A("cidr_ipv4", ir.Str("0.0.0.0/0")),
+				ir.A("from_port", ir.Num(80)),
+				ir.A("to_port", ir.Num(80)),
+				ir.A("ip_protocol", ir.Str("tcp")),
+				ir.A("description", ir.Str("Internet to "+node.Name)),
+			},
+		})
+	}
 	ctx.Add(ir.Resource{
 		Type:        "aws_vpc_security_group_egress_rule",
 		Name:        local + "_alb_all",
@@ -221,8 +228,8 @@ func publishService(
 		Args: ir.Attrs{
 			ir.A("name", ir.Str(ctx.Named(node.Name))),
 			ir.A("load_balancer_type", ir.Str("application")),
-			ir.A("internal", ir.Bool(false)),
-			ir.A("subnets", subnetRefs(network.PublicSubnets)),
+			ir.A("internal", ir.Bool(internal)),
+			ir.A("subnets", subnetRefs(subnets)),
 			ir.A("security_groups", ir.L(ir.R(albSGID, ir.Field("id")))),
 		},
 	})
@@ -235,7 +242,7 @@ func publishService(
 		SourceLabel: node.Name,
 		Args: ir.Attrs{
 			ir.A("name", ir.Str(ctx.Named(node.Name))),
-			ir.A("port", ir.Num(float64(p.Port))),
+			ir.A("port", exports.Port),
 			ir.A("protocol", ir.Str("HTTP")),
 			ir.A("vpc_id", ir.R(network.VPC, ir.Field("id"))),
 			ir.A("target_type", ir.Str("ip")),
@@ -259,6 +266,7 @@ func publishService(
 			})),
 		},
 	})
+	listenerID := ir.ID{Type: listener.Type, Name: listener.Name}
 
 	ctx.Add(ir.Resource{
 		Type:        "aws_vpc_security_group_ingress_rule",
@@ -266,29 +274,37 @@ func publishService(
 		SourceNode:  node.ID,
 		SourceLabel: node.Name,
 		Args: ir.Attrs{
-			ir.A("security_group_id", ir.R(serviceSG, ir.Field("id"))),
+			ir.A("security_group_id", ir.R(*h.SecurityGroup, ir.Field("id"))),
 			ir.A("referenced_security_group_id", ir.R(albSGID, ir.Field("id"))),
-			ir.A("from_port", ir.Num(float64(p.Port))),
-			ir.A("to_port", ir.Num(float64(p.Port))),
+			ir.A("from_port", exports.Port),
+			ir.A("to_port", exports.Port),
 			ir.A("ip_protocol", ir.Str("tcp")),
 			ir.A("description", ir.Str("Load balancer to "+node.Name)),
 		},
 	})
 
+	svc, ok := ctx.Resource(h.Primary)
+	if !ok {
+		ctx.Fail(fmt.Sprintf("service '%s' has no %s to put behind a load balancer", node.Name, h.Primary.Type))
+	}
 	svc.Args.Set("load_balancer", ir.B(ir.Attrs{
 		ir.A("target_group_arn", ir.R(targetsID, ir.Field("arn"))),
 		ir.A("container_name", ir.Str(local)),
-		ir.A("container_port", ir.Num(float64(p.Port))),
+		ir.A("container_port", exports.Port),
 	}))
-	svc.DependsOn = append(svc.DependsOn, ir.ID{Type: listener.Type, Name: listener.Name})
+	svc.DependsOn = append(svc.DependsOn, listenerID)
 
-	url := ir.C(ir.Str("http://"), ir.R(lbID, ir.Field("dns_name")))
-	ctx.AddOutput(ir.Output{
-		Name:        local + "_url",
-		Description: fmt.Sprintf("Public URL of the %s service", node.Name),
-		Value:       url,
-	})
-	return url
+	exports.ListenerARN = ir.R(listenerID, ir.Field("arn"))
+	if !internal {
+		exports.URL = ir.C(ir.Str("http://"), ir.R(lbID, ir.Field("dns_name")))
+		ctx.AddOutput(ir.Output{
+			Name:        local + "_url",
+			Description: fmt.Sprintf("Public URL of the %s service", node.Name),
+			Value:       exports.URL,
+		})
+	}
+	h.Exports = exports
+	return albSGID, exports
 }
 
 func ensureCluster(ctx *resolve.Context) ir.ID {

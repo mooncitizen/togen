@@ -46,6 +46,13 @@
     { "id": "edge-8", "from": "function-2", "to": "bucket-1", "relation": "reads" },
     { "id": "edge-9", "from": "service-1", "to": "cache-1", "relation": "reads" },
     { "id": "edge-10", "from": "service-1", "to": "function-1", "relation": "calls" },
-    { "id": "edge-11", "from": "function-2", "to": "service-1", "relation": "calls" }
+    { "id": "edge-11", "from": "function-2", "to": "service-1", "relation": "calls" },
+    {
+      "id": "edge-12",
+      "from": "gateway-1",
+      "to": "service-1",
+      "relation": "routes",
+      "properties": { "path": "/web", "methods": ["GET"] }
+    }
   ]
 }

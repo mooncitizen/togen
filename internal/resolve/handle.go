@@ -14,11 +14,13 @@ type FunctionExports struct{ ARN, InvokeARN, FunctionName ir.Value }
 
 type GatewayExports struct{ APIID, ExecutionARN, URL ir.Value }
 
-// ServiceExports carries a nil URL when the service is not reachable from the internet.
+// ServiceExports carries a nil URL when the service is not reachable from the internet, and a
+// nil ListenerARN until something puts a load balancer in front of it.
 type ServiceExports struct {
-	Port   ir.Value
-	Public bool
-	URL    ir.Value
+	Port        ir.Value
+	Public      bool
+	URL         ir.Value
+	ListenerARN ir.Value
 }
 
 type QueueExports struct {
