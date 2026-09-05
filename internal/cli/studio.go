@@ -14,13 +14,9 @@ import (
 	"time"
 
 	"github.com/mooncitizen/togen/internal/server"
-	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 func Studio(ctx context.Context, cwd string, port int, openBrowser bool, ready func(url string)) error {
-	if !workspace.Exists(workspace.ProjectPath(cwd)) {
-		return &workspace.Error{Message: "togen/project.json not found. Run 'togen init' first."}
-	}
 	studio, err := server.New(server.Options{Dir: cwd})
 	if err != nil {
 		return err

@@ -10,6 +10,9 @@ func LayoutPath(cwd string) string  { return filepath.Join(TogenDir(cwd), "layou
 func ViewsPath(cwd string) string   { return filepath.Join(TogenDir(cwd), "views.json") }
 func ConfigPath(cwd string) string  { return filepath.Join(cwd, ConfigName) }
 
+// What a project is made of, in the order they are written and reported.
+var ProjectFiles = []string{"togen/project.json", "togen/layout.json", ConfigName}
+
 // Where configuration lived before ADR 0007.
 func LegacyConfigPath(cwd string) string { return filepath.Join(TogenDir(cwd), "togen.json") }
 

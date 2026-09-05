@@ -3,18 +3,14 @@ package cli
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestStudioServesTheApiUntilTheContextIsCancelled(t *testing.T) {
-	cwd := t.TempDir()
-	if result := Init(cwd, "", "shop", false); result.Code != 0 {
-		t.Fatalf("init: %v", result.Lines)
-	}
-
+func startStudio(t *testing.T, cwd string) (string, func() error) {
+	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	urls := make(chan string, 1)
 	stopped := make(chan error, 1)
 	go func() {
@@ -25,37 +21,59 @@ func TestStudioServesTheApiUntilTheContextIsCancelled(t *testing.T) {
 	select {
 	case url = <-urls:
 	case err := <-stopped:
+		cancel()
 		t.Fatalf("studio stopped: %v", err)
 	case <-time.After(5 * time.Second):
+		cancel()
 		t.Fatal("studio never became ready")
 	}
+	var once sync.Once
+	var result error
+	stop := func() error {
+		once.Do(func() {
+			cancel()
+			select {
+			case result = <-stopped:
+			case <-time.After(5 * time.Second):
+				t.Fatal("studio did not stop")
+			}
+		})
+		return result
+	}
+	t.Cleanup(func() { _ = stop() })
+	return url, stop
+}
 
-	response, err := http.Get(url + "/api/project")
+func statusOf(t *testing.T, url string) int {
+	t.Helper()
+	response, err := http.Get(url)
 	if err != nil {
 		t.Fatalf("get: %v", err)
 	}
 	defer func() { _ = response.Body.Close() }()
-	if response.StatusCode != http.StatusOK {
-		t.Errorf("code = %d, want 200", response.StatusCode)
-	}
+	return response.StatusCode
+}
 
-	cancel()
-	select {
-	case err := <-stopped:
-		if err != nil {
-			t.Errorf("studio: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("studio did not stop")
+func TestStudioServesTheApiUntilTheContextIsCancelled(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	url, stop := startStudio(t, cwd)
+	if code := statusOf(t, url+"/api/project"); code != http.StatusOK {
+		t.Errorf("code = %d, want 200", code)
+	}
+	if err := stop(); err != nil {
+		t.Errorf("studio: %v", err)
 	}
 }
 
-func TestStudioRefusesWithoutAProject(t *testing.T) {
-	err := Studio(context.Background(), t.TempDir(), 0, false, nil)
-	if err == nil {
-		t.Fatal("want an error")
+func TestStudioServesWithoutAProject(t *testing.T) {
+	url, _ := startStudio(t, t.TempDir())
+	if code := statusOf(t, url+"/api/project"); code != http.StatusNotFound {
+		t.Errorf("code = %d, want 404", code)
 	}
-	if want := "togen/project.json not found. Run 'togen init' first."; err.Error() != want {
-		t.Errorf("error = %q, want %q", err, want)
+	if code := statusOf(t, url+"/api/examples"); code != http.StatusOK {
+		t.Errorf("examples: code = %d, want 200", code)
 	}
 }

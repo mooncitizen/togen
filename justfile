@@ -41,7 +41,7 @@ build: ui build-cli
 build-cli:
     go build -o bin/togen ./cmd/togen
 
-# Regenerate schema/ from the Go types.
+# Regenerate schema/ from the Go types and refresh the embedded copies, examples included.
 generate:
     go run ./internal/schema/cmd
 

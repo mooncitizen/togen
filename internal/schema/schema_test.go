@@ -36,6 +36,7 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 		"relations.json": {filepath.Join("..", "..", "schema", "relations.json")},
 		"engines.json":   {filepath.Join("..", "..", "schema", "engines.json")},
 		"styles.json":    {filepath.Join("..", "..", "schema", "styles.json")},
+		"regions.json":   {filepath.Join("..", "..", "schema", "regions.json")},
 	}
 	for name, paths := range committed {
 		want, err := os.ReadFile(filepath.Join(dir, name))
@@ -243,6 +244,32 @@ func TestEnginesShape(t *testing.T) {
 	want := `{"mysql":{"port":3306,"versions":["8.4","8.0"]},"postgres":{"port":5432,"versions":["17","16","15"]}}`
 	if got := string(b); got != want {
 		t.Errorf("aws engines = %s, want %s", got, want)
+	}
+}
+
+func TestRegionsShape(t *testing.T) {
+	doc := Regions()
+	for _, p := range ir.Providers {
+		b, err := json.Marshal(doc[string(p)])
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, _ := ir.DefaultRegion(p)
+		if !strings.HasPrefix(string(b), `[{"id":"`+want+`","name":"`) {
+			t.Errorf("%s regions do not start with the default %s: %s", p, want, b)
+		}
+	}
+	b, err := json.Marshal(doc["aws"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, needle := range []string{
+		`{"id":"eu-west-2","name":"Europe (London)"}`,
+		`{"id":"us-east-1","name":"US East (N. Virginia)"}`,
+	} {
+		if !strings.Contains(string(b), needle) {
+			t.Errorf("aws regions lack %s", needle)
+		}
 	}
 }
 

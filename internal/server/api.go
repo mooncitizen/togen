@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mooncitizen/togen/internal/examples"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/workspace"
 )
@@ -206,6 +208,59 @@ func (s *Server) postGenerate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"generated": generated})
+}
+
+// The body is a sketch, name, provider, region and environment, or names a
+// bundled example. Either way togen/ must not be there yet, and a togen.yml
+// that is stays as it is.
+func (s *Server) postInit(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBody(w, r)
+	if !ok {
+		return
+	}
+	var request struct {
+		Example string `json:"example"`
+		workspace.Sketch
+	}
+	if err := json.Unmarshal(raw, &request); err != nil {
+		writeError(w, http.StatusBadRequest, "the request body must be a JSON object")
+		return
+	}
+	if workspace.Exists(workspace.TogenDir(s.dir)) {
+		writeError(w, http.StatusConflict, (&workspace.ExistsError{Path: "togen/", Dir: s.dir}).Error())
+		return
+	}
+	var files map[string][]byte
+	if request.Example != "" {
+		files, ok = examples.Files(request.Example)
+		if !ok {
+			writeErrors(w, http.StatusUnprocessableEntity, ir.Errors{{Path: "example", Message: fmt.Sprintf("unknown example '%s'", request.Example)}})
+			return
+		}
+	} else {
+		var err error
+		files, err = workspace.SketchFiles(s.dir, request.Sketch)
+		if err != nil {
+			writeRefusal(w, err)
+			return
+		}
+	}
+	written, err := workspace.CreateProject(s.dir, files)
+	if err != nil {
+		var exists *workspace.ExistsError
+		if errors.As(err, &exists) {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.created(written, files)
+	writeJSON(w, http.StatusCreated, map[string]any{"written": written})
+}
+
+func (s *Server) getExamples(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{"examples": examples.List()})
 }
 
 func (s *Server) sendFile(w http.ResponseWriter, path string) {
