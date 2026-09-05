@@ -1,12 +1,19 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
-import { render } from 'vitest-browser-svelte';
 
-import App from './App.svelte';
-import './app.css';
+import {
+  calls,
+  gets,
+  invalid,
+  puts,
+  refuse,
+  reset,
+  serve,
+  settle,
+  show,
+  socket,
+} from './harness.ts';
 import { Store } from './lib/store.svelte.ts';
 import type { Layout, Project } from './lib/types.ts';
-
-type Call = { method: string; path: string; body: unknown; rawBody: string | undefined };
 
 const shop: Project = {
   version: 1,
@@ -33,79 +40,6 @@ const placed: Layout = {
 
 const unplaced: Layout = { version: 1, nodes: {}, viewport: { x: 0, y: 0, zoom: 1 } };
 
-let calls: Call[];
-let refuse: ((call: Call) => Response | undefined) | undefined;
-let sockets: FakeSocket[];
-
-class FakeSocket {
-  onopen: (() => void) | null = null;
-  onmessage: ((event: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
-  onerror: (() => void) | null = null;
-
-  constructor(readonly url: string) {
-    sockets.push(this);
-  }
-
-  close() {}
-}
-
-function serve(project: Project, layout: Layout) {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (input: string, init?: RequestInit) => {
-      const call: Call = {
-        method: init?.method ?? 'GET',
-        path: String(input),
-        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
-        rawBody: init?.body === undefined ? undefined : String(init.body),
-      };
-      calls.push(call);
-      const refused = refuse?.(call);
-      if (refused !== undefined) {
-        return refused;
-      }
-      if (call.method === 'PUT') {
-        return new Response(null, { status: 204 });
-      }
-      if (call.path === '/api/project') {
-        return json(project);
-      }
-      if (call.path === '/api/layout') {
-        return json(layout);
-      }
-      return new Response(null, { status: 404 });
-    }),
-  );
-}
-
-function json(value: unknown): Response {
-  return new Response(JSON.stringify(value), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function puts(path: string): Call[] {
-  return calls.filter((call) => call.method === 'PUT' && call.path === path);
-}
-
-function gets(path: string): Call[] {
-  return calls.filter((call) => call.method === 'GET' && call.path === path);
-}
-
-function settle(ms = 500): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function show() {
-  const screen = await render(App);
-  screen.container.style.width = '900px';
-  screen.container.style.height = '600px';
-  await vi.waitFor(() => expect(screen.container.querySelector('.svelte-flow')).toBeInTheDocument());
-  return screen;
-}
-
 function dropOn(target: Element, type: string, at: { x: number; y: number }) {
   const transfer = new DataTransfer();
   transfer.setData('application/togen-node', type);
@@ -124,10 +58,7 @@ function dropOn(target: Element, type: string, at: { x: number; y: number }) {
 }
 
 beforeEach(() => {
-  calls = [];
-  sockets = [];
-  refuse = undefined;
-  vi.stubGlobal('WebSocket', FakeSocket);
+  reset();
   serve(shop, placed);
 });
 
@@ -249,13 +180,13 @@ test('a broken layout fetch surfaces the error and leaves positions alone, until
   expect(loaded['gateway-1']).toEqual(placed.nodes['gateway-1']);
 
   let failNext = true;
-  refuse = (call) => {
+  refuse((call) => {
     if (failNext && call.method === 'GET' && call.path === '/api/layout') {
       failNext = false;
       return new Response(null, { status: 500 });
     }
     return undefined;
-  };
+  });
 
   store.reload();
 
@@ -331,15 +262,13 @@ test('panning leaves every node object alone, and moving one node leaves the res
 });
 
 test('a refused project reverts the dropped node and the bar shows why', async () => {
-  refuse = (call) =>
+  refuse((call) =>
     call.method === 'PUT' && call.path === '/api/project'
-      ? new Response(
-          JSON.stringify({
-            errors: [{ path: 'nodes', nodeId: 'gateway-2', message: 'a project can have at most one gateway' }],
-          }),
-          { status: 422, headers: { 'Content-Type': 'application/json' } },
-        )
-      : undefined;
+      ? invalid([
+          { path: 'nodes', nodeId: 'gateway-2', message: 'a project can have at most one gateway' },
+        ])
+      : undefined,
+  );
 
   const screen = await show();
 
@@ -357,7 +286,7 @@ test('a project-changed event reloads the project', async () => {
   await expect.element(screen.getByText('shop')).toBeInTheDocument();
 
   serve({ ...shop, name: 'market' }, placed);
-  sockets.at(-1)?.onmessage?.({ data: JSON.stringify({ event: 'project-changed' }) });
+  socket()?.onmessage?.({ data: JSON.stringify({ event: 'project-changed' }) });
 
   await expect.element(screen.getByText('market')).toBeInTheDocument();
 });
@@ -365,11 +294,11 @@ test('a project-changed event reloads the project', async () => {
 test('a reload waits for a pending save rather than clobbering it', async () => {
   const store = new Store();
   await store.load();
-  const before = calls.length;
+  const before = calls().length;
 
   store.moveNode('function-1', { x: 500, y: 500 });
   store.reload();
-  expect(calls.length).toBe(before);
+  expect(calls().length).toBe(before);
 
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
   await vi.waitFor(() => expect(gets('/api/project')).toHaveLength(2));

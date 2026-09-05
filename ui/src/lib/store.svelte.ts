@@ -6,6 +6,8 @@ import { defaultProperties } from './catalogue.ts';
 import { autoLayout } from './layout.ts';
 import type { Layout, Node, NodeType, Position, Project, Viewport } from './types.ts';
 
+type Patch = { name?: string; properties?: Record<string, unknown> };
+
 const saveDelay = 300;
 const origin: Position = { x: 0, y: 0 };
 
@@ -17,6 +19,7 @@ export class Store {
   project = $state.raw<Project | null>(null);
   positions = $state.raw<Record<string, Position>>({});
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
+  selectedNodeId = $state.raw<string | null>(null);
   error = $state.raw<ApiError | null>(null);
   ready = $state(false);
 
@@ -40,9 +43,12 @@ export class Store {
   #version = 1;
   #cards = new Map<string, { key: string; card: FlowNode }>();
   #timer: ReturnType<typeof setTimeout> | undefined;
+  #nodeTimer: ReturnType<typeof setTimeout> | undefined;
   #chain: Promise<void> = Promise.resolve();
   #running = 0;
   #stale = false;
+  #saved: Project | null = null;
+  #edited = new Set<string>();
 
   async load(): Promise<void> {
     let project: Project;
@@ -54,6 +60,7 @@ export class Store {
       return;
     }
     this.project = project;
+    this.#saved = project;
     const found = await this.#readLayout();
     this.ready = true;
     if (!found) {
@@ -92,8 +99,28 @@ export class Store {
         this.#discardNode(name);
         throw failure;
       }
+      this.#saved = next;
       await putLayout(layout);
     });
+  }
+
+  select(id: string | null): void {
+    this.selectedNodeId = id;
+  }
+
+  // A property the user has cleared is removed rather than written as its
+  // default: a project file records only what was set (ADR 0004).
+  updateNode(id: string, patch: Patch): void {
+    const project = this.project;
+    if (project === null) {
+      return;
+    }
+    this.project = {
+      ...project,
+      nodes: project.nodes.map((node) => (node.id === id ? patched(node, patch) : node)),
+    };
+    this.#edited.add(id);
+    this.#saveProjectSoon();
   }
 
   // Removes only the refused node by id, rather than the whole snapshot, so a
@@ -125,8 +152,11 @@ export class Store {
     this.#saveLayoutSoon();
   }
 
+  // The store is the only owner of selection: Svelte Flow marks it by replacing
+  // the node object, and that would otherwise be lost the next time this runs.
   #card(node: Node, position: Position): FlowNode {
-    const key = `${node.name}|${node.type}|${position.x}|${position.y}`;
+    const selected = node.id === this.selectedNodeId;
+    const key = `${node.name}|${node.type}|${position.x}|${position.y}|${selected}`;
     const held = this.#cards.get(node.id);
     if (held !== undefined && held.key === key) {
       return held.card;
@@ -135,6 +165,7 @@ export class Store {
       id: node.id,
       type: 'togen',
       position,
+      selected,
       data: { name: node.name, type: node.type },
     };
     this.#cards.set(node.id, { key, card });
@@ -171,6 +202,45 @@ export class Store {
     await this.#queue(() => putLayout(layout));
   }
 
+  #saveProjectSoon(): void {
+    clearTimeout(this.#nodeTimer);
+    this.#nodeTimer = setTimeout(() => {
+      this.#nodeTimer = undefined;
+      const edited = [...this.#edited];
+      this.#edited.clear();
+      void this.#queue(async () => {
+        const project = this.project;
+        if (project === null) {
+          return;
+        }
+        try {
+          await putProject(project);
+        } catch (failure) {
+          this.#revert(edited);
+          throw failure;
+        }
+        this.#saved = project;
+      });
+    }, saveDelay);
+  }
+
+  #revert(ids: string[]): void {
+    const saved = this.#saved;
+    const project = this.project;
+    if (saved === null || project === null) {
+      return;
+    }
+    this.project = {
+      ...project,
+      nodes: project.nodes.map((node) => {
+        if (!ids.includes(node.id)) {
+          return node;
+        }
+        return saved.nodes.find((candidate) => candidate.id === node.id) ?? node;
+      }),
+    };
+  }
+
   #saveLayoutSoon(): void {
     clearTimeout(this.#timer);
     this.#timer = setTimeout(() => {
@@ -205,7 +275,7 @@ export class Store {
   }
 
   #saving(): boolean {
-    return this.#timer !== undefined || this.#running > 0;
+    return this.#timer !== undefined || this.#nodeTimer !== undefined || this.#running > 0;
   }
 
   #report(failure: unknown): void {
@@ -241,6 +311,29 @@ export function errorLines(error: ApiError): string[] {
     }
     return `${path}: ${entry.message}`;
   });
+}
+
+function patched(node: Node, patch: Patch): Node {
+  const next: Node = { ...node };
+  if (patch.name !== undefined) {
+    next.name = patch.name;
+  }
+  if (patch.properties !== undefined) {
+    const properties = { ...(node.properties ?? {}) };
+    for (const [key, value] of Object.entries(patch.properties)) {
+      if (value === undefined || value === '') {
+        delete properties[key];
+      } else {
+        properties[key] = value;
+      }
+    }
+    if (Object.keys(properties).length === 0) {
+      delete next.properties;
+    } else {
+      next.properties = properties;
+    }
+  }
+  return next;
 }
 
 function freshLayout(): Layout {

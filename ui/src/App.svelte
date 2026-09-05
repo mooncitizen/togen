@@ -4,6 +4,7 @@
 
   import { events } from './lib/api.ts';
   import Canvas from './lib/components/Canvas.svelte';
+  import Inspector from './lib/components/Inspector.svelte';
   import Palette from './lib/components/Palette.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import { Store, setStore } from './lib/store.svelte.ts';
@@ -27,6 +28,7 @@
     <main class="flex min-h-0 flex-1">
       <Palette />
       <Canvas />
+      <Inspector />
     </main>
   </div>
 </SvelteFlowProvider>
