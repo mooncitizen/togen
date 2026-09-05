@@ -11,10 +11,12 @@
     type OnConnectEnd,
   } from '@xyflow/svelte';
 
+  import { boundariesFor, type Boundary } from '../boundary.ts';
   import { isNodeType } from '../catalogue.ts';
   import { connectionRefusal, legalRelations } from '../relations.ts';
   import { getStore } from '../store.svelte.ts';
   import type { Node as Sketched, Position, Relation } from '../types.ts';
+  import Boundaries from './Boundaries.svelte';
   import NodeCard from './NodeCard.svelte';
   import RelationMenu from './RelationMenu.svelte';
   import ViewsIcon from './ViewsIcon.svelte';
@@ -40,6 +42,22 @@
   });
   $effect(() => {
     edges = store.flowEdges;
+  });
+
+  // A card being dragged is where Svelte Flow has it, not where the store
+  // does, so the boundary is drawn from the flow's nodes.
+  const boundaries: Boundary[] = $derived.by(() => {
+    const project = store.project;
+    if (project === null) {
+      return [];
+    }
+    const positions: Record<string, Position> = {};
+    for (const node of nodes) {
+      if (node.id in store.positions) {
+        positions[node.id] = node.position;
+      }
+    }
+    return boundariesFor(project, store.visibleNodeIds, positions, project.provider);
   });
 
   function allowDrop(event: DragEvent) {
@@ -182,6 +200,7 @@
         onconnectend={connectEnd}
         onmoveend={(_, viewport) => store.setViewport(viewport)}
       >
+        <Boundaries {boundaries} />
         <Background />
         <Controls />
         <MiniMap />
