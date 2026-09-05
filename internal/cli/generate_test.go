@@ -210,6 +210,8 @@ func plantTerraformFiles(t *testing.T, out string) {
 	writeFileText(t, filepath.Join(out, ".terraform.lock.hcl"), "lock contents")
 	writeFileText(t, filepath.Join(out, "terraform.tfstate"), `{"serial":7}`)
 	writeFileText(t, filepath.Join(out, "dev.tfvars"), `region = "eu-west-2"`)
+	writeFileText(t, filepath.Join(out, "env", "prod.auto.tfvars"), `size = "large"`)
+	writeFileText(t, filepath.Join(out, "env", "eu", "staging.tfvars"), `size = "small"`)
 }
 
 func expectTerraformFilesIntact(t *testing.T, out string) {
@@ -219,6 +221,8 @@ func expectTerraformFilesIntact(t *testing.T, out string) {
 		filepath.Join(out, ".terraform.lock.hcl"):            "lock contents",
 		filepath.Join(out, "terraform.tfstate"):              `{"serial":7}`,
 		filepath.Join(out, "dev.tfvars"):                     `region = "eu-west-2"`,
+		filepath.Join(out, "env", "prod.auto.tfvars"):        `size = "large"`,
+		filepath.Join(out, "env", "eu", "staging.tfvars"):    `size = "small"`,
 	} {
 		if got := readFileText(t, path); got != want {
 			t.Errorf("%s = %q, want %q", path, got, want)
