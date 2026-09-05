@@ -18,5 +18,13 @@ jobs:
           key: terraform-plugins-${{ hashFiles('internal/resolve/aws/provider.go') }}
       - run: nix develop -c make check
       - run: nix develop -c golangci-lint run ./...
-      - run: nix develop -c make build
       - run: nix develop -c make acceptance
+      - id: pnpm-store
+        run: echo "path=$(nix develop -c pnpm store path)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ hashFiles('ui/pnpm-lock.yaml') }}
+      - run: nix develop -c make ui-check
+      - run: nix develop -c make ui-test
+      - run: nix develop -c make build

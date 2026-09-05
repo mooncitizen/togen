@@ -5,12 +5,20 @@ import (
 	"io/fs"
 )
 
-// Issue 11 replaces the contents of ui/ with the built canvas from ui/dist.
+// dist holds the Svelte build that `make ui` copies in. A plain `go build` or
+// `go test` sees it empty, so the placeholder page stands in.
 //
-//go:embed ui
-var embedded embed.FS
+//go:embed all:dist
+var built embed.FS
+
+//go:embed placeholder
+var placeholder embed.FS
 
 func UI() fs.FS {
-	sub, _ := fs.Sub(embedded, "ui")
-	return sub
+	dist, _ := fs.Sub(built, "dist")
+	if _, err := fs.Stat(dist, "index.html"); err == nil {
+		return dist
+	}
+	fallback, _ := fs.Sub(placeholder, "placeholder")
+	return fallback
 }
