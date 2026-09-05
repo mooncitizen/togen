@@ -63,6 +63,8 @@ func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.H
 	switch e.Relation {
 	case ir.RelRoutes:
 		resolveRoutes(ctx, e, from, to)
+	case ir.RelCalls:
+		resolveCalls(ctx, e, from, to)
 	case ir.RelReads, ir.RelWrites:
 		resolveDataAccess(ctx, e, from, to)
 	case ir.RelPublishes, ir.RelConsumes:

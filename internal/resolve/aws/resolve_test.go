@@ -43,6 +43,8 @@ func example() *ir.Project {
 			{ID: "e6", From: "n2", To: "n7", Relation: ir.RelWrites},
 			{ID: "e7", From: "n6", To: "n7", Relation: ir.RelReads},
 			{ID: "e8", From: "n4", To: "n8", Relation: ir.RelReads},
+			{ID: "e9", From: "n4", To: "n2", Relation: ir.RelCalls},
+			{ID: "e10", From: "n6", To: "n4", Relation: ir.RelCalls},
 		},
 	}
 }
@@ -103,6 +105,8 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		"aws_s3_bucket_public_access_block",
 		"aws_elasticache_subnet_group",
 		"aws_elasticache_replication_group",
+		"aws_service_discovery_private_dns_namespace",
+		"aws_service_discovery_service",
 	} {
 		if !slices.Contains(types, want) {
 			t.Errorf("missing %s", want)
@@ -118,12 +122,16 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		t.Error("the lambda has no environment")
 	}
 
-	// worker only reads the bucket, so it stays out of the vpc.
+	// worker calls web over the private network, so it joins the vpc.
 	j := slices.IndexFunc(g.Resources, func(r ir.Resource) bool {
 		return r.Type == "aws_lambda_function" && r.Name == "worker"
 	})
-	if _, ok := g.Resources[j].Args.Get("vpc_config"); ok {
-		t.Error("the worker lambda joined the vpc for a bucket")
+	if _, ok := g.Resources[j].Args.Get("vpc_config"); !ok {
+		t.Error("the worker lambda did not join the vpc to call web")
+	}
+	k := slices.IndexFunc(g.Resources, func(r ir.Resource) bool { return r.Type == "aws_ecs_service" })
+	if _, ok := g.Resources[k].Args.Get("service_registries"); !ok {
+		t.Error("the called service was not registered in cloud map")
 	}
 	for _, r := range g.Resources {
 		if r.Type == "aws_vpc_security_group_ingress_rule" && strings.Contains(r.Name, "uploads") {
@@ -200,22 +208,24 @@ func TestResolveReportsANodeTypeItDoesNotSupport(t *testing.T) {
 	}
 }
 
+// Every relation in the IR now resolves, so the report is reached with one that does not
+// exist, which is where a new relation will land before it has a resolver.
 func TestResolveReportsEveryUnsupportedEdgeInFileOrder(t *testing.T) {
 	p := example()
 	p.Nodes = append(p.Nodes, ir.Node{ID: "n10", Type: ir.NodeFunction, Name: "mailer"})
 	p.Edges = append(p.Edges,
-		ir.Edge{ID: "e9", From: "n2", To: "n10", Relation: ir.RelCalls},
-		ir.Edge{ID: "e10", From: "n6", To: "n10", Relation: ir.RelCalls},
+		ir.Edge{ID: "e11", From: "n2", To: "n10", Relation: ir.Relation("mirrors")},
+		ir.Edge{ID: "e12", From: "n6", To: "n10", Relation: ir.Relation("mirrors")},
 	)
 	errs := runErrors(t, p)
 	if len(errs) != 2 {
 		t.Fatalf("errors = %v", errs)
 	}
-	for i, want := range []string{"e9", "e10"} {
+	for i, want := range []string{"e11", "e12"} {
 		if errs[i].NodeID != "" || errs[i].EdgeID != want {
 			t.Errorf("errors[%d] = %+v, want edge %q", i, errs[i], want)
 		}
-		if !strings.Contains(errs[i].Message, "'calls' edges") {
+		if !strings.Contains(errs[i].Message, "'mirrors' edges") {
 			t.Errorf("errors[%d].Message = %q", i, errs[i].Message)
 		}
 	}
