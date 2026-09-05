@@ -12,6 +12,7 @@ import {
 } from './api.ts';
 import { defaultProperties } from './catalogue.ts';
 import { autoLayout } from './layout.ts';
+import { resolveStyle, type Resolved } from './style.ts';
 import type {
   Config,
   Edge,
@@ -85,9 +86,18 @@ export class Store {
   readonly canRedo: boolean = $derived(this.redoable.length > 0);
 
   readonly flowNodes: FlowNode[] = $derived.by(() => {
+    const project = this.project;
+    if (project === null) {
+      return [];
+    }
     const counted = tally(this.problems, 'nodeId');
-    return (this.project?.nodes ?? []).map((node) =>
-      this.#card(node, this.positions[node.id] ?? origin, counted[node.id] ?? 0),
+    return project.nodes.map((node) =>
+      this.#card(
+        node,
+        this.positions[node.id] ?? origin,
+        counted[node.id] ?? 0,
+        resolveStyle(node, this.config, project.provider),
+      ),
     );
   });
 
@@ -530,9 +540,19 @@ export class Store {
 
   // The store is the only owner of selection: Svelte Flow marks it by replacing
   // the node object, and that would otherwise be lost the next time this runs.
-  #card(node: Node, position: Position, errors: number): FlowNode {
+  #card(node: Node, position: Position, errors: number, style: Resolved): FlowNode {
     const selected = node.id === this.selectedNodeId;
-    const key = `${node.name}|${node.type}|${position.x}|${position.y}|${selected}|${errors}`;
+    const key = [
+      node.name,
+      node.type,
+      position.x,
+      position.y,
+      selected,
+      errors,
+      style.color,
+      style.icon,
+      style.shape,
+    ].join('|');
     const held = this.#cards.get(node.id);
     if (held !== undefined && held.key === key) {
       return held.card;
@@ -542,7 +562,7 @@ export class Store {
       type: 'togen',
       position,
       selected,
-      data: { name: node.name, type: node.type, errors },
+      data: { name: node.name, type: node.type, errors, style, dimmed: false },
     };
     this.#cards.set(node.id, { key, card });
     return card;

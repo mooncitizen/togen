@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -628,6 +629,69 @@ func TestPostGenerateReportsAnUnsupportedTarget(t *testing.T) {
 	want := []string{"project: target 'pulumi' is not supported yet"}
 	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetIconServesAFileUnderTheRoot(t *testing.T) {
+	dir, front, _ := harness(t)
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>`)
+	if err := os.MkdirAll(filepath.Join(dir, "icons"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "icons", "orders.svg"), svg, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	request, err := http.NewRequest(http.MethodGet, front.URL+"/api/icon?path=./icons/orders.svg", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response, err := front.Client().Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	raw, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", response.StatusCode, raw)
+	}
+	if got := response.Header.Get("Content-Type"); got != "image/svg+xml" {
+		t.Errorf("Content-Type = %q, want image/svg+xml", got)
+	}
+	if !bytes.Equal(raw, svg) {
+		t.Errorf("body = %s, want the file", raw)
+	}
+}
+
+func TestGetIconRefusesWhatIsNotAnIconUnderTheRoot(t *testing.T) {
+	dir, front, _ := harness(t)
+	outside := filepath.Join(filepath.Dir(dir), "outside.svg")
+	if err := os.WriteFile(outside, []byte("<svg/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Remove(outside) })
+
+	for _, c := range []struct{ name, path string }{
+		{"escapes the root", "../outside.svg"},
+		{"escapes the root through a subdirectory", "./icons/../../outside.svg"},
+		{"absolute", outside},
+		{"another extension", "./togen.yml"},
+		{"no path", ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			code, raw := send(t, front, http.MethodGet, "/api/icon?path="+url.QueryEscape(c.path), nil)
+			if code != http.StatusBadRequest {
+				t.Fatalf("code = %d, body = %s", code, raw)
+			}
+		})
+	}
+
+	code, raw := send(t, front, http.MethodGet, "/api/icon?path=./icons/missing.svg", nil)
+	if code != http.StatusNotFound {
+		t.Fatalf("code = %d, body = %s", code, raw)
 	}
 }
 

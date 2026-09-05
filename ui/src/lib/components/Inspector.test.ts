@@ -113,7 +113,8 @@ function saved(call: Call, id: string): Node {
 }
 
 function ringed(screen: Screen, id: string): boolean {
-  return screen.container.querySelector(`.svelte-flow__node[data-id="${id}"] .ring-1`) !== null;
+  const card = screen.container.querySelector(`.svelte-flow__node[data-id="${id}"] .card`);
+  return card !== null && getComputedStyle(card).boxShadow !== 'none';
 }
 
 function reason(screen: Screen): string | null {

@@ -1,6 +1,12 @@
 <script lang="ts">
   import { catalogue } from '../catalogue.ts';
+  import { getStore } from '../store.svelte.ts';
+  import { resolveKind } from '../style.ts';
   import type { NodeType } from '../types.ts';
+  import Icon from './Icon.svelte';
+
+  const store = getStore();
+  const provider = $derived(store.project?.provider ?? 'aws');
 
   function start(event: DragEvent, type: NodeType) {
     if (event.dataTransfer === null) {
@@ -15,6 +21,7 @@
   <h2 class="px-1.5 text-[11px] font-semibold tracking-[.06em] text-muted uppercase">Palette</h2>
   <ul class="grid grid-cols-2 gap-1.5">
     {#each catalogue as entry (entry.type)}
+      {@const style = resolveKind(entry.type, store.config, provider)}
       <li
         class="flex cursor-grab flex-col items-center gap-1.5 rounded-lg border border-border bg-raised px-1.5 pt-2.5 pb-2 hover:border-border-strong active:cursor-grabbing"
         draggable="true"
@@ -22,7 +29,7 @@
         title={entry.description}
         ondragstart={(event) => start(event, entry.type)}
       >
-        <span class="h-8 w-8 rounded-lg bg-border-strong" aria-hidden="true"></span>
+        <Icon icon={style.icon} color={style.color} shape={style.shape} size={32} />
         <span class="text-xs">{entry.label}</span>
       </li>
     {/each}

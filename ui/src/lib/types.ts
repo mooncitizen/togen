@@ -46,11 +46,25 @@ export type Generated = {
 
 export type ThemeSetting = 'dark' | 'light' | 'system';
 
+export type Shape = 'card' | 'cylinder' | 'hexagon' | 'circle';
+
+export type NodeStyle = {
+  color?: string;
+  icon?: string;
+  shape?: Shape;
+};
+
+export type Style = {
+  theme?: ThemeSetting;
+  kinds?: Partial<Record<NodeType, NodeStyle>>;
+  nodes?: Record<string, NodeStyle>;
+};
+
 export type Config = {
   version: number;
   targets: string[];
   outDir: string;
-  style?: { theme?: ThemeSetting };
+  style?: Style;
   deprecated?: string;
 };
 
