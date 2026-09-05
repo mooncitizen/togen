@@ -38,6 +38,9 @@
 
             # github
             gh
+
+            # tasks
+            just
           ];
 
           shellHook = ''
