@@ -127,6 +127,6 @@ test('a sound project counts nothing', async () => {
   serve(shop, placed);
   const screen = await show();
 
-  expect(screen.container.querySelector('header button')).toBeNull();
+  expect(screen.container.querySelector('header button[aria-expanded]')).toBeNull();
   expect(badged(screen, 'gateway-1')).toBe(false);
 });

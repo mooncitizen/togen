@@ -1,4 +1,4 @@
-import type { Layout, Project, ValidationError } from './types.ts';
+import type { Generated, Layout, Project, ValidationError } from './types.ts';
 
 export class ApiError extends Error {
   status: number;
@@ -26,6 +26,14 @@ export function getLayout(): Promise<Layout> {
 
 export function putLayout(layout: Layout): Promise<void> {
   return write('/api/layout', layout);
+}
+
+export async function generate(target?: string): Promise<Generated[]> {
+  const answer = await post<{ generated?: Generated[] | null }>(
+    '/api/generate',
+    target === undefined ? {} : { target },
+  );
+  return answer.generated ?? [];
 }
 
 const firstRetry = 500;
@@ -107,6 +115,18 @@ async function write(path: string, body: unknown): Promise<void> {
   if (!response.ok) {
     throw await failure(response);
   }
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw await failure(response);
+  }
+  return (await response.json()) as T;
 }
 
 async function failure(response: Response): Promise<ApiError> {

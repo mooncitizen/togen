@@ -39,6 +39,11 @@ export type Layout = {
   viewport: Viewport;
 };
 
+export type Generated = {
+  dir: string;
+  files: string[];
+};
+
 export type ValidationError = {
   path: string;
   nodeId?: string;

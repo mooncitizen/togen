@@ -71,12 +71,23 @@ export function invalid(errors: { path: string; nodeId?: string; message: string
   });
 }
 
+export function answer(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 export function calls(): Call[] {
   return made;
 }
 
 export function puts(path: string): Call[] {
   return made.filter((call) => call.method === 'PUT' && call.path === path);
+}
+
+export function posts(path: string): Call[] {
+  return made.filter((call) => call.method === 'POST' && call.path === path);
 }
 
 export function gets(path: string): Call[] {

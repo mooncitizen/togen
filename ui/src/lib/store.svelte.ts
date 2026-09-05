@@ -1,11 +1,19 @@
 import { getContext, setContext } from 'svelte';
 import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
 
-import { ApiError, getLayout, getProject, putLayout, putProject } from './api.ts';
+import {
+  ApiError,
+  generate as generateFiles,
+  getLayout,
+  getProject,
+  putLayout,
+  putProject,
+} from './api.ts';
 import { defaultProperties } from './catalogue.ts';
 import { autoLayout } from './layout.ts';
 import type {
   Edge,
+  Generated,
   Layout,
   Node,
   NodeType,
@@ -25,8 +33,13 @@ type Taken = { nodes: Held<Node>; edges: Held<Edge>; positions: Record<string, P
 
 type Selection = { node: string | null; edge: string | null };
 
+// The project as it was before a change, with the positions that change took
+// away so putting the nodes back puts them where they were.
+type Entry = { project: Project; positions: Record<string, Position> };
+
 const saveDelay = 300;
 const noticeDelay = 6000;
+const historyLimit = 100;
 const origin: Position = { x: 0, y: 0 };
 
 // Positions and the viewport are separate state so that panning the canvas
@@ -42,6 +55,11 @@ export class Store {
   error = $state.raw<ApiError | null>(null);
   notice = $state.raw<string | null>(null);
   ready = $state(false);
+  generated = $state.raw<Generated[] | null>(null);
+  generating = $state(false);
+  saving = $state(false);
+  undoable = $state.raw<Entry[]>([]);
+  redoable = $state.raw<Entry[]>([]);
 
   // The same checks as the CLI, run on every change, separate from what the
   // studio said about the last save.
@@ -49,15 +67,24 @@ export class Store {
     this.project === null ? [] : validateProject(this.project),
   );
 
+  // What the last generate refused, kept apart from the checks the canvas runs
+  // itself but shown in the same places.
+  apiErrors = $state.raw<ValidationError[]>([]);
+
+  readonly problems: ValidationError[] = $derived([...this.errors, ...this.apiErrors]);
+
+  readonly canUndo: boolean = $derived(this.undoable.length > 0);
+  readonly canRedo: boolean = $derived(this.redoable.length > 0);
+
   readonly flowNodes: FlowNode[] = $derived.by(() => {
-    const counted = tally(this.errors, 'nodeId');
+    const counted = tally(this.problems, 'nodeId');
     return (this.project?.nodes ?? []).map((node) =>
       this.#card(node, this.positions[node.id] ?? origin, counted[node.id] ?? 0),
     );
   });
 
   readonly flowEdges: FlowEdge[] = $derived.by(() => {
-    const counted = tally(this.errors, 'edgeId');
+    const counted = tally(this.problems, 'edgeId');
     return (this.project?.edges ?? []).map((edge) => ({
       id: edge.id,
       source: edge.from,
@@ -83,6 +110,7 @@ export class Store {
   #saved: Project | null = null;
   #edited = new Set<string>();
   #editedEdges = new Set<string>();
+  #coalescing: string | null = null;
 
   async load(): Promise<void> {
     let project: Project;
@@ -95,6 +123,7 @@ export class Store {
     }
     this.project = project;
     this.#saved = project;
+    this.#forget();
     const found = await this.#readLayout();
     this.ready = true;
     if (!found) {
@@ -119,6 +148,7 @@ export class Store {
     if (project === null) {
       return Promise.resolve();
     }
+    this.#record();
     const name = `${type}-${nextIndex(project, type)}`;
     const node: Node = { id: name, type, name, properties: defaultProperties(type) };
     const next: Project = { ...project, nodes: [...project.nodes, node] };
@@ -150,6 +180,7 @@ export class Store {
       this.notify(duplicate(project, from, to, relation));
       return Promise.resolve(false);
     }
+    this.#record();
     const id = `edge-${nextEdgeIndex(project)}`;
     const next: Project = { ...project, edges: [...project.edges, { id, from, to, relation }] };
     this.project = next;
@@ -177,6 +208,7 @@ export class Store {
       edges: held(project.edges, (edge) => edge.from === id || edge.to === id),
       positions: id in this.positions ? { [id]: this.positions[id] } : {},
     };
+    this.#record(null, taken.positions);
     const next: Project = {
       ...project,
       nodes: project.nodes.filter((node) => node.id !== id),
@@ -212,6 +244,7 @@ export class Store {
       edges: held(project.edges, (edge) => edge.id === id),
       positions: {},
     };
+    this.#record();
     const next: Project = { ...project, edges: project.edges.filter((edge) => edge.id !== id) };
     this.project = next;
     const selection = this.#takeSelection();
@@ -262,6 +295,7 @@ export class Store {
     if (project === null) {
       return;
     }
+    this.#record(`node:${id}`);
     this.project = {
       ...project,
       nodes: project.nodes.map((node) => (node.id === id ? patchedNode(node, patch) : node)),
@@ -275,12 +309,140 @@ export class Store {
     if (project === null) {
       return;
     }
+    this.#record(`edge:${id}`);
     this.project = {
       ...project,
       edges: project.edges.map((edge) => (edge.id === id ? patchedEdge(edge, properties) : edge)),
     };
     this.#editedEdges.add(id);
     this.#saveProjectSoon();
+  }
+
+  // A pending edit is written first, so what the studio generates from is what
+  // the canvas shows, and the POST goes on the same chain behind it.
+  async generate(): Promise<void> {
+    this.#flush();
+    this.generated = null;
+    this.generating = true;
+    await this.#queue(async () => {
+      try {
+        const written = await generateFiles();
+        this.apiErrors = [];
+        if (written.length === 0) {
+          this.notify('nothing to generate');
+          return;
+        }
+        this.generated = written;
+      } catch (failure) {
+        if (!(failure instanceof ApiError)) {
+          throw failure;
+        }
+        if (failure.status === 422) {
+          this.apiErrors = failure.errors;
+          return;
+        }
+        if (failure.status === 409) {
+          this.notify(forceHint(failure.message));
+          return;
+        }
+        throw failure;
+      }
+    });
+    this.generating = false;
+  }
+
+  dismissGenerated(): void {
+    this.generated = null;
+  }
+
+  undo(): Promise<void> {
+    return this.#travel('undo');
+  }
+
+  redo(): Promise<void> {
+    return this.#travel('redo');
+  }
+
+  #travel(way: 'undo' | 'redo'): Promise<void> {
+    const from = way === 'undo' ? this.undoable : this.redoable;
+    const entry = from.at(-1);
+    const project = this.project;
+    if (entry === undefined || project === null) {
+      return Promise.resolve();
+    }
+    const positions = this.positions;
+    const undoable = this.undoable;
+    const redoable = this.redoable;
+    const inverse = this.#swap(entry, project);
+    this.#coalescing = null;
+    this.apiErrors = [];
+    if (way === 'undo') {
+      this.undoable = from.slice(0, -1);
+      this.redoable = capped([...redoable, inverse]);
+    } else {
+      this.redoable = from.slice(0, -1);
+      this.undoable = capped([...undoable, inverse]);
+    }
+    const next = entry.project;
+    const layout = this.layout;
+    const moved = positions !== this.positions;
+
+    return this.#queue(async () => {
+      try {
+        await putProject(next);
+      } catch (failure) {
+        this.project = project;
+        this.positions = positions;
+        this.undoable = undoable;
+        this.redoable = redoable;
+        throw failure;
+      }
+      this.#saved = next;
+      if (moved) {
+        await putLayout(layout);
+      }
+    });
+  }
+
+  // Puts the project back to a snapshot and returns the one that would undo
+  // that, holding the positions this step takes away.
+  #swap(entry: Entry, project: Project): Entry {
+    const kept = new Set(entry.project.nodes.map((node) => node.id));
+    const gone: Record<string, Position> = {};
+    for (const node of project.nodes) {
+      if (!kept.has(node.id) && node.id in this.positions) {
+        gone[node.id] = this.positions[node.id];
+      }
+    }
+    this.project = entry.project;
+    if (Object.keys(gone).length > 0 || Object.keys(entry.positions).length > 0) {
+      const positions = { ...this.positions };
+      for (const id of Object.keys(gone)) {
+        delete positions[id];
+      }
+      this.positions = { ...positions, ...entry.positions };
+    }
+    return { project, positions: gone };
+  }
+
+  #record(key: string | null = null, positions: Record<string, Position> = {}): void {
+    const project = this.project;
+    if (project === null) {
+      return;
+    }
+    this.apiErrors = [];
+    this.redoable = [];
+    if (key !== null && key === this.#coalescing) {
+      return;
+    }
+    this.#coalescing = key;
+    this.undoable = capped([...this.undoable, { project, positions }]);
+  }
+
+  #forget(): void {
+    this.undoable = [];
+    this.redoable = [];
+    this.#coalescing = null;
   }
 
   // Removes only the refused item by id, rather than the whole snapshot, so a
@@ -397,26 +559,42 @@ export class Store {
 
   #saveProjectSoon(): void {
     clearTimeout(this.#nodeTimer);
-    this.#nodeTimer = setTimeout(() => {
-      this.#nodeTimer = undefined;
-      const nodes = [...this.#edited];
-      const edges = [...this.#editedEdges];
-      this.#edited.clear();
-      this.#editedEdges.clear();
-      void this.#queue(async () => {
-        const project = this.project;
-        if (project === null) {
-          return;
-        }
-        try {
-          await putProject(project);
-        } catch (failure) {
-          this.#revert(nodes, edges);
-          throw failure;
-        }
-        this.#saved = project;
-      });
-    }, saveDelay);
+    this.#nodeTimer = setTimeout(() => this.#saveProjectNow(), saveDelay);
+  }
+
+  #saveProjectNow(): void {
+    this.#nodeTimer = undefined;
+    this.#coalescing = null;
+    const nodes = [...this.#edited];
+    const edges = [...this.#editedEdges];
+    this.#edited.clear();
+    this.#editedEdges.clear();
+    void this.#queue(async () => {
+      const project = this.project;
+      if (project === null) {
+        return;
+      }
+      try {
+        await putProject(project);
+      } catch (failure) {
+        this.#revert(nodes, edges);
+        throw failure;
+      }
+      this.#saved = project;
+    });
+  }
+
+  // Generate reads the files on disk, so anything the debounce is still holding
+  // goes now rather than after it.
+  #flush(): void {
+    if (this.#nodeTimer !== undefined) {
+      clearTimeout(this.#nodeTimer);
+      this.#saveProjectNow();
+    }
+    if (this.#timer !== undefined) {
+      clearTimeout(this.#timer);
+      this.#saveLayoutNow();
+    }
   }
 
   #revert(nodes: string[], edges: string[]): void {
@@ -437,14 +615,17 @@ export class Store {
 
   #saveLayoutSoon(): void {
     clearTimeout(this.#timer);
-    this.#timer = setTimeout(() => {
-      this.#timer = undefined;
-      void this.#queue(() => putLayout(this.layout));
-    }, saveDelay);
+    this.#timer = setTimeout(() => this.#saveLayoutNow(), saveDelay);
+  }
+
+  #saveLayoutNow(): void {
+    this.#timer = undefined;
+    void this.#queue(() => putLayout(this.layout));
   }
 
   #queue(work: () => Promise<void>): Promise<void> {
     this.#running += 1;
+    this.saving = true;
     const done = this.#chain.then(async () => {
       try {
         await work();
@@ -455,6 +636,7 @@ export class Store {
     });
     this.#chain = done.then(() => {
       this.#running -= 1;
+      this.saving = this.#running > 0;
       this.#settle();
     });
     return done;
@@ -496,6 +678,17 @@ export function errorLines(error: ApiError): string[] {
     return [error.message];
   }
   return error.errors.map(errorLine);
+}
+
+function capped(entries: Entry[]): Entry[] {
+  return entries.length > historyLimit ? entries.slice(-historyLimit) : entries;
+}
+
+// The studio cannot replace a directory it did not write on its own, so the
+// notice says where the switch is.
+function forceHint(message: string): string {
+  const first = message.split('\n')[0];
+  return `${first}. Run 'togen generate --force' in a terminal to replace the directory.`;
 }
 
 function tally(errors: ValidationError[], part: 'nodeId' | 'edgeId'): Record<string, number> {

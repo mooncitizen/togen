@@ -5,10 +5,50 @@
   const store = getStore();
   const project = $derived(store.project);
   const lines = $derived(store.error === null ? [] : errorLines(store.error));
-  const problems = $derived(store.errors.map(errorLine));
+  const problems = $derived(store.problems.map(errorLine));
+  const blocked = $derived(reason());
 
   let open = $state(false);
+
+  function reason(): string {
+    if (store.project === null) {
+      return 'no project loaded';
+    }
+    if (store.errors.length > 0) {
+      return 'fix the problems first';
+    }
+    if (store.generating) {
+      return 'generating';
+    }
+    return store.saving ? 'saving' : '';
+  }
+
+  // The browser's own undo owns a field the user is typing in.
+  function keydown(event: KeyboardEvent) {
+    if (!(event.metaKey || event.ctrlKey) || event.altKey) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    if (key !== 'z' && key !== 'y') {
+      return;
+    }
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+    ) {
+      return;
+    }
+    event.preventDefault();
+    if (key === 'y' || event.shiftKey) {
+      void store.redo();
+      return;
+    }
+    void store.undo();
+  }
 </script>
+
+<svelte:window onkeydown={keydown} />
 
 <header class="relative flex items-baseline gap-3 border-b border-stone-200 bg-white px-4 py-2">
   <h1 class="text-sm font-semibold">Togen studio</h1>
@@ -38,6 +78,25 @@
         {/each}
       </ul>
     {/if}
+    <div class="flex shrink-0 items-baseline gap-1.5">
+      <button
+        class="rounded border border-stone-300 px-1.5 py-0.5 text-xs text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:hover:bg-transparent"
+        disabled={!store.canUndo}
+        onclick={() => void store.undo()}>Undo</button
+      >
+      <button
+        class="rounded border border-stone-300 px-1.5 py-0.5 text-xs text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:hover:bg-transparent"
+        disabled={!store.canRedo}
+        onclick={() => void store.redo()}>Redo</button
+      >
+      <button
+        class="rounded bg-stone-900 px-2 py-0.5 text-xs text-white hover:bg-stone-700 disabled:opacity-40 disabled:hover:bg-stone-900"
+        disabled={blocked !== ''}
+        title={blocked === '' ? 'Write the target files' : blocked}
+        onclick={() => void store.generate()}
+        >{store.generating ? 'Generating' : 'Generate'}</button
+      >
+    </div>
   </div>
   {#if open && problems.length > 0}
     <ul
@@ -48,5 +107,28 @@
         <li class="py-0.5">{line}</li>
       {/each}
     </ul>
+  {/if}
+  {#if store.generated !== null}
+    <section
+      class="absolute top-full right-0 z-40 max-h-64 w-[28rem] max-w-full overflow-y-auto rounded-b border border-stone-200 bg-white p-3 text-xs shadow-lg"
+      aria-label="Generated"
+    >
+      <div class="flex items-baseline gap-2">
+        <h2 class="font-medium text-stone-900">Generated</h2>
+        <button
+          class="ml-auto rounded px-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+          aria-label="Dismiss"
+          onclick={() => store.dismissGenerated()}>×</button
+        >
+      </div>
+      {#each store.generated ?? [] as written (written.dir)}
+        <p class="mt-2 font-mono text-stone-900">{written.dir}</p>
+        <ul class="text-stone-600">
+          {#each written.files as file (file)}
+            <li class="font-mono">{file}</li>
+          {/each}
+        </ul>
+      {/each}
+    </section>
   {/if}
 </header>
