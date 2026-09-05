@@ -7,8 +7,10 @@ import {
   getConfig,
   getLayout,
   getProject,
+  getViews,
   putLayout,
   putProject,
+  putViews,
 } from './api.ts';
 import { defaultProperties } from './catalogue.ts';
 import { autoLayout } from './layout.ts';
@@ -24,8 +26,11 @@ import type {
   Project,
   Relation,
   ValidationError,
+  View,
   ViewLayout,
+  ViewNodes,
   Viewport,
+  Views,
 } from './types.ts';
 import { errorLine, validateProject } from './validate.ts';
 
@@ -33,18 +38,32 @@ type Patch = { name?: string; properties?: Record<string, unknown> };
 
 type Held<T> = { index: number; item: T }[];
 
-type Taken = { nodes: Held<Node>; edges: Held<Edge>; positions: Record<string, Position> };
+type Taken = {
+  nodes: Held<Node>;
+  edges: Held<Edge>;
+  positions: Record<string, Position>;
+  memberships: string[];
+};
 
 type Selection = { node: string | null; edge: string | null };
 
-// The project as it was before a change, with the positions that change took
-// away so putting the nodes back puts them where they were.
-type Entry = { project: Project; positions: Record<string, Position> };
+// The project and the views as they were before a change, with the positions
+// and view layouts that change took away so putting things back puts them
+// where they were.
+type Entry = {
+  project: Project;
+  views: View[];
+  positions: Record<string, Position>;
+  layouts: Record<string, ViewLayout>;
+};
+
+export const overviewId = 'overview';
 
 const saveDelay = 300;
 const noticeDelay = 6000;
 const historyLimit = 100;
 const origin: Position = { x: 0, y: 0 };
+const overview: View = { id: overviewId, name: 'Overview', nodes: '*' };
 
 // Positions and the viewport are separate state so that panning the canvas
 // does not touch the nodes: Svelte Flow re-measures and briefly hides any node
@@ -54,6 +73,9 @@ export class Store {
   project = $state.raw<Project | null>(null);
   config = $state.raw<Config | null>(null);
   configError = $state.raw<string | null>(null);
+  views = $state.raw<View[]>([overview]);
+  activeView = $state.raw<string>(overviewId);
+  editing = $state(false);
   positions = $state.raw<Record<string, Position>>({});
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
   selectedNodeId = $state.raw<string | null>(null);
@@ -86,52 +108,70 @@ export class Store {
   readonly canUndo: boolean = $derived(this.undoable.length > 0);
   readonly canRedo: boolean = $derived(this.redoable.length > 0);
 
+  readonly view: View = $derived(
+    this.views.find((view) => view.id === this.activeView) ?? overview,
+  );
+
+  readonly visibleNodeIds: Set<string> = $derived(this.members(this.view));
+
   readonly flowNodes: FlowNode[] = $derived.by(() => {
     const project = this.project;
     if (project === null) {
       return [];
     }
     const counted = tally(this.problems, 'nodeId');
-    return project.nodes.map((node) =>
-      this.#card(
-        node,
-        this.positions[node.id] ?? origin,
-        counted[node.id] ?? 0,
-        resolveStyle(node, this.config, project.provider),
-      ),
-    );
+    const visible = this.visibleNodeIds;
+    const styled = (node: Node) => resolveStyle(node, this.config, project.provider);
+    return project.nodes.flatMap((node) => {
+      const errors = counted[node.id] ?? 0;
+      if (visible.has(node.id)) {
+        return [this.#card(node, this.positions[node.id] ?? origin, errors, styled(node), false)];
+      }
+      if (!this.editing) {
+        return [];
+      }
+      return [this.#card(node, this.#shownAt(node.id), errors, styled(node), true)];
+    });
   });
 
   readonly flowEdges: FlowEdge[] = $derived.by(() => {
     const counted = tally(this.problems, 'edgeId');
-    return (this.project?.edges ?? []).map((edge) => ({
-      id: edge.id,
-      source: edge.from,
-      target: edge.to,
-      label: edge.relation,
-      selected: edge.id === this.selectedEdgeId,
-      class: edge.id in counted ? 'togen-edge-error' : undefined,
-    }));
+    const visible = this.visibleNodeIds;
+    return (this.project?.edges ?? [])
+      .filter((edge) => visible.has(edge.from) && visible.has(edge.to))
+      .map((edge) => ({
+        id: edge.id,
+        source: edge.from,
+        target: edge.to,
+        label: edge.relation,
+        selected: edge.id === this.selectedEdgeId,
+        class: edge.id in counted ? 'togen-edge-error' : undefined,
+      }));
   });
 
-  // The studio draws the overview alone; the entries of other views ride
-  // along untouched so a save never drops them.
+  // The studio draws one view at a time; the entries of the others ride along
+  // untouched so a save never drops them.
   get layout(): Layout {
     return {
       version: 2,
-      views: { ...this.#views, overview: { nodes: this.positions, viewport: this.viewport } },
+      views: {
+        ...this.#layouts,
+        [this.activeView]: { nodes: this.positions, viewport: this.viewport },
+      },
     };
   }
 
-  #views: Record<string, ViewLayout> = {};
+  #layouts: Record<string, ViewLayout> = {};
   #cards = new Map<string, { key: string; card: FlowNode }>();
   #timer: ReturnType<typeof setTimeout> | undefined;
   #nodeTimer: ReturnType<typeof setTimeout> | undefined;
+  #viewTimer: ReturnType<typeof setTimeout> | undefined;
   #noticeTimer: ReturnType<typeof setTimeout> | undefined;
   #chain: Promise<void> = Promise.resolve();
   #running = 0;
   #stale = false;
   #saved: Project | null = null;
+  #savedViews: View[] = [overview];
   #edited = new Set<string>();
   #editedEdges = new Set<string>();
   #coalescing: string | null = null;
@@ -149,12 +189,15 @@ export class Store {
     this.project = project;
     this.#saved = project;
     this.#forget();
+    const sound = await this.#readViews();
     const found = await this.#readLayout();
     this.ready = true;
     if (!found) {
       return;
     }
-    this.error = null;
+    if (sound) {
+      this.error = null;
+    }
     await this.#placeMissing();
   }
 
@@ -180,6 +223,7 @@ export class Store {
     void this.load();
   }
 
+  // A node dropped while a view is open joins that view, or it would vanish.
   addNode(type: NodeType, position: Position): Promise<void> {
     const project = this.project;
     if (project === null) {
@@ -191,6 +235,9 @@ export class Store {
     const next: Project = { ...project, nodes: [...project.nodes, node] };
     this.project = next;
     this.positions = { ...this.positions, [name]: round(position) };
+    const views = this.#joined(this.views, this.activeView, name);
+    const joined = views !== this.views;
+    this.views = views;
     const layout = this.layout;
 
     return this.#queue(async () => {
@@ -201,6 +248,9 @@ export class Store {
         throw failure;
       }
       this.#saved = next;
+      if (joined) {
+        await this.#putViews(views);
+      }
       await putLayout(layout);
     });
   }
@@ -235,6 +285,8 @@ export class Store {
     }).then(() => saved);
   }
 
+  // A view naming a node the project no longer has is refused by the studio,
+  // so the node leaves every view along with the project.
   deleteNode(id: string): Promise<void> {
     const project = this.project;
     if (project === null || !project.nodes.some((node) => node.id === id)) {
@@ -244,6 +296,9 @@ export class Store {
       nodes: held(project.nodes, (node) => node.id === id),
       edges: held(project.edges, (edge) => edge.from === id || edge.to === id),
       positions: id in this.positions ? { [id]: this.positions[id] } : {},
+      memberships: this.views
+        .filter((view) => view.nodes !== '*' && view.nodes.includes(id))
+        .map((view) => view.id),
     };
     this.#record(null, taken.positions);
     const next: Project = {
@@ -255,6 +310,9 @@ export class Store {
     const positions = { ...this.positions };
     delete positions[id];
     this.positions = positions;
+    const views = this.#left(this.views, id);
+    const left = views !== this.views;
+    this.views = views;
     const selection = this.#takeSelection();
     const layout = this.layout;
 
@@ -267,6 +325,9 @@ export class Store {
         throw failure;
       }
       this.#saved = next;
+      if (left) {
+        await this.#putViews(views);
+      }
       await putLayout(layout);
     });
   }
@@ -280,6 +341,7 @@ export class Store {
       nodes: [],
       edges: held(project.edges, (edge) => edge.id === id),
       positions: {},
+      memberships: [],
     };
     this.#record();
     const next: Project = { ...project, edges: project.edges.filter((edge) => edge.id !== id) };
@@ -298,7 +360,12 @@ export class Store {
     });
   }
 
+  // While the view editor is open the canvas only previews membership, so the
+  // inspector is not brought back by a click on a card.
   select(id: string | null): void {
+    if (this.editing && id !== null) {
+      return;
+    }
     this.selectedNodeId = id;
     if (id !== null) {
       this.selectedEdgeId = null;
@@ -306,6 +373,9 @@ export class Store {
   }
 
   selectEdge(id: string | null): void {
+    if (this.editing && id !== null) {
+      return;
+    }
     this.selectedEdgeId = id;
     if (id !== null) {
       this.selectedNodeId = null;
@@ -353,6 +423,117 @@ export class Store {
     };
     this.#editedEdges.add(id);
     this.#saveProjectSoon();
+  }
+
+  members(view: View): Set<string> {
+    const nodes = this.project?.nodes ?? [];
+    if (view.nodes === '*') {
+      return new Set(nodes.map((node) => node.id));
+    }
+    const listed = new Set(view.nodes);
+    return new Set(nodes.filter((node) => listed.has(node.id)).map((node) => node.id));
+  }
+
+  openView(id: string): void {
+    if (id === this.activeView || !this.views.some((view) => view.id === id)) {
+      return;
+    }
+    this.#flushLayout();
+    this.#layouts = this.#stashed();
+    this.activeView = id;
+    const entry = this.#layouts[id];
+    this.positions = entry?.nodes ?? {};
+    this.viewport = entry?.viewport ?? { x: 0, y: 0, zoom: 1 };
+    this.clearSelection();
+    void this.#placeMissing();
+  }
+
+  openEditor(id: string): void {
+    this.openView(id);
+    if (this.activeView !== id) {
+      return;
+    }
+    this.clearSelection();
+    this.editing = true;
+  }
+
+  closeEditor(): void {
+    this.editing = false;
+  }
+
+  // A new view starts with the selected node, if there is one, and opens in
+  // the editor so the rest can be ticked.
+  createView(name: string): string | null {
+    const title = name.trim();
+    if (title === '' || this.project === null) {
+      return null;
+    }
+    this.#record();
+    const id = freeId(kebab(title), this.views);
+    const selected = this.selectedNodeId;
+    const chosen = this.project.nodes.some((node) => node.id === selected);
+    const nodes = selected !== null && chosen ? [selected] : [];
+    this.views = [...this.views, { id, name: title, nodes }];
+    this.#saveViewsSoon();
+    this.openEditor(id);
+    return id;
+  }
+
+  renameView(id: string, name: string): void {
+    const title = name.trim();
+    const view = this.views.find((candidate) => candidate.id === id);
+    if (view === undefined || title === '' || title === view.name) {
+      return;
+    }
+    this.#record(`view:${id}`);
+    this.views = this.views.map((candidate) =>
+      candidate.id === id ? { ...candidate, name: title } : candidate,
+    );
+    this.#saveViewsSoon();
+  }
+
+  // Every project has the overview (ADR 0008), so it cannot go.
+  deleteView(id: string): void {
+    if (id === overviewId || !this.views.some((view) => view.id === id)) {
+      return;
+    }
+    if (id === this.activeView) {
+      this.openView(overviewId);
+      this.editing = false;
+    }
+    const layouts = { ...this.#layouts };
+    const taken = id in layouts ? { [id]: layouts[id] } : {};
+    delete layouts[id];
+    this.#record(null, {}, taken);
+    this.#layouts = layouts;
+    this.views = this.views.filter((view) => view.id !== id);
+    this.#saveViewsSoon();
+    this.#saveLayoutSoon();
+  }
+
+  // The overview shows everything, whatever it is asked to show.
+  setViewNodes(id: string, nodes: ViewNodes): void {
+    if (id === overviewId || !this.views.some((view) => view.id === id)) {
+      return;
+    }
+    this.#record();
+    this.views = this.views.map((view) => (view.id === id ? { ...view, nodes } : view));
+    this.#saveViewsSoon();
+    if (id === this.activeView) {
+      void this.#placeMissing();
+    }
+  }
+
+  toggleViewNode(id: string, nodeId: string): void {
+    const view = this.views.find((candidate) => candidate.id === id);
+    if (view === undefined) {
+      return;
+    }
+    const current = [...this.members(view)];
+    const nodes = current.includes(nodeId)
+      ? current.filter((candidate) => candidate !== nodeId)
+      : [...current, nodeId];
+    this.setViewNodes(id, nodes);
   }
 
   // A pending edit is written first, so what the studio generates from is what
@@ -407,10 +588,12 @@ export class Store {
     if (entry === undefined || project === null) {
       return Promise.resolve();
     }
+    this.#flushViews();
+    const views = this.views;
     const positions = this.positions;
     const undoable = this.undoable;
     const redoable = this.redoable;
-    const inverse = this.#swap(entry, project);
+    const inverse = this.#swap(entry, project, views);
     this.#coalescing = null;
     this.apiErrors = [];
     if (way === 'undo') {
@@ -421,29 +604,40 @@ export class Store {
       this.undoable = capped([...undoable, inverse]);
     }
     const next = entry.project;
+    this.#place();
     const layout = this.layout;
-    const moved = positions !== this.positions;
+    const moved =
+      positions !== this.positions ||
+      Object.keys(inverse.layouts).length > 0 ||
+      Object.keys(entry.layouts).length > 0;
+    const changedViews = entry.views !== views;
 
     return this.#queue(async () => {
       try {
-        await putProject(next);
+        if (next !== project) {
+          await putProject(next);
+        }
       } catch (failure) {
         this.project = project;
+        this.views = views;
         this.positions = positions;
         this.undoable = undoable;
         this.redoable = redoable;
         throw failure;
       }
       this.#saved = next;
+      if (changedViews) {
+        await this.#putViews(entry.views);
+      }
       if (moved) {
         await putLayout(layout);
       }
     });
   }
 
-  // Puts the project back to a snapshot and returns the one that would undo
-  // that, holding the positions this step takes away.
-  #swap(entry: Entry, project: Project): Entry {
+  // Puts the project and the views back to a snapshot and returns the one that
+  // would undo that, holding the positions and view layouts this step takes away.
+  #swap(entry: Entry, project: Project, views: View[]): Entry {
     const kept = new Set(entry.project.nodes.map((node) => node.id));
     const gone: Record<string, Position> = {};
     for (const node of project.nodes) {
@@ -459,10 +653,48 @@ export class Store {
       }
       this.positions = { ...positions, ...entry.positions };
     }
-    return { project, positions: gone };
+
+    const keptViews = new Set(entry.views.map((view) => view.id));
+    const goneLayouts: Record<string, ViewLayout> = {};
+    const layouts = this.#stashed();
+    for (const view of views) {
+      if (!keptViews.has(view.id) && view.id in layouts) {
+        goneLayouts[view.id] = layouts[view.id];
+        delete layouts[view.id];
+      }
+    }
+    this.#layouts = { ...layouts, ...entry.layouts };
+    this.#setViews(entry.views);
+    return { project, views, positions: gone, layouts: goneLayouts };
   }
 
-  #record(key: string | null = null, positions: Record<string, Position> = {}): void {
+  // The active view is the one thing the views list cannot lose from under
+  // the canvas: when it goes, the overview takes its place.
+  #setViews(views: View[]): void {
+    this.views = views;
+    if (!views.some((view) => view.id === this.activeView)) {
+      this.editing = false;
+      this.openView(overviewId);
+    }
+  }
+
+  // The layout entries with the active view's live one folded in, unless that
+  // view has just been removed, in which case nothing of it is kept.
+  #stashed(): Record<string, ViewLayout> {
+    if (!this.views.some((view) => view.id === this.activeView)) {
+      return { ...this.#layouts };
+    }
+    return {
+      ...this.#layouts,
+      [this.activeView]: { nodes: this.positions, viewport: this.viewport },
+    };
+  }
+
+  #record(
+    key: string | null = null,
+    positions: Record<string, Position> = {},
+    layouts: Record<string, ViewLayout> = {},
+  ): void {
     const project = this.project;
     if (project === null) {
       return;
@@ -473,7 +705,8 @@ export class Store {
       return;
     }
     this.#coalescing = key;
-    this.undoable = capped([...this.undoable, { project, positions }]);
+    const views = this.views;
+    this.undoable = capped([...this.undoable, { project, views, positions, layouts }]);
   }
 
   #forget(): void {
@@ -499,6 +732,9 @@ export class Store {
       delete positions[id];
     }
     this.positions = positions;
+    for (const id of nodes) {
+      this.views = this.#left(this.views, id);
+    }
   }
 
   #takeSelection(): Selection {
@@ -524,6 +760,33 @@ export class Store {
       edges: reinsert(project.edges, taken.edges),
     };
     this.positions = { ...this.positions, ...taken.positions };
+    for (const { item } of taken.nodes) {
+      for (const viewId of taken.memberships) {
+        this.views = this.#joined(this.views, viewId, item.id);
+      }
+    }
+  }
+
+  #joined(views: View[], viewId: string, nodeId: string): View[] {
+    const view = views.find((candidate) => candidate.id === viewId);
+    if (view === undefined || view.nodes === '*' || view.nodes.includes(nodeId)) {
+      return views;
+    }
+    const nodes = [...view.nodes, nodeId];
+    return views.map((candidate) =>
+      candidate.id === viewId ? { ...candidate, nodes } : candidate,
+    );
+  }
+
+  #left(views: View[], nodeId: string): View[] {
+    if (!views.some((view) => view.nodes !== '*' && view.nodes.includes(nodeId))) {
+      return views;
+    }
+    return views.map((view) =>
+      view.nodes === '*' || !view.nodes.includes(nodeId)
+        ? view
+        : { ...view, nodes: view.nodes.filter((id) => id !== nodeId) },
+    );
   }
 
   moveNode(id: string, position: Position): void {
@@ -540,14 +803,19 @@ export class Store {
   }
 
   setViewport(viewport: Viewport): void {
-    this.viewport = round3(viewport);
+    const next = round3(viewport);
+    if (sameViewport(next, this.viewport)) {
+      return;
+    }
+    this.viewport = next;
     this.#saveLayoutSoon();
   }
 
   // The store is the only owner of selection: Svelte Flow marks it by replacing
   // the node object, and that would otherwise be lost the next time this runs.
-  #card(node: Node, position: Position, errors: number, style: Resolved): FlowNode {
+  #card(node: Node, position: Position, errors: number, style: Resolved, dimmed: boolean): FlowNode {
     const selected = node.id === this.selectedNodeId;
+    const editing = this.editing;
     const key = [
       node.name,
       node.type,
@@ -558,7 +826,11 @@ export class Store {
       style.color,
       style.icon,
       style.shape,
-    ].join('|');
+      dimmed,
+      editing,
+    ]
+      .map(String)
+      .join('|');
     const held = this.#cards.get(node.id);
     if (held !== undefined && held.key === key) {
       return held.card;
@@ -568,10 +840,40 @@ export class Store {
       type: 'togen',
       position,
       selected,
-      data: { name: node.name, type: node.type, errors, style, dimmed: false },
+      selectable: !editing,
+      draggable: !dimmed,
+      connectable: !dimmed,
+      data: { name: node.name, type: node.type, errors, style, dimmed },
     };
     this.#cards.set(node.id, { key, card });
     return card;
+  }
+
+  // A node outside the view is drawn where the overview has it while the
+  // editor is open, which is the map the user already knows.
+  #shownAt(id: string): Position {
+    return this.positions[id] ?? this.#layouts[overviewId]?.nodes[id] ?? origin;
+  }
+
+  // A views file the studio cannot read degrades to the overview and says why
+  // (ADR 0008); the next views save writes a sound file over it.
+  async #readViews(): Promise<boolean> {
+    let views: View[];
+    let sound = true;
+    try {
+      views = (await getViews()).views;
+    } catch (failure) {
+      this.#report(failure);
+      views = [overview];
+      sound = false;
+    }
+    this.#savedViews = views;
+    this.views = views;
+    if (!views.some((view) => view.id === this.activeView)) {
+      this.activeView = overviewId;
+      this.editing = false;
+    }
+    return sound;
   }
 
   // A missing or broken layout file (404, or 422 from a hand-edited file) is
@@ -588,21 +890,36 @@ export class Store {
       }
       layout = freshLayout();
     }
-    this.#views = layout.views ?? {};
-    const overview = this.#views.overview;
-    this.positions = overview?.nodes ?? {};
-    this.viewport = overview?.viewport ?? { x: 0, y: 0, zoom: 1 };
+    this.#layouts = layout.views ?? {};
+    const entry = this.#layouts[this.activeView];
+    this.positions = entry?.nodes ?? {};
+    this.viewport = entry?.viewport ?? { x: 0, y: 0, zoom: 1 };
     return true;
   }
 
   async #placeMissing(): Promise<void> {
-    const project = this.project;
-    if (project === null || project.nodes.every((node) => node.id in this.positions)) {
+    if (!this.#place()) {
       return;
     }
-    this.positions = { ...autoLayout(project), ...this.positions };
     const layout = this.layout;
     await this.#queue(() => putLayout(layout));
+  }
+
+  // Dagre over the view's own nodes and edges places whichever of them has no
+  // position in this view yet.
+  #place(): boolean {
+    const project = this.project;
+    if (project === null) {
+      return false;
+    }
+    const visible = this.visibleNodeIds;
+    const nodes = project.nodes.filter((node) => visible.has(node.id));
+    if (nodes.every((node) => node.id in this.positions)) {
+      return false;
+    }
+    const edges = project.edges.filter((edge) => visible.has(edge.from) && visible.has(edge.to));
+    this.positions = { ...autoLayout({ nodes, edges }), ...this.positions };
+    return true;
   }
 
   #saveProjectSoon(): void {
@@ -632,6 +949,28 @@ export class Store {
     });
   }
 
+  #saveViewsSoon(): void {
+    clearTimeout(this.#viewTimer);
+    this.#viewTimer = setTimeout(() => this.#saveViewsNow(), saveDelay);
+  }
+
+  #saveViewsNow(): void {
+    this.#viewTimer = undefined;
+    this.#coalescing = null;
+    void this.#queue(() => this.#putViews(this.views));
+  }
+
+  // A refused views file goes back to the last one the studio accepted.
+  async #putViews(views: View[]): Promise<void> {
+    try {
+      await putViews(file(views));
+    } catch (failure) {
+      this.#setViews(this.#savedViews);
+      throw failure;
+    }
+    this.#savedViews = views;
+  }
+
   // Generate reads the files on disk, so anything the debounce is still holding
   // goes now rather than after it.
   #flush(): void {
@@ -639,6 +978,18 @@ export class Store {
       clearTimeout(this.#nodeTimer);
       this.#saveProjectNow();
     }
+    this.#flushViews();
+    this.#flushLayout();
+  }
+
+  #flushViews(): void {
+    if (this.#viewTimer !== undefined) {
+      clearTimeout(this.#viewTimer);
+      this.#saveViewsNow();
+    }
+  }
+
+  #flushLayout(): void {
     if (this.#timer !== undefined) {
       clearTimeout(this.#timer);
       this.#saveLayoutNow();
@@ -668,7 +1019,8 @@ export class Store {
 
   #saveLayoutNow(): void {
     this.#timer = undefined;
-    void this.#queue(() => putLayout(this.layout));
+    const layout = this.layout;
+    void this.#queue(() => putLayout(layout));
   }
 
   #queue(work: () => Promise<void>): Promise<void> {
@@ -699,7 +1051,12 @@ export class Store {
   }
 
   #saving(): boolean {
-    return this.#timer !== undefined || this.#nodeTimer !== undefined || this.#running > 0;
+    return (
+      this.#timer !== undefined ||
+      this.#nodeTimer !== undefined ||
+      this.#viewTimer !== undefined ||
+      this.#running > 0
+    );
   }
 
   #report(failure: unknown): void {
@@ -726,6 +1083,40 @@ export function errorLines(error: ApiError): string[] {
     return [error.message];
   }
   return error.errors.map(errorLine);
+}
+
+// The id the views file wants: lower case kebab, starting with a letter,
+// at most 32 characters.
+export function kebab(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^[^a-z]+/, '')
+    .replace(/-+$/, '')
+    .slice(0, 32)
+    .replace(/-+$/, '');
+  return slug === '' ? 'view' : slug;
+}
+
+function freeId(slug: string, views: View[]): string {
+  const taken = new Set(views.map((view) => view.id));
+  if (!taken.has(slug)) {
+    return slug;
+  }
+  let index = 2;
+  while (taken.has(suffixed(slug, index))) {
+    index += 1;
+  }
+  return suffixed(slug, index);
+}
+
+function suffixed(slug: string, index: number): string {
+  const tail = `-${index}`;
+  return `${slug.slice(0, 32 - tail.length).replace(/-+$/, '')}${tail}`;
+}
+
+function file(views: View[]): Views {
+  return { version: 1, views };
 }
 
 function describe(failure: unknown): string {
@@ -878,4 +1269,8 @@ function round3(viewport: Viewport): Viewport {
     y: Math.round(viewport.y),
     zoom: Math.round(viewport.zoom * 1000) / 1000,
   };
+}
+
+function sameViewport(a: Viewport, b: Viewport): boolean {
+  return a.x === b.x && a.y === b.y && a.zoom === b.zoom;
 }

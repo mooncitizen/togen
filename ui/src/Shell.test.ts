@@ -11,7 +11,7 @@ import {
   show,
   socket,
 } from './harness.ts';
-import type { Layout, Project } from './lib/types.ts';
+import type { Project } from './lib/types.ts';
 
 const shop: Project = {
   version: 1,
@@ -171,8 +171,9 @@ test('export is drawn but not yet available', async () => {
 test('the rail has the views placeholder, the palette grid and the project file', async () => {
   const screen = await show();
 
-  await expect.element(screen.getByText('Views')).toBeInTheDocument();
-  await expect.element(screen.getByText('Overview')).toBeInTheDocument();
+  const rail = screen.getByLabelText('Rail');
+  await expect.element(rail.getByText('Views')).toBeInTheDocument();
+  await expect.element(rail.getByText('Overview')).toBeInTheDocument();
   await expect.element(screen.getByText('Palette')).toBeInTheDocument();
   await expect.element(screen.getByText('togen/project.json')).toBeInTheDocument();
 

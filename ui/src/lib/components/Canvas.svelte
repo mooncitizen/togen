@@ -17,6 +17,7 @@
   import type { Node as Sketched, Position, Relation } from '../types.ts';
   import NodeCard from './NodeCard.svelte';
   import RelationMenu from './RelationMenu.svelte';
+  import ViewsIcon from './ViewsIcon.svelte';
 
   const store = getStore();
   const flow = useSvelteFlow();
@@ -162,27 +163,41 @@
 
 <div class="relative min-w-0 flex-1" bind:this={pane}>
   {#if store.ready}
-    <SvelteFlow
-      bind:nodes
-      bind:edges
-      {nodeTypes}
-      {isValidConnection}
-      deleteKey={null}
-      initialViewport={store.viewport}
-      ondragover={allowDrop}
-      ondrop={drop}
-      onnodedragstop={dragStop}
-      onnodeclick={({ node }) => store.select(node.id)}
-      onedgeclick={({ edge }) => store.selectEdge(edge.id)}
-      onpaneclick={() => store.clearSelection()}
-      onconnect={connect}
-      onconnectend={connectEnd}
-      onmoveend={(_, viewport) => store.setViewport(viewport)}
-    >
-      <Background />
-      <Controls />
-      <MiniMap />
-    </SvelteFlow>
+    <!-- Each view is its own drawing with its own viewport, so switching remounts the flow. -->
+    {#key store.activeView}
+      <SvelteFlow
+        bind:nodes
+        bind:edges
+        {nodeTypes}
+        {isValidConnection}
+        deleteKey={null}
+        initialViewport={store.viewport}
+        ondragover={allowDrop}
+        ondrop={drop}
+        onnodedragstop={dragStop}
+        onnodeclick={({ node }) => store.select(node.id)}
+        onedgeclick={({ edge }) => store.selectEdge(edge.id)}
+        onpaneclick={() => store.clearSelection()}
+        onconnect={connect}
+        onconnectend={connectEnd}
+        onmoveend={(_, viewport) => store.setViewport(viewport)}
+      >
+        <Background />
+        <Controls />
+        <MiniMap />
+      </SvelteFlow>
+    {/key}
+    {#if store.project !== null}
+      <div
+        class="pointer-events-none absolute top-3.5 left-4 z-10 flex items-center gap-2 text-xs text-muted"
+        aria-label="Current view"
+      >
+        <span class="text-accent"><ViewsIcon /></span>
+        <span class="font-medium text-text">{store.view.name}</span>
+        <span aria-hidden="true">·</span>
+        <span>{store.visibleNodeIds.size} of {store.project.nodes.length} nodes</span>
+      </div>
+    {/if}
   {/if}
   {#if menu !== null}
     <RelationMenu
