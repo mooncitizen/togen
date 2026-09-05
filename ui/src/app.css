@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+@import '@xyflow/svelte/dist/style.css';
+
+html,
+body,
+#app {
+  height: 100%;
+}

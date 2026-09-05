@@ -1,4 +1,4 @@
-.PHONY: check test build generate acceptance fmt
+.PHONY: check test build build-cli ui ui-deps ui-test ui-check generate acceptance fmt
 
 check: fmt
 	go vet ./...
@@ -10,11 +10,27 @@ fmt:
 test:
 	go test ./...
 
-build:
+ui-deps:
+	pnpm --dir ui install --frozen-lockfile
+
+ui: ui-deps
+	pnpm --dir ui build
+	rm -rf internal/server/dist/*
+	cp -R ui/dist/. internal/server/dist/
+
+ui-test: ui-deps
+	pnpm --dir ui test
+
+ui-check: ui-deps
+	pnpm --dir ui check
+
+build-cli:
 	go build -o bin/togen ./cmd/togen
+
+build: ui build-cli
 
 generate:
 	go run ./internal/schema/cmd
 
-acceptance: build
+acceptance: build-cli
 	bash scripts/acceptance.sh
