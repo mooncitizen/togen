@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 func exampleProject() map[string]any {
@@ -95,7 +97,7 @@ func TestGenerateWritesHclFilesAndAManifest(t *testing.T) {
 		t.Errorf("files (-want +got):\n%s", diff)
 	}
 
-	manifest := readJSONDoc(t, filepath.Join(out, manifestName))
+	manifest := readJSONDoc(t, filepath.Join(out, ".togen-manifest.json"))
 	wantManifest := map[string]any{
 		"version": float64(1),
 		"files":   []any{"main.tf", "outputs.tf", "providers.tf", "variables.tf"},
@@ -361,7 +363,7 @@ func TestGenerateReportsValidationErrors(t *testing.T) {
 	if !strings.Contains(result.Lines[0], "zz") {
 		t.Errorf("line = %q, want it to name zz", result.Lines[0])
 	}
-	if exists(filepath.Join(cwd, "infra")) {
+	if workspace.Exists(filepath.Join(cwd, "infra")) {
 		t.Error("infra/ was written despite the validation failure")
 	}
 }
@@ -482,7 +484,7 @@ func TestGenerateReportsAMissingProject(t *testing.T) {
 	if result := Init(cwd, "", "shop"); result.Code != 0 {
 		t.Fatalf("init: %v", result.Lines)
 	}
-	if err := os.Remove(projectPath(cwd)); err != nil {
+	if err := os.Remove(workspace.ProjectPath(cwd)); err != nil {
 		t.Fatal(err)
 	}
 	result := Generate(cwd, "", "", false)

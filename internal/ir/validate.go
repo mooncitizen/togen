@@ -19,10 +19,10 @@ import (
 const projectSchemaURL = "https://togen.dev/schema/project.schema.json"
 
 type ValidationError struct {
-	Path    string
-	NodeID  string
-	EdgeID  string
-	Message string
+	Path    string `json:"path"`
+	NodeID  string `json:"nodeId,omitempty"`
+	EdgeID  string `json:"edgeId,omitempty"`
+	Message string `json:"message"`
 }
 
 func (e ValidationError) String() string {

@@ -60,7 +60,26 @@ func newRootCommand() *cobra.Command {
 	generateCmd.Flags().StringVar(&out, "out", "", "output directory, default from togen/togen.json")
 	generateCmd.Flags().BoolVar(&force, "force", false, "replace the output directory even if it has files Togen did not write")
 
-	root.AddCommand(initCmd, validateCmd, generateCmd)
+	var port int
+	var noOpen bool
+	studioCmd := &cobra.Command{
+		Use:   "studio",
+		Short: "Serve the canvas on 127.0.0.1",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			return cli.Studio(cmd.Context(), cwd, port, !noOpen, func(url string) {
+				_, _ = fmt.Fprintf(os.Stdout, "togen studio on %s\n", url)
+			})
+		},
+	}
+	studioCmd.Flags().IntVar(&port, "port", 3000, "port to listen on, 0 for any free port")
+	studioCmd.Flags().BoolVar(&noOpen, "no-open", false, "do not open a browser")
+
+	root.AddCommand(initCmd, validateCmd, generateCmd, studioCmd)
 	return root
 }
 

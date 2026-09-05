@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 var regions = map[ir.CloudProvider]string{
@@ -41,8 +42,8 @@ func Init(cwd, provider, name string) Result {
 		}}
 	}
 
-	dir := togenDir(cwd)
-	if exists(dir) {
+	dir := workspace.TogenDir(cwd)
+	if workspace.Exists(dir) {
 		return Result{Code: 1, Lines: []string{fmt.Sprintf("togen/ already exists in %s", cwd)}}
 	}
 
@@ -73,12 +74,12 @@ func Init(cwd, provider, name string) Result {
 		path  string
 		value any
 	}{
-		{projectPath(cwd), project},
-		{layoutPath(cwd), layout{Version: 1, Nodes: map[string]any{}, Viewport: viewport{Zoom: 1}}},
-		{configPath(cwd), defaultConfig()},
+		{workspace.ProjectPath(cwd), project},
+		{workspace.LayoutPath(cwd), layout{Version: 1, Nodes: map[string]any{}, Viewport: viewport{Zoom: 1}}},
+		{workspace.ConfigPath(cwd), workspace.DefaultConfig()},
 	}
 	for _, w := range written {
-		if err := writeJSONFile(w.path, w.value); err != nil {
+		if err := workspace.WriteJSONFile(w.path, w.value); err != nil {
 			return Result{Code: 1, Lines: []string{err.Error()}}
 		}
 	}

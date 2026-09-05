@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/mooncitizen/togen/internal/ir"
+import (
+	"strings"
+
+	"github.com/mooncitizen/togen/internal/ir"
+)
 
 type Result struct {
 	Code  int
@@ -13,4 +17,8 @@ func errorLines(errs ir.Errors) []string {
 		lines[i] = e.String()
 	}
 	return lines
+}
+
+func failure(err error) Result {
+	return Result{Code: 1, Lines: strings.Split(err.Error(), "\n")}
 }

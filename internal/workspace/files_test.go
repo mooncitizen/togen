@@ -1,8 +1,9 @@
-package cli
+package workspace
 
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -11,7 +12,7 @@ func writeConfigRaw(t *testing.T, cwd, text string) {
 	if err := os.MkdirAll(filepath.Join(cwd, "togen"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(configPath(cwd), []byte(text), 0o644); err != nil {
+	if err := os.WriteFile(ConfigPath(cwd), []byte(text), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -52,6 +53,35 @@ func TestLoadConfigRejectsEmptyTargets(t *testing.T) {
 	want := "togen/togen.json has no targets"
 	if got != want {
 		t.Errorf("error = %q, want %q", got, want)
+	}
+}
+
+func TestWriteRawLeavesNoTempFileBehind(t *testing.T) {
+	cwd := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(cwd, "togen"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := ProjectPath(cwd)
+	if err := WriteRaw(path, []byte(`{"a":1}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != `{"a":1}` {
+		t.Errorf("content = %s", raw)
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".project-") {
+			t.Errorf("temp file left behind: %s", entry.Name())
+		}
 	}
 }
 
