@@ -248,6 +248,18 @@ func TestValidateReportsAStyleForANodeThatDoesNotExist(t *testing.T) {
 	}
 }
 
+func TestValidateIgnoresABrokenViewsFile(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	writeFileText(t, workspace.ViewsPath(cwd), "{ not json")
+	result := Validate(cwd)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+}
+
 func TestValidateReportsAnInvalidConfig(t *testing.T) {
 	cwd := t.TempDir()
 	if result := Init(cwd, "", "shop", false); result.Code != 0 {

@@ -1,0 +1,64 @@
+{
+  "$id": "https://togen.dev/schema/views.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "description": "File format version",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "views": {
+      "description": "The named diagrams of the project",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Stable identifier the layout is keyed by",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "name": {
+            "description": "Title shown in the studio and on an export",
+            "minLength": 1,
+            "type": "string"
+          },
+          "nodes": {
+            "description": "Ids of the nodes the view shows, or \"*\" for every node",
+            "else": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "if": {
+              "type": "string"
+            },
+            "then": {
+              "const": "*"
+            },
+            "type": [
+              "string",
+              "array"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "nodes"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "views"
+  ],
+  "title": "Togen views",
+  "type": "object"
+}

@@ -1,6 +1,16 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { defaults, gets, invalid, refuse, reset, serve, show, socket } from './harness.ts';
+import {
+  defaults,
+  gets,
+  invalid,
+  overviewLayout,
+  refuse,
+  reset,
+  serve,
+  show,
+  socket,
+} from './harness.ts';
 import type { Layout, Project } from './lib/types.ts';
 
 const shop: Project = {
@@ -16,11 +26,7 @@ const shop: Project = {
   edges: [{ id: 'edge-1', from: 'gateway-1', to: 'function-1', relation: 'routes' }],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: { 'gateway-1': { x: 20, y: 20 }, 'function-1': { x: 260, y: 20 } },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({ 'gateway-1': { x: 20, y: 20 }, 'function-1': { x: 260, y: 20 } });
 
 const panel = { dark: 'rgb(21, 26, 33)', light: 'rgb(255, 255, 255)' };
 

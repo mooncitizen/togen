@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
-import type { Config, Layout, Project } from './lib/types.ts';
+import type { Config, Layout, Position, Project, Viewport } from './lib/types.ts';
 
 export type Call = { method: string; path: string; body: unknown; rawBody: string | undefined };
 
@@ -69,6 +69,13 @@ export function serve(project: Project, layout: Layout, config: Config = default
       return new Response(null, { status: 404 });
     }),
   );
+}
+
+export function overviewLayout(
+  nodes: Record<string, Position>,
+  viewport: Viewport = { x: 0, y: 0, zoom: 1 },
+): Layout {
+  return { version: 2, views: { overview: { nodes, viewport } } };
 }
 
 export function refuse(answer: ((call: Call) => Response | undefined) | undefined) {

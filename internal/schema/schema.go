@@ -81,6 +81,102 @@ func Config() map[string]any {
 	return doc
 }
 
+func Views() map[string]any {
+	return map[string]any{
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
+		"$id":                  "https://togen.dev/schema/views.schema.json",
+		"title":                "Togen views",
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"version", "views"},
+		"properties": map[string]any{
+			"version": map[string]any{"type": "integer", "minimum": 1, "description": "File format version"},
+			"views":   map[string]any{"type": "array", "items": viewSchema(), "description": "The named diagrams of the project"},
+		},
+	}
+}
+
+// if/then/else rather than oneOf, so a wrong value is reported as the one
+// thing it is not, instead of as a whole alternative failing.
+func viewSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"id", "name", "nodes"},
+		"properties": map[string]any{
+			"id":   described(kebab(32), "Stable identifier the layout is keyed by"),
+			"name": described(nonEmptyString(), "Title shown in the studio and on an export"),
+			"nodes": map[string]any{
+				"type":        []string{"string", "array"},
+				"if":          map[string]any{"type": "string"},
+				"then":        map[string]any{"const": "*"},
+				"else":        map[string]any{"items": nonEmptyString()},
+				"description": `Ids of the nodes the view shows, or "*" for every node`,
+			},
+		},
+	}
+}
+
+// Version 1 keeps nodes and viewport at the top; version 2 has them per view.
+func Layout() map[string]any {
+	position := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"x", "y"},
+		"properties": map[string]any{
+			"x": number("Canvas x of the node's top left corner"),
+			"y": number("Canvas y of the node's top left corner"),
+		},
+	}
+	nodes := map[string]any{"type": "object", "additionalProperties": position, "description": "Where each node sits, by id"}
+	viewport := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"x", "y", "zoom"},
+		"description":          "Pan and zoom of the canvas",
+		"properties": map[string]any{
+			"x":    number("Canvas x at the left edge of the window"),
+			"y":    number("Canvas y at the top edge of the window"),
+			"zoom": map[string]any{"type": "number", "exclusiveMinimum": 0, "description": "Scale, 1 being actual size"},
+		},
+	}
+	view := map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"properties":           map[string]any{"nodes": nodes, "viewport": viewport},
+	}
+	return map[string]any{
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
+		"$id":                  "https://togen.dev/schema/layout.schema.json",
+		"title":                "Togen layout",
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"version"},
+		"properties": map[string]any{
+			"version":  map[string]any{"type": "integer", "minimum": 1, "description": "File format version"},
+			"nodes":    described(copied(nodes), "Version 1 only: positions of the one drawing"),
+			"viewport": described(copied(viewport), "Version 1 only: the window onto the one drawing"),
+			"views": map[string]any{
+				"type":                 "object",
+				"additionalProperties": view,
+				"description":          "Version 2: a layout per view, by view id",
+			},
+		},
+	}
+}
+
+func number(text string) map[string]any {
+	return map[string]any{"type": "number", "description": text}
+}
+
+func copied(schema map[string]any) map[string]any {
+	out := make(map[string]any, len(schema))
+	for k, v := range schema {
+		out[k] = v
+	}
+	return out
+}
+
 // patternProperties rather than propertyNames: an unknown key is then reported against
 // the block that holds it and names the key, where a propertyNames failure carries neither.
 func keyedBy(fields map[string]any, name, keys, text string) {
@@ -165,6 +261,8 @@ func Write(dir string) error {
 	}{
 		{"project.schema.json", Project()},
 		{"togen.schema.json", Config()},
+		{"views.schema.json", Views()},
+		{"layout.schema.json", Layout()},
 		{"relations.json", Relations()},
 		{"engines.json", Engines()},
 		{"styles.json", Styles()},

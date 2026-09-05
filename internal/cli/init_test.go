@@ -48,9 +48,13 @@ func TestInitWritesTheThreeProjectFiles(t *testing.T) {
 
 	layout := readJSONDoc(t, filepath.Join(cwd, "togen", "layout.json"))
 	wantLayout := map[string]any{
-		"version":  float64(1),
-		"nodes":    map[string]any{},
-		"viewport": map[string]any{"x": float64(0), "y": float64(0), "zoom": float64(1)},
+		"version": float64(2),
+		"views": map[string]any{
+			"overview": map[string]any{
+				"nodes":    map[string]any{},
+				"viewport": map[string]any{"x": float64(0), "y": float64(0), "zoom": float64(1)},
+			},
+		},
 	}
 	if diff := cmp.Diff(wantLayout, layout); diff != "" {
 		t.Errorf("layout.json (-want +got):\n%s", diff)

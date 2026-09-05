@@ -483,6 +483,15 @@ func TestGenerateHonoursAFalseAgainstATrueDefaultForABucket(t *testing.T) {
 	}
 }
 
+func TestGenerateIgnoresABrokenViewsFile(t *testing.T) {
+	cwd := generateCwd(t)
+	writeFileText(t, workspace.ViewsPath(cwd), "{ not json")
+	result := Generate(cwd, "", "", false)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+}
+
 func TestGenerateReportsAMissingProject(t *testing.T) {
 	cwd := t.TempDir()
 	if result := Init(cwd, "", "shop", false); result.Code != 0 {

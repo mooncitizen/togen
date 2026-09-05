@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { reset, serve, show } from '../../harness.ts';
-import type { Layout, Project } from '../types.ts';
+import { overviewLayout, reset, serve, show } from '../../harness.ts';
+import type { Project } from '../types.ts';
 
 const shop: Project = {
   version: 1,
@@ -16,11 +16,7 @@ const shop: Project = {
   edges: [{ id: 'edge-1', from: 'gateway-1', to: 'function-1', relation: 'routes' }],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: { 'gateway-1': { x: 20, y: 20 }, 'function-1': { x: 260, y: 20 } },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({ 'gateway-1': { x: 20, y: 20 }, 'function-1': { x: 260, y: 20 } });
 
 type Screen = Awaited<ReturnType<typeof show>>;
 
@@ -46,7 +42,7 @@ test('a second gateway is counted, listed in the CLI words and badged on the car
       ...shop,
       nodes: [...shop.nodes, { id: 'gateway-2', type: 'gateway', name: 'admin' }],
     },
-    { ...placed, nodes: { ...placed.nodes, 'gateway-2': { x: 20, y: 200 } } },
+    overviewLayout({ ...placed.views.overview.nodes, 'gateway-2': { x: 20, y: 200 } }),
   );
   const screen = await show();
 
@@ -62,7 +58,7 @@ test('a second gateway is counted, listed in the CLI words and badged on the car
 test('a node named like another says so, and stops saying it once it is renamed', async () => {
   serve(
     { ...shop, nodes: [shop.nodes[0], { ...shop.nodes[1], name: 'api' }] },
-    { ...placed, viewport: placed.viewport },
+    { ...placed },
   );
   const screen = await show();
 
@@ -92,7 +88,7 @@ test('an edge the relation table refuses is marked on the canvas', async () => {
         { id: 'edge-2', from: 'database-1', to: 'function-1', relation: 'calls' },
       ],
     },
-    { ...placed, nodes: { ...placed.nodes, 'database-1': { x: 20, y: 200 } } },
+    overviewLayout({ ...placed.views.overview.nodes, 'database-1': { x: 20, y: 200 } }),
   );
   const screen = await show();
 

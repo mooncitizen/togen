@@ -25,6 +25,14 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 			filepath.Join("..", "..", "schema", "togen.schema.json"),
 			filepath.Join("..", "workspace", "togen.schema.json"),
 		},
+		"views.schema.json": {
+			filepath.Join("..", "..", "schema", "views.schema.json"),
+			filepath.Join("..", "workspace", "views.schema.json"),
+		},
+		"layout.schema.json": {
+			filepath.Join("..", "..", "schema", "layout.schema.json"),
+			filepath.Join("..", "workspace", "layout.schema.json"),
+		},
 		"relations.json": {filepath.Join("..", "..", "schema", "relations.json")},
 		"engines.json":   {filepath.Join("..", "..", "schema", "engines.json")},
 		"styles.json":    {filepath.Join("..", "..", "schema", "styles.json")},
@@ -128,6 +136,47 @@ func TestStylesShape(t *testing.T) {
 	if got := string(b); got != want {
 		t.Errorf("azure boundaries = %s, want %s", got, want)
 	}
+}
+
+func TestViewsSchemaShape(t *testing.T) {
+	b, err := json.Marshal(Views())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, needle := range []string{
+		`"required":["version","views"]`,
+		`"required":["id","name","nodes"]`,
+		`"^[a-z][a-z0-9]*(-[a-z0-9]+)*$"`,
+		`"then":{"const":"*"}`,
+		`"additionalProperties":false`,
+	} {
+		if !strings.Contains(string(b), needle) {
+			t.Errorf("schema lacks %s", needle)
+		}
+	}
+	view, _ := Views()["properties"].(map[string]any)["views"].(map[string]any)["items"].(map[string]any)
+	fields, _ := view["properties"].(map[string]any)
+	expectDescriptions(t, "view", fields)
+}
+
+func TestLayoutSchemaShape(t *testing.T) {
+	b, err := json.Marshal(Layout())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, needle := range []string{
+		`"required":["version"]`,
+		`"required":["x","y"]`,
+		`"required":["x","y","zoom"]`,
+		`"exclusiveMinimum":0`,
+		`"additionalProperties":false`,
+	} {
+		if !strings.Contains(string(b), needle) {
+			t.Errorf("schema lacks %s", needle)
+		}
+	}
+	fields, _ := Layout()["properties"].(map[string]any)
+	expectDescriptions(t, "layout", fields)
 }
 
 func nodeVariants(t *testing.T) []any {

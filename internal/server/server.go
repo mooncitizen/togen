@@ -60,7 +60,12 @@ func New(opts Options) (*Server, error) {
 		done:    make(chan struct{}),
 		hashes:  map[string][sha256.Size]byte{},
 	}
-	for _, p := range []string{workspace.ProjectPath(opts.Dir), workspace.LayoutPath(opts.Dir), workspace.ConfigPath(opts.Dir)} {
+	for _, p := range []string{
+		workspace.ProjectPath(opts.Dir),
+		workspace.LayoutPath(opts.Dir),
+		workspace.ViewsPath(opts.Dir),
+		workspace.ConfigPath(opts.Dir),
+	} {
 		if hash, ok := fileHash(p); ok {
 			s.hashes[p] = hash
 		}
@@ -89,6 +94,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("PUT /api/project", s.putProject)
 	mux.HandleFunc("GET /api/layout", s.getLayout)
 	mux.HandleFunc("PUT /api/layout", s.putLayout)
+	mux.HandleFunc("GET /api/views", s.getViews)
+	mux.HandleFunc("PUT /api/views", s.putViews)
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("POST /api/generate", s.postGenerate)
 	mux.HandleFunc("GET /api/events", s.events)

@@ -25,11 +25,20 @@ func ReadJSONFile(path, cwd string) ([]byte, error) {
 }
 
 func WriteJSONFile(path string, value any) error {
-	raw, err := json.MarshalIndent(value, "", "  ")
+	raw, err := Marshal(value)
 	if err != nil {
 		return err
 	}
-	return WriteRaw(path, append(raw, '\n'))
+	return WriteRaw(path, raw)
+}
+
+// The bytes every file under togen/ is written with.
+func Marshal(value any) ([]byte, error) {
+	raw, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(raw, '\n'), nil
 }
 
 // Written via a sibling temp file and a rename, so a reader never sees a

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { invalid, puts, refuse, reset, serve, settle, show } from '../../harness.ts';
+import { invalid, overviewLayout, puts, refuse, reset, serve, settle, show } from '../../harness.ts';
 import { Store } from '../store.svelte.ts';
 import type { Layout, Project } from '../types.ts';
 
@@ -23,17 +23,13 @@ const shop: Project = {
   ],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: {
-    'gateway-1': { x: 20, y: 20 },
-    'function-1': { x: 260, y: 20 },
-    'database-1': { x: 500, y: 20 },
-    'service-1': { x: 20, y: 200 },
-    'queue-1': { x: 500, y: 200 },
-  },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({
+  'gateway-1': { x: 20, y: 20 },
+  'function-1': { x: 260, y: 20 },
+  'database-1': { x: 500, y: 20 },
+  'service-1': { x: 20, y: 200 },
+  'queue-1': { x: 500, y: 200 },
+});
 
 type Screen = Awaited<ReturnType<typeof show>>;
 
@@ -339,7 +335,7 @@ test('deleting a node takes its edges with it and saves both files', async () =>
   expect(project.edges).toEqual([]);
 
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
-  expect((puts('/api/layout')[0].body as Layout).nodes['function-1']).toBeUndefined();
+  expect((puts('/api/layout')[0].body as Layout).views.overview.nodes['function-1']).toBeUndefined();
 });
 
 test('deleting an edge from the inspector saves the project', async () => {
