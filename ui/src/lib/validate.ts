@@ -37,6 +37,9 @@ function schemaErrors(project: Project): ValidationError[] {
   const out: ValidationError[] = [];
   for (const error of check.errors ?? []) {
     const at = segments(error.instancePath);
+    if (error.propertyName !== undefined) {
+      at.push(error.propertyName);
+    }
     if (error.keyword === 'oneOf' && at.length === 2 && at[0] === 'nodes') {
       const mistyped = mistypedNode(project, at);
       if (mistyped !== undefined) {
