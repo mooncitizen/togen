@@ -12,6 +12,8 @@ let refusal: ((call: Call) => Response | undefined) | undefined;
 let opened: FakeSocket[] = [];
 let estimate: Cost | undefined;
 
+const browserFetch = window.fetch.bind(window);
+
 class FakeSocket {
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
@@ -55,6 +57,10 @@ export function serve(
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string, init?: RequestInit) => {
+      // Only the API is faked; the fonts an export embeds come from Vite as they would.
+      if (!String(input).startsWith('/api')) {
+        return browserFetch(input, init);
+      }
       const call: Call = {
         method: init?.method ?? 'GET',
         path: String(input),

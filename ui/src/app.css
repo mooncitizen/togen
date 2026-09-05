@@ -69,7 +69,10 @@
   --togen-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
 }
 
-:root[data-theme='light'] {
+/* A white export borrows the light palette: a dark studio's light text would
+   not read on a white ground. */
+:root[data-theme='light'],
+[data-exporting='white'] {
   color-scheme: light;
   --togen-canvas: #f5f5f4;
   --togen-panel: #ffffff;
@@ -144,6 +147,8 @@ body {
   --xy-edge-stroke: var(--togen-edge);
   --xy-edge-stroke-width: 1.25;
   --xy-edge-stroke-selected: var(--togen-selection);
+  --togen-edge-error-stroke: var(--togen-err);
+  --togen-edge-error-width: 2;
   --xy-connectionline-stroke: var(--togen-edge);
   --xy-connectionline-stroke-width: 1.25;
   --xy-edge-label-background-color: var(--togen-edge-label);
@@ -163,6 +168,14 @@ body {
   --xy-minimap-mask-stroke-color: var(--togen-border-strong);
   --xy-minimap-node-background-color: var(--togen-border-strong);
   --xy-minimap-node-stroke-color: transparent;
+}
+
+/* Selection is the editor's, not the picture's. Text inherits a resolved
+   colour from the body, so the palette a white export borrows is restated
+   here for it. */
+.svelte-flow[data-exporting] {
+  --xy-edge-stroke-selected: var(--togen-edge);
+  color: var(--togen-text);
 }
 
 .svelte-flow__handle {
@@ -201,6 +214,6 @@ body {
 }
 
 .svelte-flow__edge.togen-edge-error .svelte-flow__edge-path {
-  stroke: var(--togen-err);
-  stroke-width: 2;
+  stroke: var(--togen-edge-error-stroke);
+  stroke-width: var(--togen-edge-error-width);
 }

@@ -210,9 +210,10 @@
       {/if}
     </button>
     <button
-      class="inline-flex h-[30px] shrink-0 items-center rounded-md border border-border-strong bg-raised px-3 font-medium disabled:opacity-40"
-      disabled
-      title="Export comes later">Export</button
+      class="inline-flex h-[30px] shrink-0 items-center rounded-md border border-border-strong bg-raised px-3 font-medium enabled:hover:bg-panel disabled:opacity-40"
+      disabled={project === null}
+      title={project === null ? 'no project loaded' : 'Export the current view'}
+      onclick={() => (store.exporting = true)}>Export</button
     >
     <button
       class="inline-flex h-[30px] shrink-0 items-center rounded-md border border-accent bg-accent px-3 font-medium text-accent-text hover:opacity-90 disabled:opacity-40 disabled:hover:opacity-40"

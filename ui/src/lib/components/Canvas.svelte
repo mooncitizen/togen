@@ -17,6 +17,7 @@
   import { getStore } from '../store.svelte.ts';
   import type { Node as Sketched, Position, Relation } from '../types.ts';
   import Boundaries from './Boundaries.svelte';
+  import ExportDialog from './ExportDialog.svelte';
   import NodeCard from './NodeCard.svelte';
   import RelationMenu from './RelationMenu.svelte';
   import ViewsIcon from './ViewsIcon.svelte';
@@ -33,7 +34,7 @@
     relations: Relation[];
     at: Position;
   } | null>(null);
-  let pane: HTMLDivElement | undefined;
+  let pane = $state<HTMLDivElement | undefined>();
 
   // Svelte Flow owns selection and in-flight drag positions, so the store
   // pushes into these rather than the canvas reading from it directly.
@@ -230,3 +231,7 @@
     />
   {/if}
 </div>
+<!-- Outside the pane, so the delete key in the dialog is not the canvas's. -->
+{#if store.exporting}
+  <ExportDialog canvas={pane} onclose={() => (store.exporting = false)} />
+{/if}
