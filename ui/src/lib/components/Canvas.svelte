@@ -71,6 +71,8 @@
       ondragover={allowDrop}
       ondrop={drop}
       onnodedragstop={dragStop}
+      onnodeclick={({ node }) => store.select(node.id)}
+      onpaneclick={() => store.select(null)}
       onmoveend={(_, viewport) => store.setViewport(viewport)}
     >
       <Background />

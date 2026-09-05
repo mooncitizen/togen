@@ -4,8 +4,6 @@ export type Relation = 'routes' | 'calls' | 'reads' | 'writes' | 'publishes' | '
 
 export type Provider = 'aws' | 'gcp' | 'azure';
 
-// Issue 13 generates the inspector forms from the schema; until then the
-// property bag travels untouched.
 export type Node = {
   id: string;
   type: NodeType;
