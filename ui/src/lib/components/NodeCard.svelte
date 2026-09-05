@@ -1,12 +1,20 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 
+  import { dash, money } from '../cost.ts';
   import type { Resolved } from '../style.ts';
   import Icon from './Icon.svelte';
 
   let { data, selected }: NodeProps = $props();
   const card = $derived(
-    data as { name: string; type: string; errors: number; style: Resolved; dimmed: boolean },
+    data as {
+      name: string;
+      type: string;
+      errors: number;
+      style: Resolved;
+      dimmed: boolean;
+      subtotal: number | null;
+    },
   );
 </script>
 
@@ -27,6 +35,11 @@
       aria-label="{card.errors} {card.errors === 1 ? 'problem' : 'problems'}">{card.errors}</span
     >
   {/if}
+  <span
+    class="absolute right-1.5 bottom-0.5 rounded bg-raised px-1 font-mono text-[9px] leading-4 text-muted"
+    title={card.subtotal === null ? 'Not priced' : 'Monthly subtotal'}
+    >{card.subtotal === null ? dash : money(card.subtotal)}</span
+  >
 </div>
 <Handle type="target" position={Position.Left} />
 <Handle type="source" position={Position.Right} />

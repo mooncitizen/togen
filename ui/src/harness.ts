@@ -3,13 +3,14 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
-import type { Config, Layout, Position, Project, Viewport, Views } from './lib/types.ts';
+import type { Config, Cost, Layout, Position, Project, Viewport, Views } from './lib/types.ts';
 
 export type Call = { method: string; path: string; body: unknown; rawBody: string | undefined };
 
 let made: Call[] = [];
 let refusal: ((call: Call) => Response | undefined) | undefined;
 let opened: FakeSocket[] = [];
+let estimate: Cost | undefined;
 
 class FakeSocket {
   onopen: (() => void) | null = null;
@@ -40,6 +41,7 @@ export function reset() {
   made = [];
   opened = [];
   refusal = undefined;
+  estimate = undefined;
   vi.stubGlobal('WebSocket', FakeSocket);
   window.sessionStorage.clear();
 }
@@ -79,6 +81,9 @@ export function serve(
       if (call.path === '/api/views') {
         return json(views);
       }
+      if (call.path === '/api/cost') {
+        return json(estimate ?? unpriced(project));
+      }
       return new Response(null, { status: 404 });
     }),
   );
@@ -93,6 +98,10 @@ export function overviewLayout(
 
 export function refuse(answer: ((call: Call) => Response | undefined) | undefined) {
   refusal = answer;
+}
+
+export function serveCost(cost: Cost) {
+  estimate = cost;
 }
 
 export function invalid(errors: { path: string; nodeId?: string; message: string }[]): Response {
@@ -139,6 +148,24 @@ export async function show() {
   screen.container.style.height = '600px';
   await vi.waitFor(() => expect(screen.container.querySelector('.svelte-flow')).toBeInTheDocument());
   return screen;
+}
+
+// Until a test says otherwise, nothing is priced: every node listed, nothing summed.
+function unpriced(project: Project): Cost {
+  return {
+    provider: project.provider,
+    region: project.region,
+    currency: 'USD',
+    items: [],
+    notPriced: project.nodes.map((node) => ({
+      name: node.name,
+      kind: node.type,
+      reason: `no ${project.provider} prices for this node type yet`,
+    })),
+    total: 0,
+    snapshotDate: '2026-09-05',
+    note: 'list prices from 2026-09-05, estimate not a quote',
+  };
 }
 
 function json(value: unknown): Response {

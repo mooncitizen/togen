@@ -81,3 +81,38 @@ export type ValidationError = {
   edgeId?: string;
   message: string;
 };
+
+export type CostLine = {
+  label: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  amount: number;
+  sku: string;
+};
+
+export type CostItem = {
+  name: string;
+  kind: string;
+  summary?: string;
+  lines: CostLine[];
+  subtotal: number;
+};
+
+export type Omission = {
+  name: string;
+  kind?: string;
+  reason: string;
+};
+
+export type Cost = {
+  provider: Provider;
+  region: string;
+  currency: string;
+  items: CostItem[];
+  notPriced: Omission[];
+  total: number;
+  snapshotDate?: string;
+  note: string;
+  warning?: string;
+};

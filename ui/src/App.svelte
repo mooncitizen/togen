@@ -4,6 +4,7 @@
 
   import { events } from './lib/api.ts';
   import Canvas from './lib/components/Canvas.svelte';
+  import CostPanel from './lib/components/CostPanel.svelte';
   import Inspector from './lib/components/Inspector.svelte';
   import Rail from './lib/components/Rail.svelte';
   import TopBar from './lib/components/TopBar.svelte';
@@ -42,6 +43,8 @@
       <Canvas />
       {#if store.editing}
         <ViewEditor />
+      {:else if store.costOpen}
+        <CostPanel />
       {:else}
         <Inspector />
       {/if}

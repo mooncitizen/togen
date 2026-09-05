@@ -1,4 +1,4 @@
-import type { Config, Generated, Layout, Project, ValidationError, Views } from './types.ts';
+import type { Config, Cost, Generated, Layout, Project, ValidationError, Views } from './types.ts';
 
 export class ApiError extends Error {
   status: number;
@@ -38,6 +38,10 @@ export function putViews(views: Views): Promise<void> {
 
 export function getConfig(): Promise<Config> {
   return read<Config>('/api/config');
+}
+
+export function getCost(): Promise<Cost> {
+  return read<Cost>('/api/cost');
 }
 
 export async function generate(target?: string): Promise<Generated[]> {

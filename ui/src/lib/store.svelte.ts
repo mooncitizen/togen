@@ -5,6 +5,7 @@ import {
   ApiError,
   generate as generateFiles,
   getConfig,
+  getCost,
   getLayout,
   getProject,
   getViews,
@@ -13,10 +14,12 @@ import {
   putViews,
 } from './api.ts';
 import { defaultProperties } from './catalogue.ts';
+import { subtotalOf } from './cost.ts';
 import { autoLayout } from './layout.ts';
 import { resolveStyle, type Resolved } from './style.ts';
 import type {
   Config,
+  Cost,
   Edge,
   Generated,
   Layout,
@@ -76,6 +79,9 @@ export class Store {
   views = $state.raw<View[]>([overview]);
   activeView = $state.raw<string>(overviewId);
   editing = $state(false);
+  cost = $state.raw<Cost | null>(null);
+  costErrors = $state.raw<ValidationError[]>([]);
+  costOpen = $state(false);
   positions = $state.raw<Record<string, Position>>({});
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
   selectedNodeId = $state.raw<string | null>(null);
@@ -125,12 +131,30 @@ export class Store {
     return project.nodes.flatMap((node) => {
       const errors = counted[node.id] ?? 0;
       if (visible.has(node.id)) {
-        return [this.#card(node, this.positions[node.id] ?? origin, errors, styled(node), false)];
+        return [
+          this.#card(
+            node,
+            this.positions[node.id] ?? origin,
+            errors,
+            styled(node),
+            subtotalOf(this.cost, node),
+            false,
+          ),
+        ];
       }
       if (!this.editing) {
         return [];
       }
-      return [this.#card(node, this.#shownAt(node.id), errors, styled(node), true)];
+      return [
+        this.#card(
+          node,
+          this.#shownAt(node.id),
+          errors,
+          styled(node),
+          subtotalOf(this.cost, node),
+          true,
+        ),
+      ];
     });
   });
 
@@ -166,6 +190,8 @@ export class Store {
   #timer: ReturnType<typeof setTimeout> | undefined;
   #nodeTimer: ReturnType<typeof setTimeout> | undefined;
   #viewTimer: ReturnType<typeof setTimeout> | undefined;
+  #costTimer: ReturnType<typeof setTimeout> | undefined;
+  #costSeq = 0;
   #noticeTimer: ReturnType<typeof setTimeout> | undefined;
   #chain: Promise<void> = Promise.resolve();
   #running = 0;
@@ -178,6 +204,7 @@ export class Store {
 
   async load(): Promise<void> {
     await this.loadConfig();
+    void this.loadCost();
     let project: Project;
     try {
       project = await getProject();
@@ -211,6 +238,36 @@ export class Store {
       this.config = null;
       this.configError = describe(failure);
     }
+  }
+
+  // A 422 is the same list the checks produce, kept apart from them because it
+  // is what the studio said, and the last good estimate goes with it.
+  async loadCost(): Promise<void> {
+    clearTimeout(this.#costTimer);
+    this.#costTimer = undefined;
+    const seq = ++this.#costSeq;
+    let cost: Cost;
+    try {
+      cost = await getCost();
+    } catch (failure) {
+      if (seq === this.#costSeq) {
+        this.cost = null;
+        this.costErrors =
+          failure instanceof ApiError && failure.errors.length > 0
+            ? failure.errors
+            : [{ path: '', message: describe(failure) }];
+      }
+      return;
+    }
+    // A reload and a save's refetch can overlap; only the later answer lands.
+    if (seq === this.#costSeq) {
+      this.cost = cost;
+      this.costErrors = [];
+    }
+  }
+
+  toggleCost(open: boolean = !this.costOpen): void {
+    this.costOpen = open;
   }
 
   // A file event during a save would fetch back the version the save has not
@@ -247,7 +304,7 @@ export class Store {
         this.#discard([name], []);
         throw failure;
       }
-      this.#saved = next;
+      this.#commit(next);
       if (joined) {
         await this.#putViews(views);
       }
@@ -281,7 +338,7 @@ export class Store {
         saved = false;
         throw failure;
       }
-      this.#saved = next;
+      this.#commit(next);
     }).then(() => saved);
   }
 
@@ -324,7 +381,7 @@ export class Store {
         this.#putBackSelection(selection);
         throw failure;
       }
-      this.#saved = next;
+      this.#commit(next);
       if (left) {
         await this.#putViews(views);
       }
@@ -356,7 +413,7 @@ export class Store {
         this.#putBackSelection(selection);
         throw failure;
       }
-      this.#saved = next;
+      this.#commit(next);
     });
   }
 
@@ -625,7 +682,7 @@ export class Store {
         this.redoable = redoable;
         throw failure;
       }
-      this.#saved = next;
+      this.#commit(next);
       if (changedViews) {
         await this.#putViews(entry.views);
       }
@@ -813,7 +870,14 @@ export class Store {
 
   // The store is the only owner of selection: Svelte Flow marks it by replacing
   // the node object, and that would otherwise be lost the next time this runs.
-  #card(node: Node, position: Position, errors: number, style: Resolved, dimmed: boolean): FlowNode {
+  #card(
+    node: Node,
+    position: Position,
+    errors: number,
+    style: Resolved,
+    subtotal: number | null,
+    dimmed: boolean,
+  ): FlowNode {
     const selected = node.id === this.selectedNodeId;
     const editing = this.editing;
     const key = [
@@ -826,6 +890,7 @@ export class Store {
       style.color,
       style.icon,
       style.shape,
+      subtotal,
       dimmed,
       editing,
     ]
@@ -843,7 +908,7 @@ export class Store {
       selectable: !editing,
       draggable: !dimmed,
       connectable: !dimmed,
-      data: { name: node.name, type: node.type, errors, style, dimmed },
+      data: { name: node.name, type: node.type, errors, style, subtotal, dimmed },
     };
     this.#cards.set(node.id, { key, card });
     return card;
@@ -922,6 +987,14 @@ export class Store {
     return true;
   }
 
+  // Every project save the studio accepted moves the estimate, on the same
+  // debounce as the saves so a run of edits asks once.
+  #commit(project: Project): void {
+    this.#saved = project;
+    clearTimeout(this.#costTimer);
+    this.#costTimer = setTimeout(() => void this.loadCost(), saveDelay);
+  }
+
   #saveProjectSoon(): void {
     clearTimeout(this.#nodeTimer);
     this.#nodeTimer = setTimeout(() => this.#saveProjectNow(), saveDelay);
@@ -945,7 +1018,7 @@ export class Store {
         this.#revert(nodes, edges);
         throw failure;
       }
-      this.#saved = project;
+      this.#commit(project);
     });
   }
 
