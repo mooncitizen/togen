@@ -200,7 +200,7 @@ func TestRoutesAllowsTheSamePathOnDifferentMethods(t *testing.T) {
 	}
 }
 
-func TestRoutesToANonFunctionAreReported(t *testing.T) {
+func TestRoutesToAnUnsupportedTargetAreReported(t *testing.T) {
 	ctx, project := newContext(t, []ir.Node{
 		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
 		{ID: "n3", Type: ir.NodeDatabase, Name: "main-db"},

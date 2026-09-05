@@ -375,9 +375,41 @@ func TestPublicServiceGetsALoadBalancerListenerAndTargetGroup(t *testing.T) {
 	if diff := cmp.Diff(wantOutputs, ctx.Outputs); diff != "" {
 		t.Errorf("outputs (-want +got):\n%s", diff)
 	}
-	wantExports := resolve.ServiceExports{Port: ir.Num(80), Public: true, URL: url}
+	wantExports := resolve.ServiceExports{
+		Port:        ir.Num(80),
+		Public:      true,
+		URL:         url,
+		ListenerARN: ir.R(albListener, ir.Field("arn")),
+	}
 	if diff := cmp.Diff(wantExports, handle.Exports); diff != "" {
 		t.Errorf("exports (-want +got):\n%s", diff)
+	}
+}
+
+func TestLoadBalancerIsCreatedOnce(t *testing.T) {
+	p := defaultService
+	p.Port = 80
+	p.Public = true
+	ctx, handle := setupService(t, p)
+	handle.Finalise()
+
+	albSG, exports := ensureLoadBalancer(ctx, handle, false)
+	if albSG != albSGID {
+		t.Errorf("alb security group = %s", albSG)
+	}
+	if diff := cmp.Diff(handle.Exports, exports); diff != "" {
+		t.Errorf("returned exports (-handle +returned):\n%s", diff)
+	}
+	for _, typ := range []string{"aws_lb", "aws_lb_listener", "aws_lb_target_group"} {
+		if got := countOfType(ctx, typ); got != 1 {
+			t.Errorf("%s = %d, want 1", typ, got)
+		}
+	}
+	if len(ctx.Outputs) != 1 {
+		t.Errorf("outputs = %v", ctx.Outputs)
+	}
+	if diff := cmp.Diff([]ir.ID{albListener}, named(t, ctx, svcID).DependsOn); diff != "" {
+		t.Errorf("depends_on (-want +got):\n%s", diff)
 	}
 }
 

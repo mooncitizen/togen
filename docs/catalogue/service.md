@@ -17,7 +17,7 @@ Properties: image, port, size, minReplicas, maxReplicas, public, env.
 
 ### Public services
 
-Only a service with `public` set gets a load balancer. An ALB is about 20 US dollars a month before traffic, so a service that is only called from inside the VPC does not pay for one, and its callers reach it over the private network.
+Only a service with `public` set gets a load balancer of its own. An ALB is about 20 US dollars a month before traffic, so a service that is only called from inside the VPC does not pay for one, and its callers reach it over the private network. A private service that a gateway routes to is the exception: it gets the same load balancer with `internal = true`, on the private subnets, reachable only through the gateway's VPC link rather than from the internet. It is still not given a URL output, because the gateway is the way in. See [gateway](gateway.md).
 
 When `public` is set the resolver adds `aws_lb` on the public subnets, `aws_lb_target_group` with `target_type = "ip"` because Fargate tasks are addressed by IP rather than by instance, `aws_lb_listener` on port 80 forwarding to that group, and an `aws_security_group` for the load balancer that accepts port 80 from anywhere. The service's own security group then accepts the container port from the load balancer's, so nothing else in the VPC can reach it. The service depends on the listener, since ECS refuses to register targets against a group no listener uses. The URL is emitted as an output named `<name>_url`.
 
