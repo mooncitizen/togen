@@ -51,6 +51,25 @@ export type Generated = {
   files: string[];
 };
 
+export type Workspace = {
+  dir: string;
+  name: string;
+};
+
+export type Example = {
+  id: string;
+  description: string;
+};
+
+export type Sketch = {
+  name: string;
+  provider: Provider;
+  region: string;
+  environment: string;
+};
+
+export type InitRequest = Sketch | { example: string };
+
 export type ThemeSetting = 'dark' | 'light' | 'system';
 
 export type Shape = 'card' | 'cylinder' | 'hexagon' | 'circle';

@@ -3,9 +3,29 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
-import type { Config, Cost, Layout, Position, Project, Viewport, Views } from './lib/types.ts';
+import type {
+  Config,
+  Cost,
+  Example,
+  InitRequest,
+  Layout,
+  Position,
+  Project,
+  Viewport,
+  Views,
+  Workspace,
+} from './lib/types.ts';
 
 export type Call = { method: string; path: string; body: unknown; rawBody: string | undefined };
+
+type Served = {
+  project: Project | null;
+  layout: Layout | null;
+  config: Config;
+  views: Views;
+  workspace: Workspace;
+  examples: Example[];
+};
 
 let made: Call[] = [];
 let refusal: ((call: Call) => Response | undefined) | undefined;
@@ -39,6 +59,13 @@ export const overviewOnly: Views = {
   views: [{ id: 'overview', name: 'Overview', nodes: '*' }],
 };
 
+export const shopDir: Workspace = { dir: '/home/paul/code/shop', name: 'shop' };
+
+export const bundled: Example[] = [
+  { id: 'aws-basic', description: 'One of every node type, wired up with the defaults' },
+  { id: 'aws-full', description: 'Every node type, relation and property this milestone supports' },
+];
+
 export function reset() {
   made = [];
   opened = [];
@@ -54,6 +81,20 @@ export function serve(
   config: Config = defaults,
   views: Views = overviewOnly,
 ) {
+  install({ project, layout, config, views, workspace: shopDir, examples: bundled });
+}
+
+// A directory with no togen/ yet: the project and the layout answer 404 until
+// a POST to init creates them, as the studio does.
+export function serveEmpty(
+  workspace: Workspace = shopDir,
+  examples: Example[] = bundled,
+  config: Config = defaults,
+) {
+  install({ project: null, layout: null, config, views: overviewOnly, workspace, examples });
+}
+
+function install(served: Served) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string, init?: RequestInit) => {
@@ -75,20 +116,33 @@ export function serve(
       if (call.method === 'PUT') {
         return new Response(null, { status: 204 });
       }
+      if (call.method === 'POST' && call.path === '/api/project/init') {
+        served.project = created(call.body as InitRequest);
+        served.layout = overviewLayout({});
+        return answer(201, { written: ['togen/project.json', 'togen/layout.json', 'togen.yml'] });
+      }
       if (call.path === '/api/project') {
-        return json(project);
+        return served.project === null ? missing('togen/project.json') : json(served.project);
       }
       if (call.path === '/api/layout') {
-        return json(layout);
+        return served.layout === null ? missing('togen/layout.json') : json(served.layout);
       }
       if (call.path === '/api/config') {
-        return json(config);
+        return json(served.config);
       }
       if (call.path === '/api/views') {
-        return json(views);
+        return json(served.views);
+      }
+      if (call.path === '/api/workspace') {
+        return json(served.workspace);
+      }
+      if (call.path === '/api/examples') {
+        return json({ examples: served.examples });
       }
       if (call.path === '/api/cost') {
-        return json(estimate ?? unpriced(project));
+        return served.project === null
+          ? missing('togen/project.json')
+          : json(estimate ?? unpriced(served.project));
       }
       return new Response(null, { status: 404 });
     }),
@@ -100,6 +154,27 @@ export function overviewLayout(
   viewport: Viewport = { x: 0, y: 0, zoom: 1 },
 ): Layout {
   return { version: 2, views: { overview: { nodes, viewport } } };
+}
+
+// What the studio writes for the request: the sketch as an empty project, or a
+// small stand-in for the bundled example.
+function created(request: InitRequest): Project {
+  if ('example' in request) {
+    return {
+      version: 1,
+      name: request.example,
+      provider: 'aws',
+      region: 'eu-west-2',
+      environment: 'dev',
+      nodes: [{ id: 'gateway-1', type: 'gateway', name: 'api' }],
+      edges: [],
+    };
+  }
+  return { version: 1, ...request, nodes: [], edges: [] };
+}
+
+function missing(name: string): Response {
+  return answer(404, { error: `${name} not found. Run 'togen init' first.` });
 }
 
 export function refuse(answer: ((call: Call) => Response | undefined) | undefined) {
@@ -149,9 +224,7 @@ export function settle(ms = 500): Promise<void> {
 }
 
 export async function show() {
-  const screen = await render(App);
-  screen.container.style.width = '900px';
-  screen.container.style.height = '600px';
+  const screen = await mount(900, 600);
   await vi.waitFor(() => expect(screen.container.querySelector('.svelte-flow')).toBeInTheDocument());
   return screen;
 }
@@ -172,6 +245,22 @@ function unpriced(project: Project): Cost {
     snapshotDate: '2026-09-05',
     note: 'list prices from 2026-09-05, estimate not a quote',
   };
+}
+
+// Wide enough for the three choice cards to sit in a row, as designed.
+export async function showFirstRun() {
+  const screen = await mount(1200, 700);
+  await vi.waitFor(() =>
+    expect(screen.container.querySelector('[data-screen="first-run"]')).toBeInTheDocument(),
+  );
+  return screen;
+}
+
+async function mount(width: number, height: number) {
+  const screen = await render(App);
+  screen.container.style.width = `${width}px`;
+  screen.container.style.height = `${height}px`;
+  return screen;
 }
 
 function json(value: unknown): Response {

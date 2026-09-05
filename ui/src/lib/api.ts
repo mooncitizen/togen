@@ -1,4 +1,15 @@
-import type { Config, Cost, Generated, Layout, Project, ValidationError, Views } from './types.ts';
+import type {
+  Config,
+  Cost,
+  Example,
+  Generated,
+  InitRequest,
+  Layout,
+  Project,
+  ValidationError,
+  Views,
+  Workspace,
+} from './types.ts';
 
 export class ApiError extends Error {
   status: number;
@@ -42,6 +53,20 @@ export function getConfig(): Promise<Config> {
 
 export function getCost(): Promise<Cost> {
   return read<Cost>('/api/cost');
+}
+
+export function getWorkspace(): Promise<Workspace> {
+  return read<Workspace>('/api/workspace');
+}
+
+export async function getExamples(): Promise<Example[]> {
+  const answer = await read<{ examples?: Example[] | null }>('/api/examples');
+  return answer.examples ?? [];
+}
+
+export async function initProject(request: InitRequest): Promise<string[]> {
+  const answer = await post<{ written?: string[] | null }>('/api/project/init', request);
+  return answer.written ?? [];
 }
 
 export async function generate(target?: string): Promise<Generated[]> {

@@ -5,6 +5,7 @@
   import { events } from './lib/api.ts';
   import Canvas from './lib/components/Canvas.svelte';
   import CostPanel from './lib/components/CostPanel.svelte';
+  import FirstRun from './lib/components/FirstRun.svelte';
   import Inspector from './lib/components/Inspector.svelte';
   import Rail from './lib/components/Rail.svelte';
   import TopBar from './lib/components/TopBar.svelte';
@@ -36,18 +37,22 @@
 </script>
 
 <SvelteFlowProvider>
-  <div class="flex h-full flex-col bg-canvas text-text">
-    <TopBar />
-    <main class="flex min-h-0 flex-1">
-      <Rail />
-      <Canvas />
-      {#if store.editing}
-        <ViewEditor />
-      {:else if store.costOpen}
-        <CostPanel />
-      {:else}
-        <Inspector />
-      {/if}
-    </main>
-  </div>
+  {#if store.firstRun}
+    <FirstRun />
+  {:else if store.ready}
+    <div class="flex h-full flex-col bg-canvas text-text">
+      <TopBar />
+      <main class="flex min-h-0 flex-1">
+        <Rail />
+        <Canvas />
+        {#if store.editing}
+          <ViewEditor />
+        {:else if store.costOpen}
+          <CostPanel />
+        {:else}
+          <Inspector />
+        {/if}
+      </main>
+    </div>
+  {/if}
 </SvelteFlowProvider>

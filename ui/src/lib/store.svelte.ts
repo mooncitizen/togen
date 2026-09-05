@@ -9,6 +9,8 @@ import {
   getLayout,
   getProject,
   getViews,
+  getWorkspace,
+  initProject,
   putLayout,
   putProject,
   putViews,
@@ -22,18 +24,21 @@ import type {
   Cost,
   Edge,
   Generated,
+  InitRequest,
   Layout,
   Node,
   NodeType,
   Position,
   Project,
   Relation,
+  Sketch,
   ValidationError,
   View,
   ViewLayout,
   ViewNodes,
   Viewport,
   Views,
+  Workspace,
 } from './types.ts';
 import { errorLine, validateProject } from './validate.ts';
 
@@ -90,6 +95,10 @@ export class Store {
   error = $state.raw<ApiError | null>(null);
   notice = $state.raw<string | null>(null);
   ready = $state(false);
+  firstRun = $state(false);
+  workspace = $state.raw<Workspace | null>(null);
+  creating = $state(false);
+  conflict = $state.raw<string | null>(null);
   generated = $state.raw<Generated[] | null>(null);
   generating = $state(false);
   saving = $state(false);
@@ -205,18 +214,24 @@ export class Store {
 
   async load(): Promise<void> {
     await this.loadConfig();
-    void this.loadCost();
     let project: Project;
     try {
       project = await getProject();
     } catch (failure) {
-      this.#report(failure);
+      if (isNoProject(failure)) {
+        await this.#startFresh();
+      } else {
+        this.#report(failure);
+      }
       this.ready = true;
       return;
     }
+    this.firstRun = false;
+    this.conflict = null;
     this.project = project;
     this.#saved = project;
     this.#forget();
+    void this.loadCost();
     const sound = await this.#readViews();
     const found = await this.#readLayout();
     this.ready = true;
@@ -227,6 +242,54 @@ export class Store {
       this.error = null;
     }
     await this.#placeMissing();
+  }
+
+  // No togen/ yet is not a broken project: the first-run screen takes over
+  // until one is created here or by togen init in a terminal.
+  async #startFresh(): Promise<void> {
+    this.firstRun = true;
+    this.project = null;
+    this.error = null;
+    if (this.workspace !== null) {
+      return;
+    }
+    try {
+      this.workspace = await getWorkspace();
+    } catch (failure) {
+      this.#report(failure);
+    }
+  }
+
+  createProject(sketch: Sketch): Promise<ValidationError[]> {
+    return this.#create(sketch);
+  }
+
+  createFromExample(id: string): Promise<ValidationError[]> {
+    return this.#create({ example: id });
+  }
+
+  // What the studio refused about the request goes back to the form. A
+  // project that appeared meanwhile (409) is offered to open instead.
+  async #create(request: InitRequest): Promise<ValidationError[]> {
+    this.conflict = null;
+    this.creating = true;
+    try {
+      await initProject(request);
+      await this.load();
+      return [];
+    } catch (failure) {
+      if (failure instanceof ApiError && failure.status === 422) {
+        return failure.errors;
+      }
+      if (failure instanceof ApiError && failure.status === 409) {
+        this.conflict = failure.message;
+      } else {
+        this.#report(failure);
+      }
+      return [];
+    } finally {
+      this.creating = false;
+    }
   }
 
   // togen.yml is read, never written, and a broken one is not a broken
@@ -1298,6 +1361,10 @@ function freshLayout(): Layout {
 
 function isMissingLayout(failure: unknown): boolean {
   return failure instanceof ApiError && (failure.status === 404 || failure.status === 422);
+}
+
+function isNoProject(failure: unknown): boolean {
+  return failure instanceof ApiError && failure.status === 404;
 }
 
 function nextIndex(project: Project, type: NodeType): number {
