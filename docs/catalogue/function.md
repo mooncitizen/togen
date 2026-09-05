@@ -17,6 +17,12 @@ Runtimes: node `nodejs22.x`, python `python3.12`, go `provided.al2023` with hand
 
 Sizes are memory: small 512 MB, medium 1024 MB, large 2048 MB.
 
+### Edges
+
+A `calls` edge to another function grants `lambda:InvokeFunction` on that function's ARN and injects `<TARGET>_FUNCTION_NAME`. The invoke goes over the AWS API rather than the network, so the caller stays out of the VPC.
+
+A `calls` edge to a service injects `<TARGET>_URL`, which is `http://<name>.<project>-<environment>.local:<port>` through Cloud Map private DNS. That name only resolves inside the VPC, so the function joins it: security group, `vpc_config` over the private subnets and the VPC access policy. The service's security group is opened on its container port from the function's.
+
 ## GCP
 
 Not implemented yet. Planned: `google_cloudfunctions2_function` with a source bucket and a service account.

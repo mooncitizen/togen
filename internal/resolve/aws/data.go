@@ -82,8 +82,12 @@ func connectPrivately(ctx *resolve.Context, from, to *resolve.Handle, host, port
 
 	prefix := strings.ToUpper(ctx.Local(to.Node.Name))
 	from.SetEnv(prefix+"_HOST", host)
-	from.SetEnv(prefix+"_PORT", ir.Str(strconv.FormatFloat(float64(number), 'f', -1, 64)))
+	from.SetEnv(prefix+"_PORT", ir.Str(portString(number)))
 	return prefix
+}
+
+func portString(port ir.Number) string {
+	return strconv.FormatFloat(float64(port), 'f', -1, 64)
 }
 
 // A bucket is reached over the public S3 endpoint, so nothing here joins the VPC.

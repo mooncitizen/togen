@@ -31,6 +31,12 @@ Sizes are Fargate cpu and memory pairs: small 256/512, medium 1024/2048, large 2
 
 A `reads` or `writes` edge to a database opens the engine port on the database's security group from the service's, injects the host, port, name and secret ARN as environment variables, and puts a `secretsmanager:GetSecretValue` statement on the task role. Statements from all edges are collected into one `aws_iam_role_policy`.
 
+A `calls` edge to a service needs a stable private address, and a private service has no load balancer to give one, so the target is registered in Cloud Map. The first call in the project creates `aws_service_discovery_private_dns_namespace.main` at `<project>-<environment>.local`, one per project. Each called service then gets an `aws_service_discovery_service` named after the node, and a `service_registries` block on its `aws_ecs_service` so ECS registers and deregisters task IPs as they come and go. The block also tells Cloud Map that ECS reports health, so a stopped task drops out of DNS. The target's security group is opened on its container port from the caller's and the caller gets `<TARGET>_URL`, which is `http://<name>.<project>-<environment>.local:<port>`.
+
+A public service is called by that same private name. Sending internal traffic out to the load balancer and back would cross the internet and pay for the trip, for a service the caller can already reach directly.
+
+A `calls` edge to a function grants `lambda:InvokeFunction` on the target and injects `<TARGET>_FUNCTION_NAME`. Nothing is opened on the network, because Lambda is invoked over the AWS API.
+
 ## GCP
 
 Not implemented yet. Planned: `google_cloud_run_v2_service` with a service account, and for a public service a `google_cloud_run_v2_service_iam_member` granting `roles/run.invoker` to `allUsers` rather than a load balancer.
