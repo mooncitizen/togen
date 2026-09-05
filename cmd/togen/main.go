@@ -62,6 +62,17 @@ func newRootCommand() *cobra.Command {
 	generateCmd.Flags().StringVar(&out, "out", "", "output directory, default from togen.yml")
 	generateCmd.Flags().BoolVar(&force, "force", false, "replace the output directory even if it has files Togen did not write")
 
+	var asJSON bool
+	costCmd := &cobra.Command{
+		Use:   "cost",
+		Short: "Estimate the monthly cost of togen/project.json from bundled list prices",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return run(func(cwd string) cli.Result { return cli.Cost(cwd, asJSON) })
+		},
+	}
+	costCmd.Flags().BoolVar(&asJSON, "json", false, "print the estimate as JSON")
+
 	var port int
 	var noOpen bool
 	studioCmd := &cobra.Command{
@@ -81,7 +92,7 @@ func newRootCommand() *cobra.Command {
 	studioCmd.Flags().IntVar(&port, "port", 3000, "port to listen on, 0 for any free port")
 	studioCmd.Flags().BoolVar(&noOpen, "no-open", false, "do not open a browser")
 
-	root.AddCommand(initCmd, validateCmd, generateCmd, studioCmd)
+	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, studioCmd)
 	return root
 }
 

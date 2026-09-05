@@ -31,6 +31,9 @@ for example in "$root"/examples/*/; do
   echo "== $name"
   (
     cd "$work" && "$bin" generate --target hcl || exit 1
+    "$bin" cost > cost.txt || { cat cost.txt; exit 1; }
+    cat cost.txt
+    if grep -qiw error cost.txt; then echo "togen cost reported an error"; exit 1; fi
     cd "$work/infra/hcl" || exit 1
     terraform init -backend=false -input=false >/dev/null || exit 1
     terraform validate || exit 1

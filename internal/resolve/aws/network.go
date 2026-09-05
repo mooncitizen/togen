@@ -2,6 +2,7 @@ package aws
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
@@ -16,6 +17,14 @@ type Network struct {
 const networkLabel = "network"
 
 var zones = []string{"a", "b"}
+
+// Functions and gateways only join the VPC through an edge to one of these, so the node
+// list alone says whether the resolver will create it.
+func needsNetwork(p *ir.Project) bool {
+	return slices.ContainsFunc(p.Nodes, func(n ir.Node) bool {
+		return n.Type == ir.NodeService || n.Type == ir.NodeDatabase || n.Type == ir.NodeCache
+	})
+}
 
 func ensureNetwork(ctx *resolve.Context) *Network {
 	if n, ok := ctx.Scratch[networkLabel].(*Network); ok {

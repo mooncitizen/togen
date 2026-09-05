@@ -263,6 +263,19 @@ func (s *Server) getExamples(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"examples": examples.List()})
 }
 
+func (s *Server) getCost(w http.ResponseWriter, _ *http.Request) {
+	doc, _, err := workspace.Cost(s.dir)
+	if err != nil {
+		if !workspace.Exists(workspace.ProjectPath(s.dir)) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeRefusal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, doc)
+}
+
 func (s *Server) sendFile(w http.ResponseWriter, path string) {
 	raw, err := workspace.ReadJSONFile(path, s.dir)
 	if err != nil {
