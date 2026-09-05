@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Togen studio</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 3rem 1.5rem;
+        font: 16px/1.6 ui-sans-serif, system-ui, sans-serif;
+        color: #1c1917;
+        background: #fafaf9;
+      }
+      main {
+        max-width: 40rem;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        color: #57534e;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 2rem;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 0.4rem 0.75rem 0.4rem 0;
+        border-bottom: 1px solid #e7e5e4;
+        vertical-align: top;
+      }
+      th {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #78716c;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, monospace;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Togen studio</h1>
+      <p>The canvas is not built yet. The server and its API are, so the UI has something to talk to.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>GET /api/project</code></td>
+            <td>The project document</td>
+          </tr>
+          <tr>
+            <td><code>PUT /api/project</code></td>
+            <td>Validates, then saves it</td>
+          </tr>
+          <tr>
+            <td><code>GET /api/layout</code></td>
+            <td>Node positions and viewport</td>
+          </tr>
+          <tr>
+            <td><code>PUT /api/layout</code></td>
+            <td>Saves them</td>
+          </tr>
+          <tr>
+            <td><code>GET /api/config</code></td>
+            <td>Targets and output directory</td>
+          </tr>
+          <tr>
+            <td><code>POST /api/generate</code></td>
+            <td>Writes the infrastructure code</td>
+          </tr>
+          <tr>
+            <td><code>GET /api/events</code></td>
+            <td>Websocket, one message per file change</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-package cli
+package workspace
 
 import (
 	"encoding/json"
@@ -75,7 +75,7 @@ func readManifest(dir string) map[string]bool {
 }
 
 func checkOutDir(dir string) ([]string, error) {
-	if !exists(dir) {
+	if !Exists(dir) {
 		return nil, nil
 	}
 	present, err := listFiles(dir, dir)
@@ -99,10 +99,10 @@ func checkOutDir(dir string) ([]string, error) {
 // A crash between the two swap renames leaves .togen-old behind, either instead of the
 // output directory or beside it. Either way the Terraform files in it are the only copy.
 func recoverOld(old, dir string) error {
-	if !exists(old) {
+	if !Exists(old) {
 		return nil
 	}
-	if !exists(dir) {
+	if !Exists(dir) {
 		return os.Rename(old, dir)
 	}
 	if err := moveTerraformFiles(old, dir); err != nil {
@@ -118,7 +118,7 @@ func moveTerraformFiles(from, to string) error {
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if !isTerraformFile(name) || exists(filepath.Join(to, name)) {
+		if !isTerraformFile(name) || Exists(filepath.Join(to, name)) {
 			continue
 		}
 		if err := os.Rename(filepath.Join(from, name), filepath.Join(to, name)); err != nil {
@@ -154,14 +154,14 @@ func writeOutputs(dir string, files map[string][]byte) error {
 			return err
 		}
 	}
-	if err := writeJSONFile(filepath.Join(tmp, manifestName), manifest{Version: 1, Files: names}); err != nil {
+	if err := WriteJSONFile(filepath.Join(tmp, manifestName), manifest{Version: 1, Files: names}); err != nil {
 		return err
 	}
 
 	if err := os.MkdirAll(filepath.Dir(dir), 0o755); err != nil {
 		return err
 	}
-	hadOld := exists(dir)
+	hadOld := Exists(dir)
 	if hadOld {
 		if err := os.Rename(dir, old); err != nil {
 			return err
