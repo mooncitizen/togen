@@ -26,16 +26,18 @@ func newRootCommand() *cobra.Command {
 	}
 
 	var initProvider, initName string
+	var initMigrate bool
 	initCmd := &cobra.Command{
 		Use:   "init",
-		Short: "Create togen/ in the current directory",
+		Short: "Create togen/ and togen.yml in the current directory",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return run(func(cwd string) cli.Result { return cli.Init(cwd, initProvider, initName) })
+			return run(func(cwd string) cli.Result { return cli.Init(cwd, initProvider, initName, initMigrate) })
 		},
 	}
 	initCmd.Flags().StringVar(&initProvider, "provider", "aws", "aws, gcp or azure")
 	initCmd.Flags().StringVar(&initName, "name", "", "project name")
+	initCmd.Flags().BoolVar(&initMigrate, "migrate", false, "rewrite an old togen/togen.json as togen.yml")
 
 	validateCmd := &cobra.Command{
 		Use:   "validate",
@@ -57,7 +59,7 @@ func newRootCommand() *cobra.Command {
 		},
 	}
 	generateCmd.Flags().StringVar(&target, "target", "", "hcl, pulumi or cdktf")
-	generateCmd.Flags().StringVar(&out, "out", "", "output directory, default from togen/togen.json")
+	generateCmd.Flags().StringVar(&out, "out", "", "output directory, default from togen.yml")
 	generateCmd.Flags().BoolVar(&force, "force", false, "replace the output directory even if it has files Togen did not write")
 
 	var port int
@@ -89,6 +91,9 @@ func run(command func(cwd string) cli.Result) error {
 		return err
 	}
 	result := command(cwd)
+	if result.Note != "" {
+		_, _ = fmt.Fprintln(os.Stderr, result.Note)
+	}
 	stream := os.Stdout
 	if result.Code != 0 {
 		stream = os.Stderr

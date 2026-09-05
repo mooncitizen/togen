@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 func readJSONDoc(t *testing.T, path string) map[string]any {
@@ -25,7 +27,7 @@ func readJSONDoc(t *testing.T, path string) map[string]any {
 
 func TestInitWritesTheThreeProjectFiles(t *testing.T) {
 	cwd := t.TempDir()
-	result := Init(cwd, "gcp", "shop")
+	result := Init(cwd, "gcp", "shop", false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -54,14 +56,92 @@ func TestInitWritesTheThreeProjectFiles(t *testing.T) {
 		t.Errorf("layout.json (-want +got):\n%s", diff)
 	}
 
-	config := readJSONDoc(t, filepath.Join(cwd, "togen", "togen.json"))
-	wantConfig := map[string]any{
-		"version": float64(1),
-		"targets": []any{"hcl"},
-		"outDir":  "infra",
+	if want := []string{"created togen/project.json, togen/layout.json and togen.yml"}; !cmp.Equal(want, result.Lines) {
+		t.Errorf("lines = %v, want %v", result.Lines, want)
 	}
-	if diff := cmp.Diff(wantConfig, config); diff != "" {
-		t.Errorf("togen.json (-want +got):\n%s", diff)
+	expectConfig(t, cwd, "infra")
+}
+
+func expectConfig(t *testing.T, cwd, outDir string) {
+	t.Helper()
+	text := readFileText(t, workspace.ConfigPath(cwd))
+	for _, want := range []string{
+		"version: 1\n",
+		"targets: [hcl]\n",
+		"outDir: " + outDir + "\n",
+		"# style:\n",
+		"#   theme: dark",
+		"#   kinds:",
+		"#     database:",
+		"#   nodes:",
+		"#     orders-db:",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("togen.yml has no %q:\n%s", want, text)
+		}
+	}
+	config, note, err := workspace.LoadConfig(cwd)
+	if err != nil {
+		t.Fatalf("the written togen.yml does not load: %v", err)
+	}
+	if note != "" {
+		t.Errorf("note = %q, want none", note)
+	}
+	if config.OutDir != outDir || config.Style.Theme != workspace.DefaultTheme {
+		t.Errorf("config = %+v", config)
+	}
+}
+
+func TestInitMigratesTheLegacyConfig(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	if err := os.Remove(workspace.ConfigPath(cwd)); err != nil {
+		t.Fatal(err)
+	}
+	writeFileText(t, workspace.LegacyConfigPath(cwd), `{"version":1,"targets":["hcl"],"outDir":"build"}`)
+
+	result := Init(cwd, "", "", true)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	if want := []string{"moved togen/togen.json to togen.yml"}; !cmp.Equal(want, result.Lines) {
+		t.Errorf("lines = %v, want %v", result.Lines, want)
+	}
+	if workspace.Exists(workspace.LegacyConfigPath(cwd)) {
+		t.Error("togen/togen.json survived the migration")
+	}
+	expectConfig(t, cwd, "build")
+}
+
+func TestInitMigrateRefusesWhenThereIsNothingToDo(t *testing.T) {
+	cwd := t.TempDir()
+	result := Init(cwd, "", "", true)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, want 1", result.Code)
+	}
+	if want := "there is no togen/togen.json to migrate"; result.Lines[0] != want {
+		t.Errorf("line = %q, want %q", result.Lines[0], want)
+	}
+}
+
+func TestInitMigrateRefusesWhenTheYAMLIsAlreadyThere(t *testing.T) {
+	cwd := t.TempDir()
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
+		t.Fatalf("init: %v", result.Lines)
+	}
+	writeFileText(t, workspace.LegacyConfigPath(cwd), `{"version":1}`)
+
+	result := Init(cwd, "", "", true)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, want 1", result.Code)
+	}
+	if want := "togen.yml already exists, so there is nothing to migrate"; result.Lines[0] != want {
+		t.Errorf("line = %q, want %q", result.Lines[0], want)
+	}
+	if !workspace.Exists(workspace.LegacyConfigPath(cwd)) {
+		t.Error("togen/togen.json was removed by a refused migration")
 	}
 }
 
@@ -70,7 +150,7 @@ func TestInitDefaultsNameAndProvider(t *testing.T) {
 	if err := os.MkdirAll(cwd, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	result := Init(cwd, "", "")
+	result := Init(cwd, "", "", false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -91,7 +171,7 @@ func TestInitFallsBackToProjectWhenTheDirectoryNameGivesNothing(t *testing.T) {
 	if err := os.MkdirAll(cwd, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if result := Init(cwd, "", ""); result.Code != 0 {
+	if result := Init(cwd, "", "", false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	project := readJSONDoc(t, filepath.Join(cwd, "togen", "project.json"))
@@ -102,10 +182,10 @@ func TestInitFallsBackToProjectWhenTheDirectoryNameGivesNothing(t *testing.T) {
 
 func TestInitRefusesAnExistingTogenDirectory(t *testing.T) {
 	cwd := t.TempDir()
-	if first := Init(cwd, "", ""); first.Code != 0 {
+	if first := Init(cwd, "", "", false); first.Code != 0 {
 		t.Fatalf("first init: %v", first.Lines)
 	}
-	second := Init(cwd, "", "")
+	second := Init(cwd, "", "", false)
 	if second.Code != 1 {
 		t.Fatalf("code = %d, want 1", second.Code)
 	}
@@ -115,7 +195,7 @@ func TestInitRefusesAnExistingTogenDirectory(t *testing.T) {
 }
 
 func TestInitRejectsAnUnknownProvider(t *testing.T) {
-	result := Init(t.TempDir(), "oracle", "")
+	result := Init(t.TempDir(), "oracle", "", false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -127,7 +207,7 @@ func TestInitRejectsAnUnknownProvider(t *testing.T) {
 
 func TestInitRejectsANameTheSchemaWillNotAccept(t *testing.T) {
 	cwd := t.TempDir()
-	result := Init(cwd, "", "Bad Name")
+	result := Init(cwd, "", "Bad Name", false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -149,7 +229,7 @@ func TestInitDerivesAValidNameFromAwkwardDirectories(t *testing.T) {
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				t.Fatal(err)
 			}
-			if result := Init(dir, "", ""); result.Code != 0 {
+			if result := Init(dir, "", "", false); result.Code != 0 {
 				t.Fatalf("init: %v", result.Lines)
 			}
 			if result := Validate(dir); result.Code != 0 {

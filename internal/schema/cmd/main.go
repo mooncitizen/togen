@@ -8,17 +8,23 @@ import (
 	"github.com/mooncitizen/togen/internal/schema"
 )
 
-const embedCopy = "internal/ir/project.schema.json"
+// The packages that validate cannot embed from schema/, so they keep a copy.
+var embedCopies = map[string]string{
+	"project.schema.json": "internal/ir/project.schema.json",
+	"togen.schema.json":   "internal/workspace/togen.schema.json",
+}
 
 func main() {
 	if err := schema.Write("schema"); err != nil {
 		log.Fatal(err)
 	}
-	b, err := os.ReadFile(filepath.Join("schema", "project.schema.json"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := os.WriteFile(embedCopy, b, 0o644); err != nil {
-		log.Fatal(err)
+	for name, copied := range embedCopies {
+		b, err := os.ReadFile(filepath.Join("schema", name))
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err := os.WriteFile(copied, b, 0o644); err != nil {
+			log.Fatal(err)
+		}
 	}
 }

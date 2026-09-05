@@ -28,22 +28,23 @@ func (e *StrangerError) Error() string {
 		e.Dir, strings.Join(e.Strangers, ", "))
 }
 
-func Generate(cwd, target, out string, force bool) ([]Generated, error) {
-	config, err := LoadConfig(cwd)
+// The second return is the deprecation note from the configuration, empty when there is none.
+func Generate(cwd, target, out string, force bool) ([]Generated, string, error) {
+	config, note, err := LoadConfig(cwd)
 	if err != nil {
-		return nil, err
+		return nil, note, err
 	}
 	project, errs, err := LoadProject(cwd)
 	if err != nil {
-		return nil, err
+		return nil, note, err
 	}
 	if len(errs) > 0 {
-		return nil, errs
+		return nil, note, errs
 	}
 
 	newProvider, ok := resolvers[project.Provider]
 	if !ok {
-		return nil, &Error{fmt.Sprintf("provider '%s' is not supported yet", project.Provider)}
+		return nil, note, &Error{fmt.Sprintf("provider '%s' is not supported yet", project.Provider)}
 	}
 	targets := config.Targets
 	if target != "" {
@@ -51,7 +52,7 @@ func Generate(cwd, target, out string, force bool) ([]Generated, error) {
 	}
 	for _, t := range targets {
 		if _, ok := emitters[t]; !ok {
-			return nil, &Error{fmt.Sprintf("target '%s' is not supported yet", t)}
+			return nil, note, &Error{fmt.Sprintf("target '%s' is not supported yet", t)}
 		}
 	}
 
@@ -59,9 +60,9 @@ func Generate(cwd, target, out string, force bool) ([]Generated, error) {
 	if err != nil {
 		var resolveErr *resolve.ResolveError
 		if errors.As(err, &resolveErr) {
-			return nil, resolveErr.Errors
+			return nil, note, resolveErr.Errors
 		}
-		return nil, err
+		return nil, note, err
 	}
 
 	outDir := config.OutDir
@@ -72,23 +73,23 @@ func Generate(cwd, target, out string, force bool) ([]Generated, error) {
 	for _, t := range targets {
 		files, err := emitters[t](graph)
 		if err != nil {
-			return nil, err
+			return nil, note, err
 		}
 		dir := filepath.Join(cwd, outDir, t)
 		shown := shownPath(cwd, dir)
 		if !force {
 			strangers, err := checkOutDir(dir)
 			if err != nil {
-				return nil, err
+				return nil, note, err
 			}
 			if len(strangers) > 0 {
-				return nil, &StrangerError{Dir: shown, Strangers: strangers}
+				return nil, note, &StrangerError{Dir: shown, Strangers: strangers}
 			}
 		}
 		if err := writeOutputs(dir, files); err != nil {
-			return nil, err
+			return nil, note, err
 		}
 		written = append(written, Generated{Dir: shown, Files: sortedKeys(files)})
 	}
-	return written, nil
+	return written, note, nil
 }

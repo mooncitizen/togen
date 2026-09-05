@@ -7,9 +7,9 @@ import (
 )
 
 func Generate(cwd, target, out string, force bool) Result {
-	generated, err := workspace.Generate(cwd, target, out, force)
+	generated, note, err := workspace.Generate(cwd, target, out, force)
 	if err != nil {
-		return failure(err)
+		return noted(failure(err), note)
 	}
 	var lines []string
 	for _, g := range generated {
@@ -18,5 +18,5 @@ func Generate(cwd, target, out string, force bool) Result {
 			lines = append(lines, "  "+name)
 		}
 	}
-	return Result{Code: 0, Lines: lines}
+	return Result{Code: 0, Lines: lines, Note: note}
 }

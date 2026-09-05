@@ -19,6 +19,10 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 			filepath.Join("..", "..", "schema", "project.schema.json"),
 			filepath.Join("..", "ir", "project.schema.json"),
 		},
+		"togen.schema.json": {
+			filepath.Join("..", "..", "schema", "togen.schema.json"),
+			filepath.Join("..", "workspace", "togen.schema.json"),
+		},
 		"relations.json": {filepath.Join("..", "..", "schema", "relations.json")},
 		"engines.json":   {filepath.Join("..", "..", "schema", "engines.json")},
 	}
@@ -30,10 +34,10 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 		for _, path := range paths {
 			got, err := os.ReadFile(path)
 			if err != nil {
-				t.Fatalf("%s: %v (run make generate)", path, err)
+				t.Fatalf("%s: %v (run just generate)", path, err)
 			}
 			if !bytes.Equal(want, got) {
-				t.Fatalf("%s is stale, run make generate", path)
+				t.Fatalf("%s is stale, run just generate", path)
 			}
 		}
 	}
@@ -65,6 +69,28 @@ func TestProjectSchemaShape(t *testing.T) {
 		if !strings.Contains(string(b), needle) {
 			t.Errorf("schema lacks %s", needle)
 		}
+	}
+}
+
+func TestConfigSchemaShape(t *testing.T) {
+	b, err := json.Marshal(Config())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, needle := range []string{
+		`"enum":["dark","light","system"]`,
+		`"enum":["card","cylinder","hexagon","circle"]`,
+		`"pattern":"^#[0-9a-fA-F]{6}$"`,
+		`"^(service|function|database|gateway|queue|bucket|cache)$"`,
+		`"^[a-z][a-z0-9]*(-[a-z0-9]+)*$"`,
+		`"additionalProperties":false`,
+	} {
+		if !strings.Contains(string(b), needle) {
+			t.Errorf("schema lacks %s", needle)
+		}
+	}
+	if _, ok := Config()["required"]; ok {
+		t.Error("nothing in the configuration is required")
 	}
 }
 

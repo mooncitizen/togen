@@ -7,14 +7,18 @@ import (
 )
 
 func Validate(cwd string) Result {
+	_, note, err := workspace.LoadConfig(cwd)
+	if err != nil {
+		return noted(failure(err), note)
+	}
 	project, errs, err := workspace.Validate(cwd)
 	if err != nil {
-		return failure(err)
+		return noted(failure(err), note)
 	}
 	if len(errs) > 0 {
-		return Result{Code: 1, Lines: errorLines(errs)}
+		return Result{Code: 1, Lines: errorLines(errs), Note: note}
 	}
-	return Result{Code: 0, Lines: []string{fmt.Sprintf(
+	return Result{Code: 0, Note: note, Lines: []string{fmt.Sprintf(
 		"togen/project.json is valid (%s, %s)",
 		plural(len(project.Nodes), "node"),
 		plural(len(project.Edges), "edge"),

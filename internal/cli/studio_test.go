@@ -9,7 +9,7 @@ import (
 
 func TestStudioServesTheApiUntilTheContextIsCancelled(t *testing.T) {
 	cwd := t.TempDir()
-	if result := Init(cwd, "", "shop"); result.Code != 0 {
+	if result := Init(cwd, "", "shop", false); result.Code != 0 {
 		t.Fatalf("init: %v", result.Lines)
 	}
 

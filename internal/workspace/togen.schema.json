@@ -1,0 +1,110 @@
+{
+  "$id": "https://togen.dev/schema/togen.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "outDir": {
+      "description": "Directory the generated code is written to",
+      "minLength": 1,
+      "type": "string"
+    },
+    "style": {
+      "additionalProperties": false,
+      "description": "How the studio draws the diagram",
+      "properties": {
+        "kinds": {
+          "additionalProperties": false,
+          "description": "Style for every node of a type",
+          "patternProperties": {
+            "^(service|function|database|gateway|queue|bucket|cache)$": {
+              "additionalProperties": false,
+              "properties": {
+                "color": {
+                  "description": "Fill colour as #rrggbb",
+                  "pattern": "^#[0-9a-fA-F]{6}$",
+                  "type": "string"
+                },
+                "icon": {
+                  "description": "A bundled icon id such as aws/rds or a path relative to togen.yml",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "shape": {
+                  "description": "Outline the node is drawn with",
+                  "enum": [
+                    "card",
+                    "cylinder",
+                    "hexagon",
+                    "circle"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "nodes": {
+          "additionalProperties": false,
+          "description": "Style for one node by name",
+          "patternProperties": {
+            "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+              "additionalProperties": false,
+              "properties": {
+                "color": {
+                  "description": "Fill colour as #rrggbb",
+                  "pattern": "^#[0-9a-fA-F]{6}$",
+                  "type": "string"
+                },
+                "icon": {
+                  "description": "A bundled icon id such as aws/rds or a path relative to togen.yml",
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "shape": {
+                  "description": "Outline the node is drawn with",
+                  "enum": [
+                    "card",
+                    "cylinder",
+                    "hexagon",
+                    "circle"
+                  ],
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        },
+        "theme": {
+          "default": "dark",
+          "description": "Colour scheme the studio opens with",
+          "enum": [
+            "dark",
+            "light",
+            "system"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "targets": {
+      "description": "Code generators to run",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "version": {
+      "description": "File format version",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "title": "Togen configuration",
+  "type": "object"
+}
