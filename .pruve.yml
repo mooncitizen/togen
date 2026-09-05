@@ -1,0 +1,31 @@
+# Pruve, everything on.
+
+gate:
+  enabled: true
+  # advisory reports and always passes; required fails the check, and the
+  # merge is blocked only if branch protection makes this check required.
+  posture: advisory
+  # described: a commit message with substance is enough.
+  # explained: the change must carry recorded discussion.
+  require: described
+  # Score bar out of 100 on top of require. 0 or absent means the score gates nothing.
+  threshold: 0
+  # Changes authored by automation such as Dependabot are exempt.
+  allow_bots: true
+  ignore:
+    - "**/*.lock"
+    - "**/vendor/**"
+
+review:
+  # Grounded findings: each one cites a recorded reason this change contradicts.
+  enabled: true
+  # Possible bugs: the model's own read of the diff, sampled more than once
+  # before it is posted. Costs more, and this key is the only way to turn it on.
+  bugs: true
+
+dependencies:
+  # off, daily, thrice_daily, hourly
+  checks: daily
+  on_pull_request: true
+  # saas, binary, internal. Decides whether a copyleft licence is flagged.
+  distribution: saas
