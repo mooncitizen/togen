@@ -230,13 +230,17 @@ export class Store {
     if (saved === null || project === null) {
       return;
     }
+    // A refused node that the last save never held is dropped, not kept: the
+    // serial chain saves an addition before any edit to it, so this is only a
+    // guard on that order.
     this.project = {
       ...project,
-      nodes: project.nodes.map((node) => {
+      nodes: project.nodes.flatMap((node) => {
         if (!ids.includes(node.id)) {
-          return node;
+          return [node];
         }
-        return saved.nodes.find((candidate) => candidate.id === node.id) ?? node;
+        const previous = saved.nodes.find((candidate) => candidate.id === node.id);
+        return previous === undefined ? [] : [previous];
       }),
     };
   }
