@@ -4,11 +4,29 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
 import { ApiError, getLayout, getProject, putLayout, putProject } from './api.ts';
 import { defaultProperties } from './catalogue.ts';
 import { autoLayout } from './layout.ts';
-import type { Layout, Node, NodeType, Position, Project, Viewport } from './types.ts';
+import type {
+  Edge,
+  Layout,
+  Node,
+  NodeType,
+  Position,
+  Project,
+  Relation,
+  ValidationError,
+  Viewport,
+} from './types.ts';
+import { errorLine, validateProject } from './validate.ts';
 
 type Patch = { name?: string; properties?: Record<string, unknown> };
 
+type Held<T> = { index: number; item: T }[];
+
+type Taken = { nodes: Held<Node>; edges: Held<Edge>; positions: Record<string, Position> };
+
+type Selection = { node: string | null; edge: string | null };
+
 const saveDelay = 300;
+const noticeDelay = 6000;
 const origin: Position = { x: 0, y: 0 };
 
 // Positions and the viewport are separate state so that panning the canvas
@@ -20,21 +38,35 @@ export class Store {
   positions = $state.raw<Record<string, Position>>({});
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
   selectedNodeId = $state.raw<string | null>(null);
+  selectedEdgeId = $state.raw<string | null>(null);
   error = $state.raw<ApiError | null>(null);
+  notice = $state.raw<string | null>(null);
   ready = $state(false);
 
-  readonly flowNodes: FlowNode[] = $derived(
-    (this.project?.nodes ?? []).map((node) => this.#card(node, this.positions[node.id] ?? origin)),
+  // The same checks as the CLI, run on every change, separate from what the
+  // studio said about the last save.
+  readonly errors: ValidationError[] = $derived(
+    this.project === null ? [] : validateProject(this.project),
   );
 
-  readonly flowEdges: FlowEdge[] = $derived(
-    (this.project?.edges ?? []).map((edge) => ({
+  readonly flowNodes: FlowNode[] = $derived.by(() => {
+    const counted = tally(this.errors, 'nodeId');
+    return (this.project?.nodes ?? []).map((node) =>
+      this.#card(node, this.positions[node.id] ?? origin, counted[node.id] ?? 0),
+    );
+  });
+
+  readonly flowEdges: FlowEdge[] = $derived.by(() => {
+    const counted = tally(this.errors, 'edgeId');
+    return (this.project?.edges ?? []).map((edge) => ({
       id: edge.id,
       source: edge.from,
       target: edge.to,
       label: edge.relation,
-    })),
-  );
+      selected: edge.id === this.selectedEdgeId,
+      class: edge.id in counted ? 'togen-edge-error' : undefined,
+    }));
+  });
 
   get layout(): Layout {
     return { version: this.#version, nodes: this.positions, viewport: this.viewport };
@@ -44,11 +76,13 @@ export class Store {
   #cards = new Map<string, { key: string; card: FlowNode }>();
   #timer: ReturnType<typeof setTimeout> | undefined;
   #nodeTimer: ReturnType<typeof setTimeout> | undefined;
+  #noticeTimer: ReturnType<typeof setTimeout> | undefined;
   #chain: Promise<void> = Promise.resolve();
   #running = 0;
   #stale = false;
   #saved: Project | null = null;
   #edited = new Set<string>();
+  #editedEdges = new Set<string>();
 
   async load(): Promise<void> {
     let project: Project;
@@ -96,7 +130,7 @@ export class Store {
       try {
         await putProject(next);
       } catch (failure) {
-        this.#discardNode(name);
+        this.#discard([name], []);
         throw failure;
       }
       this.#saved = next;
@@ -104,8 +138,121 @@ export class Store {
     });
   }
 
+  addEdge(from: string, to: string, relation: Relation): Promise<boolean> {
+    const project = this.project;
+    if (project === null) {
+      return Promise.resolve(false);
+    }
+    const twin = project.edges.find(
+      (edge) => edge.from === from && edge.to === to && edge.relation === relation,
+    );
+    if (twin !== undefined) {
+      this.notify(duplicate(project, from, to, relation));
+      return Promise.resolve(false);
+    }
+    const id = `edge-${nextEdgeIndex(project)}`;
+    const next: Project = { ...project, edges: [...project.edges, { id, from, to, relation }] };
+    this.project = next;
+
+    let saved = true;
+    return this.#queue(async () => {
+      try {
+        await putProject(next);
+      } catch (failure) {
+        this.#discard([], [id]);
+        saved = false;
+        throw failure;
+      }
+      this.#saved = next;
+    }).then(() => saved);
+  }
+
+  deleteNode(id: string): Promise<void> {
+    const project = this.project;
+    if (project === null || !project.nodes.some((node) => node.id === id)) {
+      return Promise.resolve();
+    }
+    const taken: Taken = {
+      nodes: held(project.nodes, (node) => node.id === id),
+      edges: held(project.edges, (edge) => edge.from === id || edge.to === id),
+      positions: id in this.positions ? { [id]: this.positions[id] } : {},
+    };
+    const next: Project = {
+      ...project,
+      nodes: project.nodes.filter((node) => node.id !== id),
+      edges: project.edges.filter((edge) => edge.from !== id && edge.to !== id),
+    };
+    this.project = next;
+    const positions = { ...this.positions };
+    delete positions[id];
+    this.positions = positions;
+    const selection = this.#takeSelection();
+    const layout = this.layout;
+
+    return this.#queue(async () => {
+      try {
+        await putProject(next);
+      } catch (failure) {
+        this.#putBack(taken);
+        this.#putBackSelection(selection);
+        throw failure;
+      }
+      this.#saved = next;
+      await putLayout(layout);
+    });
+  }
+
+  deleteEdge(id: string): Promise<void> {
+    const project = this.project;
+    if (project === null || !project.edges.some((edge) => edge.id === id)) {
+      return Promise.resolve();
+    }
+    const taken: Taken = {
+      nodes: [],
+      edges: held(project.edges, (edge) => edge.id === id),
+      positions: {},
+    };
+    const next: Project = { ...project, edges: project.edges.filter((edge) => edge.id !== id) };
+    this.project = next;
+    const selection = this.#takeSelection();
+
+    return this.#queue(async () => {
+      try {
+        await putProject(next);
+      } catch (failure) {
+        this.#putBack(taken);
+        this.#putBackSelection(selection);
+        throw failure;
+      }
+      this.#saved = next;
+    });
+  }
+
   select(id: string | null): void {
     this.selectedNodeId = id;
+    if (id !== null) {
+      this.selectedEdgeId = null;
+    }
+  }
+
+  selectEdge(id: string | null): void {
+    this.selectedEdgeId = id;
+    if (id !== null) {
+      this.selectedNodeId = null;
+    }
+  }
+
+  clearSelection(): void {
+    this.selectedNodeId = null;
+    this.selectedEdgeId = null;
+  }
+
+  notify(message: string): void {
+    this.notice = message;
+    clearTimeout(this.#noticeTimer);
+    this.#noticeTimer = setTimeout(() => {
+      this.notice = null;
+    }, noticeDelay);
   }
 
   // A property the user has cleared is removed rather than written as its
@@ -117,21 +264,67 @@ export class Store {
     }
     this.project = {
       ...project,
-      nodes: project.nodes.map((node) => (node.id === id ? patched(node, patch) : node)),
+      nodes: project.nodes.map((node) => (node.id === id ? patchedNode(node, patch) : node)),
     };
     this.#edited.add(id);
     this.#saveProjectSoon();
   }
 
-  // Removes only the refused node by id, rather than the whole snapshot, so a
-  // second drop queued behind a refused one is not lost.
-  #discardNode(id: string): void {
-    if (this.project !== null) {
-      this.project = { ...this.project, nodes: this.project.nodes.filter((node) => node.id !== id) };
+  updateEdge(id: string, properties: Record<string, unknown>): void {
+    const project = this.project;
+    if (project === null) {
+      return;
     }
+    this.project = {
+      ...project,
+      edges: project.edges.map((edge) => (edge.id === id ? patchedEdge(edge, properties) : edge)),
+    };
+    this.#editedEdges.add(id);
+    this.#saveProjectSoon();
+  }
+
+  // Removes only the refused item by id, rather than the whole snapshot, so a
+  // second change queued behind a refused one is not lost.
+  #discard(nodes: string[], edges: string[]): void {
+    const project = this.project;
+    if (project === null) {
+      return;
+    }
+    this.project = {
+      ...project,
+      nodes: project.nodes.filter((node) => !nodes.includes(node.id)),
+      edges: project.edges.filter((edge) => !edges.includes(edge.id)),
+    };
     const positions = { ...this.positions };
-    delete positions[id];
+    for (const id of nodes) {
+      delete positions[id];
+    }
     this.positions = positions;
+  }
+
+  #takeSelection(): Selection {
+    const selection: Selection = { node: this.selectedNodeId, edge: this.selectedEdgeId };
+    this.selectedNodeId = null;
+    this.selectedEdgeId = null;
+    return selection;
+  }
+
+  #putBackSelection(selection: Selection): void {
+    this.selectedNodeId = selection.node;
+    this.selectedEdgeId = selection.edge;
+  }
+
+  #putBack(taken: Taken): void {
+    const project = this.project;
+    if (project === null) {
+      return;
+    }
+    this.project = {
+      ...project,
+      nodes: reinsert(project.nodes, taken.nodes),
+      edges: reinsert(project.edges, taken.edges),
+    };
+    this.positions = { ...this.positions, ...taken.positions };
   }
 
   moveNode(id: string, position: Position): void {
@@ -154,9 +347,9 @@ export class Store {
 
   // The store is the only owner of selection: Svelte Flow marks it by replacing
   // the node object, and that would otherwise be lost the next time this runs.
-  #card(node: Node, position: Position): FlowNode {
+  #card(node: Node, position: Position, errors: number): FlowNode {
     const selected = node.id === this.selectedNodeId;
-    const key = `${node.name}|${node.type}|${position.x}|${position.y}|${selected}`;
+    const key = `${node.name}|${node.type}|${position.x}|${position.y}|${selected}|${errors}`;
     const held = this.#cards.get(node.id);
     if (held !== undefined && held.key === key) {
       return held.card;
@@ -166,7 +359,7 @@ export class Store {
       type: 'togen',
       position,
       selected,
-      data: { name: node.name, type: node.type },
+      data: { name: node.name, type: node.type, errors },
     };
     this.#cards.set(node.id, { key, card });
     return card;
@@ -206,8 +399,10 @@ export class Store {
     clearTimeout(this.#nodeTimer);
     this.#nodeTimer = setTimeout(() => {
       this.#nodeTimer = undefined;
-      const edited = [...this.#edited];
+      const nodes = [...this.#edited];
+      const edges = [...this.#editedEdges];
       this.#edited.clear();
+      this.#editedEdges.clear();
       void this.#queue(async () => {
         const project = this.project;
         if (project === null) {
@@ -216,7 +411,7 @@ export class Store {
         try {
           await putProject(project);
         } catch (failure) {
-          this.#revert(edited);
+          this.#revert(nodes, edges);
           throw failure;
         }
         this.#saved = project;
@@ -224,24 +419,19 @@ export class Store {
     }, saveDelay);
   }
 
-  #revert(ids: string[]): void {
+  #revert(nodes: string[], edges: string[]): void {
     const saved = this.#saved;
     const project = this.project;
     if (saved === null || project === null) {
       return;
     }
-    // A refused node that the last save never held is dropped, not kept: the
+    // A refused item that the last save never held is dropped, not kept: the
     // serial chain saves an addition before any edit to it, so this is only a
     // guard on that order.
     this.project = {
       ...project,
-      nodes: project.nodes.flatMap((node) => {
-        if (!ids.includes(node.id)) {
-          return [node];
-        }
-        const previous = saved.nodes.find((candidate) => candidate.id === node.id);
-        return previous === undefined ? [] : [previous];
-      }),
+      nodes: restored(project.nodes, saved.nodes, nodes),
+      edges: restored(project.edges, saved.edges, edges),
     };
   }
 
@@ -305,39 +495,88 @@ export function errorLines(error: ApiError): string[] {
   if (error.errors.length === 0) {
     return [error.message];
   }
-  return error.errors.map((entry) => {
-    const path = entry.path === '' ? 'project' : entry.path;
-    if (entry.nodeId !== undefined && entry.nodeId !== '') {
-      return `${path} (node ${entry.nodeId}): ${entry.message}`;
+  return error.errors.map(errorLine);
+}
+
+function tally(errors: ValidationError[], part: 'nodeId' | 'edgeId'): Record<string, number> {
+  const counted: Record<string, number> = {};
+  for (const error of errors) {
+    const id = error[part];
+    if (id !== undefined && id !== '') {
+      counted[id] = (counted[id] ?? 0) + 1;
     }
-    if (entry.edgeId !== undefined && entry.edgeId !== '') {
-      return `${path} (edge ${entry.edgeId}): ${entry.message}`;
+  }
+  return counted;
+}
+
+function duplicate(project: Project, from: string, to: string, relation: Relation): string {
+  const name = (id: string) => project.nodes.find((node) => node.id === id)?.name ?? id;
+  return `duplicate '${relation}' edge from '${name(from)}' to '${name(to)}'`;
+}
+
+function held<T>(items: T[], match: (item: T) => boolean): Held<T> {
+  return items.flatMap((item, index) => (match(item) ? [{ index, item }] : []));
+}
+
+function reinsert<T>(items: T[], taken: Held<T>): T[] {
+  const out = [...items];
+  for (const { index, item } of taken) {
+    out.splice(Math.min(index, out.length), 0, item);
+  }
+  return out;
+}
+
+function restored<T extends { id: string }>(items: T[], saved: T[], ids: string[]): T[] {
+  return items.flatMap((item) => {
+    if (!ids.includes(item.id)) {
+      return [item];
     }
-    return `${path}: ${entry.message}`;
+    const previous = saved.find((candidate) => candidate.id === item.id);
+    return previous === undefined ? [] : [previous];
   });
 }
 
-function patched(node: Node, patch: Patch): Node {
+function patchedNode(node: Node, patch: Patch): Node {
   const next: Node = { ...node };
   if (patch.name !== undefined) {
     next.name = patch.name;
   }
   if (patch.properties !== undefined) {
-    const properties = { ...(node.properties ?? {}) };
-    for (const [key, value] of Object.entries(patch.properties)) {
-      if (value === undefined || value === '') {
-        delete properties[key];
-      } else {
-        properties[key] = value;
-      }
-    }
-    if (Object.keys(properties).length === 0) {
-      delete next.properties;
-    } else {
-      next.properties = properties;
-    }
+    settle(next, merged(node.properties, patch.properties));
   }
   return next;
+}
+
+function patchedEdge(edge: Edge, patch: Record<string, unknown>): Edge {
+  const next: Edge = { ...edge };
+  settle(next, merged(edge.properties, patch));
+  return next;
+}
+
+function merged(
+  current: Record<string, unknown> | undefined,
+  patch: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const properties = { ...(current ?? {}) };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined || value === '') {
+      delete properties[key];
+    } else {
+      properties[key] = value;
+    }
+  }
+  return Object.keys(properties).length === 0 ? undefined : properties;
+}
+
+function settle(
+  item: { properties?: Record<string, unknown> },
+  properties: Record<string, unknown> | undefined,
+): void {
+  if (properties === undefined) {
+    delete item.properties;
+  } else {
+    item.properties = properties;
+  }
 }
 
 function freshLayout(): Layout {
@@ -359,6 +598,21 @@ function nextIndex(project: Project, type: NodeType): number {
       }
     }
   }
+  return free(taken);
+}
+
+function nextEdgeIndex(project: Project): number {
+  const taken = new Set<number>();
+  for (const edge of project.edges) {
+    const match = /^edge-(\d+)$/.exec(edge.id);
+    if (match !== null) {
+      taken.add(Number(match[1]));
+    }
+  }
+  return free(taken);
+}
+
+function free(taken: Set<number>): number {
   let index = 1;
   while (taken.has(index)) {
     index += 1;
