@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -151,7 +152,13 @@ func TestLoadConfigReportsStyleErrorsWithTheirPaths(t *testing.T) {
 	for _, c := range []struct{ name, text, want string }{
 		{"theme", "style:\n  theme: neon\n", "style.theme"},
 		{"colour", "style:\n  kinds:\n    database:\n      color: purple\n", "style.kinds.database.color"},
+		{"short hex", "style:\n  kinds:\n    database:\n      color: \"#C92\"\n", "style.kinds.database.color"},
 		{"shape", "style:\n  nodes:\n    orders-db:\n      shape: blob\n", "style.nodes.orders-db.shape"},
+		{"unknown icon id", "style:\n  kinds:\n    database:\n      icon: aws/dynamodb\n", "style.kinds.database.icon"},
+		{"absolute icon path", "style:\n  nodes:\n    orders-db:\n      icon: /icons/orders.svg\n", "style.nodes.orders-db.icon"},
+		{"icon path without a dot", "style:\n  nodes:\n    orders-db:\n      icon: icons/orders.svg\n", "style.nodes.orders-db.icon"},
+		{"icon url", "style:\n  nodes:\n    orders-db:\n      icon: https://example.com/orders.svg\n", "style.nodes.orders-db.icon"},
+		{"icon that is not a string", "style:\n  nodes:\n    orders-db:\n      icon: 7\n", "style.nodes.orders-db.icon"},
 		{"unknown kind", "style:\n  kinds:\n    warehouse:\n      shape: card\n", "style.kinds"},
 		{"unknown key", "style:\n  colour: red\n", "style"},
 		{"unknown top level key", "provider: aws\n", ConfigName},
@@ -166,6 +173,84 @@ func TestLoadConfigReportsStyleErrorsWithTheirPaths(t *testing.T) {
 				t.Errorf("error = %q, want the path %q", got, c.want)
 			}
 		})
+	}
+}
+
+func TestLoadConfigSaysWhatAnIconMayBe(t *testing.T) {
+	lines := configErrors(t, "style:\n  kinds:\n    database:\n      icon: aws/dynamodb\n")
+	want := []string{"style.kinds.database.icon: " + iconMessage}
+	if diff := cmp.Diff(want, lines); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestLoadConfigAcceptsBundledIconsAndRelativePaths(t *testing.T) {
+	cwd := t.TempDir()
+	writeConfig(t, cwd, `
+style:
+  kinds:
+    database:
+      icon: gcp/cloud-sql
+    cache:
+      icon: ./icons/cache.svg
+  nodes:
+    orders-db:
+      icon: ../shared/icons/orders.svg
+`)
+	want := &Style{
+		Theme: DefaultTheme,
+		Kinds: map[ir.NodeType]NodeStyle{
+			ir.NodeDatabase: {Icon: "gcp/cloud-sql"},
+			ir.NodeCache:    {Icon: "./icons/cache.svg"},
+		},
+		Nodes: map[string]NodeStyle{"orders-db": {Icon: "../shared/icons/orders.svg"}},
+	}
+	if diff := cmp.Diff(want, loadConfig(t, cwd).Style); diff != "" {
+		t.Errorf("style (-want +got):\n%s", diff)
+	}
+}
+
+func TestLoadConfigRejectsAnUnknownShape(t *testing.T) {
+	lines := configErrors(t, "style:\n  kinds:\n    cache:\n      shape: blob\n")
+	want := []string{"style.kinds.cache.shape: value must be one of 'card', 'cylinder', 'hexagon', 'circle'"}
+	if diff := cmp.Diff(want, lines); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func styledProject(names ...string) *ir.Project {
+	project := &ir.Project{Provider: ir.ProviderAWS}
+	for i, name := range names {
+		project.Nodes = append(project.Nodes, ir.Node{ID: fmt.Sprintf("n%d", i), Type: ir.NodeService, Name: name})
+	}
+	return project
+}
+
+func TestCheckStyleNamesTheNodesThatDoNotExist(t *testing.T) {
+	config := DefaultConfig()
+	config.Style.Nodes = map[string]NodeStyle{
+		"web":       {Color: "#DD344C"},
+		"orders-db": {Color: "#DD344C"},
+		"archive":   {Shape: "cylinder"},
+	}
+	want := ir.Errors{
+		{Path: "style.nodes.archive", Message: "there is no node named 'archive'"},
+		{Path: "style.nodes.orders-db", Message: "there is no node named 'orders-db'"},
+	}
+	if diff := cmp.Diff(want, CheckStyle(config, styledProject("web", "api"))); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestCheckStylePassesKindsAndKnownNodes(t *testing.T) {
+	config := DefaultConfig()
+	config.Style.Kinds = map[ir.NodeType]NodeStyle{ir.NodeDatabase: {Shape: "cylinder"}}
+	config.Style.Nodes = map[string]NodeStyle{"web": {Color: "#DD344C"}}
+	if errs := CheckStyle(config, styledProject("web")); len(errs) > 0 {
+		t.Errorf("errors = %v", errs)
+	}
+	if errs := CheckStyle(Config{}, styledProject()); len(errs) > 0 {
+		t.Errorf("errors without a style block = %v", errs)
 	}
 }
 

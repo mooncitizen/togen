@@ -1,0 +1,159 @@
+{
+  "aws": {
+    "accent": "#ED7100",
+    "kinds": {
+      "bucket": {
+        "color": "#7AA116",
+        "icon": "aws/s3",
+        "resource": "S3",
+        "shape": "card"
+      },
+      "cache": {
+        "color": "#C925D1",
+        "icon": "aws/elasticache",
+        "resource": "ElastiCache",
+        "shape": "cylinder"
+      },
+      "database": {
+        "color": "#C925D1",
+        "icon": "aws/rds",
+        "resource": "RDS",
+        "shape": "cylinder"
+      },
+      "function": {
+        "color": "#ED7100",
+        "icon": "aws/lambda",
+        "resource": "Lambda",
+        "shape": "card"
+      },
+      "gateway": {
+        "color": "#8C4FFF",
+        "icon": "aws/api-gateway",
+        "resource": "API Gateway",
+        "shape": "card"
+      },
+      "queue": {
+        "color": "#E7157B",
+        "icon": "aws/sqs",
+        "resource": "SQS",
+        "shape": "card"
+      },
+      "service": {
+        "color": "#ED7100",
+        "icon": "aws/ecs",
+        "resource": "ECS on Fargate",
+        "shape": "card"
+      }
+    },
+    "network": {
+      "color": "#8C4FFF",
+      "kind": "VPC"
+    }
+  },
+  "azure": {
+    "accent": "#0078D4",
+    "kinds": {
+      "bucket": {
+        "color": "#6BB700",
+        "icon": "azure/storage-blob",
+        "resource": "Blob Storage",
+        "shape": "card"
+      },
+      "cache": {
+        "color": "#7B3FE4",
+        "icon": "azure/cache-redis",
+        "resource": "Cache for Redis",
+        "shape": "cylinder"
+      },
+      "database": {
+        "color": "#7B3FE4",
+        "icon": "azure/database-postgresql",
+        "resource": "Database for PostgreSQL",
+        "shape": "cylinder"
+      },
+      "function": {
+        "color": "#0078D4",
+        "icon": "azure/functions",
+        "resource": "Functions",
+        "shape": "card"
+      },
+      "gateway": {
+        "color": "#0078D4",
+        "icon": "azure/api-management",
+        "resource": "API Management",
+        "shape": "card"
+      },
+      "queue": {
+        "color": "#FFB900",
+        "icon": "azure/service-bus",
+        "resource": "Service Bus",
+        "shape": "card"
+      },
+      "service": {
+        "color": "#0078D4",
+        "icon": "azure/container-apps",
+        "resource": "Container Apps",
+        "shape": "card"
+      }
+    },
+    "network": {
+      "color": "#0078D4",
+      "kind": "VNet"
+    },
+    "resourceGroup": {
+      "color": "#0078D4",
+      "kind": "Resource group"
+    }
+  },
+  "gcp": {
+    "accent": "#4285F4",
+    "kinds": {
+      "bucket": {
+        "color": "#EA4335",
+        "icon": "gcp/cloud-storage",
+        "resource": "Cloud Storage",
+        "shape": "card"
+      },
+      "cache": {
+        "color": "#4285F4",
+        "icon": "gcp/memorystore",
+        "resource": "Memorystore",
+        "shape": "cylinder"
+      },
+      "database": {
+        "color": "#4285F4",
+        "icon": "gcp/cloud-sql",
+        "resource": "Cloud SQL",
+        "shape": "cylinder"
+      },
+      "function": {
+        "color": "#34A853",
+        "icon": "gcp/cloud-functions",
+        "resource": "Cloud Functions",
+        "shape": "card"
+      },
+      "gateway": {
+        "color": "#4285F4",
+        "icon": "gcp/api-gateway",
+        "resource": "API Gateway",
+        "shape": "card"
+      },
+      "queue": {
+        "color": "#F9AB00",
+        "icon": "gcp/pubsub",
+        "resource": "Pub/Sub",
+        "shape": "card"
+      },
+      "service": {
+        "color": "#34A853",
+        "icon": "gcp/cloud-run",
+        "resource": "Cloud Run",
+        "shape": "card"
+      }
+    },
+    "network": {
+      "color": "#4285F4",
+      "kind": "VPC network"
+    }
+  }
+}

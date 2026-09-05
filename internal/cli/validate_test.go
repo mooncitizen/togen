@@ -221,6 +221,33 @@ func TestValidateNotesTheLegacyConfig(t *testing.T) {
 	}
 }
 
+func TestValidateReportsAStyleForANodeThatDoesNotExist(t *testing.T) {
+	cwd := t.TempDir()
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "aws",
+		"region":      "eu-west-2",
+		"environment": "dev",
+		"nodes":       []any{map[string]any{"id": "n1", "type": "gateway", "name": "api"}},
+		"edges":       []any{},
+	})
+	writeFileText(t, workspace.ConfigPath(cwd), "style:\n  nodes:\n    api:\n      color: \"#DD344C\"\n    orders-db:\n      shape: cylinder\n")
+	result := Validate(cwd)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, want 1", result.Code)
+	}
+	want := []string{"style.nodes.orders-db: there is no node named 'orders-db'"}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
+	}
+
+	writeFileText(t, workspace.ConfigPath(cwd), "style:\n  nodes:\n    api:\n      color: \"#DD344C\"\n")
+	if result := Validate(cwd); result.Code != 0 {
+		t.Errorf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+}
+
 func TestValidateReportsAnInvalidConfig(t *testing.T) {
 	cwd := t.TempDir()
 	if result := Init(cwd, "", "shop", false); result.Code != 0 {

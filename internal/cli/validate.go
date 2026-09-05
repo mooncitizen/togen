@@ -7,13 +7,16 @@ import (
 )
 
 func Validate(cwd string) Result {
-	_, note, err := workspace.LoadConfig(cwd)
+	config, note, err := workspace.LoadConfig(cwd)
 	if err != nil {
 		return noted(failure(err), note)
 	}
 	project, errs, err := workspace.Validate(cwd)
 	if err != nil {
 		return noted(failure(err), note)
+	}
+	if len(errs) == 0 {
+		errs = workspace.CheckStyle(config, project)
 	}
 	if len(errs) > 0 {
 		return Result{Code: 1, Lines: errorLines(errs), Note: note}

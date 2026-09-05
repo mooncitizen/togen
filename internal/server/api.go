@@ -47,12 +47,20 @@ func (s *Server) getLayout(w http.ResponseWriter, _ *http.Request) {
 	s.sendFile(w, workspace.LayoutPath(s.dir))
 }
 
-// A missing file is not a problem: it means every default (ADR 0007).
+// A missing file is not a problem: it means every default (ADR 0007). Styles
+// keyed by node name are checked against the project when there is one to
+// check against; without it the answer is the configuration alone.
 func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
 	config, note, err := workspace.LoadConfig(s.dir)
 	if err != nil {
 		writeRefusal(w, err)
 		return
+	}
+	if project, errs, err := workspace.LoadProject(s.dir); err == nil && len(errs) == 0 {
+		if errs := workspace.CheckStyle(config, project); len(errs) > 0 {
+			writeErrors(w, http.StatusUnprocessableEntity, errs)
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, struct {
 		workspace.Config

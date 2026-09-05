@@ -12,12 +12,14 @@ import (
 	"github.com/invopop/jsonschema"
 
 	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/style"
 	"github.com/mooncitizen/togen/internal/workspace"
 )
 
 const (
-	kebabPattern  = `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
-	envKeyPattern = `^[A-Z][A-Z0-9_]*$`
+	kebabPattern    = `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+	envKeyPattern   = `^[A-Z][A-Z0-9_]*$`
+	iconPathPattern = `^\.\.?/.+$`
 )
 
 func Project() map[string]any {
@@ -86,20 +88,33 @@ func keyedBy(fields map[string]any, name, keys, text string) {
 	if !ok {
 		return
 	}
-	style, ok := sub["additionalProperties"].(map[string]any)
+	entry, ok := sub["additionalProperties"].(map[string]any)
 	if !ok {
 		return
 	}
-	style["additionalProperties"] = false
-	if shape, ok := style["properties"].(map[string]any)["shape"].(map[string]any); ok {
-		shape["enum"] = anyValues(workspace.Shapes)
+	entry["additionalProperties"] = false
+	props, _ := entry["properties"].(map[string]any)
+	if shape, ok := props["shape"].(map[string]any); ok {
+		shape["enum"] = anyValues(style.Shapes)
+	}
+	if icon, ok := props["icon"].(map[string]any); ok {
+		// The enum lets an editor complete the bundled ids; the pattern admits a file of the user's own.
+		delete(icon, "type")
+		icon["anyOf"] = []any{
+			enumOf(style.BundledIcons()),
+			map[string]any{"type": "string", "pattern": iconPathPattern},
+		}
 	}
 	fields[name] = map[string]any{
 		"type":                 "object",
 		"description":          text,
-		"patternProperties":    map[string]any{keys: style},
+		"patternProperties":    map[string]any{keys: entry},
 		"additionalProperties": false,
 	}
+}
+
+func Styles() map[string]any {
+	return toMap(style.Schemes)
 }
 
 func oneOfPattern[T ~string](values []T) string {
@@ -152,6 +167,7 @@ func Write(dir string) error {
 		{"togen.schema.json", Config()},
 		{"relations.json", Relations()},
 		{"engines.json", Engines()},
+		{"styles.json", Styles()},
 	}
 	for _, f := range files {
 		b, err := json.MarshalIndent(f.doc, "", "  ")

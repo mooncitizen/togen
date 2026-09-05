@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/style"
 )
 
 const (
@@ -20,12 +22,10 @@ const (
 
 	DefaultTheme = "dark"
 	LegacyNote   = "togen/togen.json is deprecated; run togen init --migrate to move it to togen.yml"
+	iconMessage  = "must be a bundled icon id or a relative path"
 )
 
-var (
-	Themes = []string{DefaultTheme, "light", "system"}
-	Shapes = []string{"card", "cylinder", "hexagon", "circle"}
-)
+var Themes = []string{DefaultTheme, "light", "system"}
 
 // Written by just generate: go:embed cannot reach schema/ from here.
 //
@@ -46,9 +46,9 @@ type Style struct {
 }
 
 type NodeStyle struct {
-	Color string `json:"color,omitempty" yaml:"color,omitempty" jsonschema:"pattern=^#[0-9a-fA-F]{6}$,description=Fill colour as #rrggbb"`
-	Icon  string `json:"icon,omitempty"  yaml:"icon,omitempty"  jsonschema:"minLength=1,description=A bundled icon id such as aws/rds or a path relative to togen.yml"`
-	Shape string `json:"shape,omitempty" yaml:"shape,omitempty" jsonschema:"description=Outline the node is drawn with"`
+	Color string      `json:"color,omitempty" yaml:"color,omitempty" jsonschema:"pattern=^#[0-9a-fA-F]{6}$,description=Fill colour as #rrggbb"`
+	Icon  string      `json:"icon,omitempty"  yaml:"icon,omitempty"  jsonschema:"description=A bundled icon id such as aws/rds or a path relative to togen.yml"`
+	Shape style.Shape `json:"shape,omitempty" yaml:"shape,omitempty" jsonschema:"description=Outline the node is drawn with"`
 }
 
 func DefaultConfig() Config {
@@ -151,13 +151,23 @@ func validateConfig(fields map[string]any) ir.Errors {
 	}
 	errs := ir.SchemaErrors(invalid, instance)
 	for i := range errs {
-		// A whole-document error has no path, and the display default for
-		// an empty one is the project.
-		if errs[i].Path == "" {
-			errs[i].Path = ConfigName
-		}
+		errs[i] = configError(errs[i])
 	}
 	return errs
+}
+
+// A whole-document error has no path, and the display default for an empty one
+// is the project. An icon is an anyOf of the bundled ids and a path, and the
+// schema's word for failing both says nothing a person can act on.
+func configError(err ir.ValidationError) ir.ValidationError {
+	parts := strings.Split(err.Path, ".")
+	switch {
+	case err.Path == "":
+		err.Path = ConfigName
+	case len(parts) == 4 && parts[0] == "style" && parts[3] == "icon":
+		err.Message = iconMessage
+	}
+	return err
 }
 
 var (
