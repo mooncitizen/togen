@@ -5,7 +5,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 bin="$root/bin/togen"
 
 if ! command -v terraform >/dev/null 2>&1; then
-  echo "terraform is not on PATH. Run this through the flake: nix develop -c make acceptance" >&2
+  echo "terraform is not on PATH. Run this through the flake: nix develop -c just acceptance" >&2
   exit 2
 fi
 
