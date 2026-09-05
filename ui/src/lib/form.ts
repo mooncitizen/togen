@@ -47,6 +47,10 @@ type Variant = {
 
 const variants = schema.properties.nodes.items.oneOf as unknown as Variant[];
 const engines = engineTable as Record<string, Record<string, { versions: string[] }> | undefined>;
+const edgeSpecs = schema.properties.edges.items.properties.properties.properties as unknown as {
+  path: Spec;
+  methods: { items: { enum: string[] } };
+};
 
 export function fieldsFor(type: NodeType): Field[] {
   const bag = variants.find((variant) => variant.properties.type.const === type)?.properties
@@ -59,6 +63,14 @@ export function fieldsFor(type: NodeType): Field[] {
 
 export function nameField(): Field {
   return toField('name', variants[0].properties.name, true);
+}
+
+export function pathField(): Field {
+  return toField('path', edgeSpecs.path, false);
+}
+
+export function methodOptions(): string[] {
+  return edgeSpecs.methods.items.enum;
 }
 
 export function engineVersions(provider: Provider, engine: unknown): string[] | undefined {
@@ -127,6 +139,7 @@ function text(value: unknown): string {
 const patternReasons: Record<string, string> = {
   '^[a-z][a-z0-9]*(-[a-z0-9]+)*$': 'lowercase letters, digits and hyphens, starting with a letter',
   '^[A-Z][A-Z0-9_]*$': 'capitals, digits and underscores, starting with a letter',
+  '^/': 'a path starting with /',
 };
 
 export function patternReason(pattern: string): string {

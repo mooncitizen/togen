@@ -6,3 +6,8 @@ body,
 #app {
   height: 100%;
 }
+
+.svelte-flow__edge.togen-edge-error .svelte-flow__edge-path {
+  stroke: var(--color-red-600);
+  stroke-width: 2;
+}
