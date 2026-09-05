@@ -17,7 +17,7 @@ Output lands in `infra/hcl/`. `terraform init -backend=false && terraform valida
 
 `terraform plan` needs the deployment package for each function on disk at `functions/<name>.zip` (the path is a variable, so point it wherever your build puts it). `terraform validate` does not.
 
-`togen studio --port 3000` serves the canvas and its JSON API on 127.0.0.1 and opens a browser (`--no-open` if you would rather it did not). The canvas is a blank Svelte Flow board for now; the palette, inspector and editing land later.
+`togen studio --port 3000` serves the canvas and its JSON API on 127.0.0.1 and opens a browser (`--no-open` if you would rather it did not). Drag a type from the palette onto the canvas to add a node, and drag nodes around to arrange them: both save to `togen/`, and a project with no saved positions is laid out left to right on first load. The inspector and edge drawing land later.
 
 `examples/aws-full` is the larger sketch: every node type, every relation and every property this milestone supports, all in one project. It is what `just acceptance` generates and validates alongside `aws-basic`, so a change that breaks a pairing shows up there rather than in someone's real project. It deploys a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches, wired together with routes, calls, reads, writes, publishes and consumes.
 
@@ -31,6 +31,8 @@ Output lands in `infra/hcl/`. `terraform init -backend=false && terraform valida
 - `just ui-check` runs `svelte-check` over the canvas.
 - `just ui-dev` serves the canvas with hot reload and proxies `/api` to a studio running on port 3000; start that one with `just studio`, or `just studio aws-full 3001` for the other example on another port.
 - `just` on its own lists every recipe. They run from the repository root wherever you are.
+
+The canvas imports `schema/project.schema.json` at build time, so the palette lists whatever node types the schema has. It talks to the studio over `/api` and reloads when the websocket says a file changed on disk.
 
 The Go side lives under `internal/`. `ir` is the schema and resource graph, `resolve/aws` turns a project into resources, `emit/hcl` prints them, `workspace` reads and writes the `togen/` files and runs the pipeline, `server` is the studio API, and `cli` ties it together. The canvas is `ui/`, a Svelte 5 app with its own `package.json`.
 
