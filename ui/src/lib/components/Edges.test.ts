@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { invalid, puts, refuse, reset, serve, settle, show } from '../../harness.ts';
+import { Store } from '../store.svelte.ts';
 import type { Layout, Project } from '../types.ts';
 
 const shop: Project = {
@@ -99,6 +100,10 @@ function menuItems(screen: Screen): string[] {
     : [...menu.querySelectorAll('button')].map((button) => button.textContent?.trim() ?? '');
 }
 
+function edgeCount(screen: Screen): number {
+  return screen.container.querySelectorAll('.svelte-flow__edge').length;
+}
+
 beforeEach(() => {
   reset();
   serve(shop, placed);
@@ -143,8 +148,9 @@ test('a pair with several legal relations asks, in the order the table lists the
   expect(menuItems(screen)).toEqual([]);
 });
 
-test('escape cancels the menu and nothing is added', async () => {
+test('escape cancels the menu and nothing is added, and the ghost edge goes with it', async () => {
   const screen = await show();
+  const before = edgeCount(screen);
 
   await connect(screen, 'service-1', 'database-1');
   await vi.waitFor(() => expect(menuItems(screen)).toEqual(['reads', 'writes']));
@@ -155,6 +161,33 @@ test('escape cancels the menu and nothing is added', async () => {
 
   await vi.waitFor(() => expect(menuItems(screen)).toEqual([]));
   await settle();
+  expect(puts('/api/project')).toHaveLength(0);
+  expect(edgeCount(screen)).toBe(before);
+});
+
+test('clicking away cancels the menu and nothing is added, and the ghost edge goes with it', async () => {
+  const screen = await show();
+  const before = edgeCount(screen);
+
+  await connect(screen, 'service-1', 'database-1');
+  await vi.waitFor(() => expect(menuItems(screen)).toEqual(['reads', 'writes']));
+
+  screen.container
+    .querySelector('[aria-label="Cancel"]')!
+    .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+  await vi.waitFor(() => expect(menuItems(screen)).toEqual([]));
+  await settle();
+  expect(puts('/api/project')).toHaveLength(0);
+  expect(edgeCount(screen)).toBe(before);
+});
+
+test('a compute node dropped on a queue offers consumes before publishes, the order the relations file lists them', async () => {
+  const screen = await show();
+
+  await connect(screen, 'service-1', 'queue-1');
+
+  await vi.waitFor(() => expect(menuItems(screen)).toEqual(['consumes', 'publishes']));
   expect(puts('/api/project')).toHaveLength(0);
 });
 
@@ -194,6 +227,22 @@ test('an edge the project already has is refused in the words the CLI uses', asy
     .toBeInTheDocument();
   await settle();
   expect(puts('/api/project')).toHaveLength(0);
+});
+
+test('addEdge reports false for a duplicate, true once saved, and false when the save is refused', async () => {
+  const store = new Store();
+  await store.load();
+
+  await expect(store.addEdge('function-1', 'database-1', 'reads')).resolves.toBe(false);
+
+  await expect(store.addEdge('gateway-1', 'service-1', 'routes')).resolves.toBe(true);
+
+  refuse((call) =>
+    call.method === 'PUT' && call.path === '/api/project'
+      ? invalid([{ path: 'edges.3', message: 'the studio said no' }])
+      : undefined,
+  );
+  await expect(store.addEdge('service-1', 'queue-1', 'consumes')).resolves.toBe(false);
 });
 
 test('a refused edge is taken back off the canvas', async () => {
@@ -333,5 +382,23 @@ test('a refused delete puts the node and its edges back', async () => {
   await vi.waitFor(() =>
     expect(screen.container.querySelector('.svelte-flow__edge[data-id="edge-2"]')).not.toBeNull(),
   );
+  await vi.waitFor(() => expect(panel(screen)).not.toBeNull());
   expect(puts('/api/layout')).toHaveLength(0);
+});
+
+test('deleting a node clears any edge selection with it, and a refused delete restores both', async () => {
+  refuse((call) =>
+    call.method === 'PUT' && call.path === '/api/project'
+      ? invalid([{ path: '', message: 'the studio said no' }])
+      : undefined,
+  );
+  const store = new Store();
+  await store.load();
+  store.selectEdge('edge-2');
+
+  const attempt = store.deleteNode('function-1');
+  expect(store.selectedEdgeId).toBeNull();
+
+  await attempt;
+  expect(store.selectedEdgeId).toBe('edge-2');
 });

@@ -23,6 +23,8 @@ type Held<T> = { index: number; item: T }[];
 
 type Taken = { nodes: Held<Node>; edges: Held<Edge>; positions: Record<string, Position> };
 
+type Selection = { node: string | null; edge: string | null };
+
 const saveDelay = 300;
 const noticeDelay = 6000;
 const origin: Position = { x: 0, y: 0 };
@@ -136,31 +138,33 @@ export class Store {
     });
   }
 
-  addEdge(from: string, to: string, relation: Relation): Promise<void> {
+  addEdge(from: string, to: string, relation: Relation): Promise<boolean> {
     const project = this.project;
     if (project === null) {
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     const twin = project.edges.find(
       (edge) => edge.from === from && edge.to === to && edge.relation === relation,
     );
     if (twin !== undefined) {
       this.notify(duplicate(project, from, to, relation));
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     const id = `edge-${nextEdgeIndex(project)}`;
     const next: Project = { ...project, edges: [...project.edges, { id, from, to, relation }] };
     this.project = next;
 
+    let saved = true;
     return this.#queue(async () => {
       try {
         await putProject(next);
       } catch (failure) {
         this.#discard([], [id]);
+        saved = false;
         throw failure;
       }
       this.#saved = next;
-    });
+    }).then(() => saved);
   }
 
   deleteNode(id: string): Promise<void> {
@@ -182,9 +186,7 @@ export class Store {
     const positions = { ...this.positions };
     delete positions[id];
     this.positions = positions;
-    if (this.selectedNodeId === id) {
-      this.selectedNodeId = null;
-    }
+    const selection = this.#takeSelection();
     const layout = this.layout;
 
     return this.#queue(async () => {
@@ -192,6 +194,7 @@ export class Store {
         await putProject(next);
       } catch (failure) {
         this.#putBack(taken);
+        this.#putBackSelection(selection);
         throw failure;
       }
       this.#saved = next;
@@ -211,15 +214,14 @@ export class Store {
     };
     const next: Project = { ...project, edges: project.edges.filter((edge) => edge.id !== id) };
     this.project = next;
-    if (this.selectedEdgeId === id) {
-      this.selectedEdgeId = null;
-    }
+    const selection = this.#takeSelection();
 
     return this.#queue(async () => {
       try {
         await putProject(next);
       } catch (failure) {
         this.#putBack(taken);
+        this.#putBackSelection(selection);
         throw failure;
       }
       this.#saved = next;
@@ -298,6 +300,18 @@ export class Store {
       delete positions[id];
     }
     this.positions = positions;
+  }
+
+  #takeSelection(): Selection {
+    const selection: Selection = { node: this.selectedNodeId, edge: this.selectedEdgeId };
+    this.selectedNodeId = null;
+    this.selectedEdgeId = null;
+    return selection;
+  }
+
+  #putBackSelection(selection: Selection): void {
+    this.selectedNodeId = selection.node;
+    this.selectedEdgeId = selection.edge;
   }
 
   #putBack(taken: Taken): void {

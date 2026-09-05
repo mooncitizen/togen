@@ -90,6 +90,7 @@
     const refusal = connectionRefusal(from, to);
     if (refusal !== undefined) {
       store.notify(refusal);
+      edges = store.flowEdges;
       return;
     }
     const relations = legalRelations(from.type, to.type);
@@ -119,6 +120,7 @@
   function choose(relation: Relation) {
     const asked = menu;
     menu = null;
+    edges = store.flowEdges;
     if (asked !== null) {
       void store.addEdge(asked.from, asked.to, relation);
     }
@@ -187,7 +189,10 @@
       relations={menu.relations}
       at={menu.at}
       onchoose={choose}
-      oncancel={() => (menu = null)}
+      oncancel={() => {
+        menu = null;
+        edges = store.flowEdges;
+      }}
     />
   {/if}
 </div>
