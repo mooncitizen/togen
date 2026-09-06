@@ -50,7 +50,9 @@ type BucketExports struct {
 	Account, Container, Scope ir.Value
 }
 
-type CacheExports struct{ Host, Port ir.Value }
+// Password is Azure, the access key a caller presents. AWS has none: the security group is
+// the boundary there.
+type CacheExports struct{ Host, Port, Password ir.Value }
 
 func (DatabaseExports) isExports() {}
 func (FunctionExports) isExports() {}

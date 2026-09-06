@@ -244,3 +244,80 @@ func TestBucketAccessFromAServiceGrantsTheRoleAndSetsContainerEnv(t *testing.T) 
 		}
 	}
 }
+
+func setupCacheAccess(t *testing.T, relations ...ir.Relation) (*resolve.Context, *resolve.Handle) {
+	t.Helper()
+	ctx := newContext(t, []ir.Node{
+		functionNode(t, "n2", "handler", defaultFunction),
+		cacheNode(t, "n8", "sessions", ir.CacheProps{Size: ir.SizeSmall}),
+	})
+	fn := resolveFunction(ctx, ctx.Project.Nodes[0])
+	cache := resolveCache(ctx, ctx.Project.Nodes[1])
+	for i, r := range relations {
+		edge := ir.Edge{ID: "e" + string(rune('1'+i)), From: "n2", To: "n8", Relation: r}
+		resolveDataAccess(ctx, edge, fn, cache)
+	}
+	fn.Finalise()
+	return ctx, fn
+}
+
+var cacheSettings = ir.Attrs{
+	ir.A("SESSIONS_HOST", cacheHost),
+	ir.A("SESSIONS_PORT", cachePort),
+	ir.A("SESSIONS_PASSWORD", cacheKey),
+}
+
+func TestReadsFromACacheSetTheHostPortAndKeyAsAppSettings(t *testing.T) {
+	for _, relation := range []ir.Relation{ir.RelReads, ir.RelWrites} {
+		ctx, fn := setupCacheAccess(t, relation)
+		if len(ctx.Errors) != 0 {
+			t.Fatalf("%s: errors = %v", relation, ctx.Errors)
+		}
+		settings, _ := firstOfType(t, ctx, "azurerm_linux_function_app").Args.Get("app_settings")
+		timeout := ir.A("AzureFunctionsJobHost__functionTimeout", ir.Str("00:00:30"))
+		want := ir.M(append(ir.Attrs{timeout}, cacheSettings...)...)
+		if diff := cmp.Diff(ir.Value(want), settings); diff != "" {
+			t.Errorf("%s: app_settings (-want +got):\n%s", relation, diff)
+		}
+		if fn.NeedsNetwork {
+			t.Errorf("%s: a cache edge asked for the network", relation)
+		}
+		// The group, the function's three and the cache.
+		if got := len(ctx.Resources()); got != 5 {
+			t.Errorf("%s: the edge added resources: %d in total", relation, got)
+		}
+	}
+}
+
+func TestReadsAndWritesToOneCacheSetTheSettingsOnce(t *testing.T) {
+	ctx, fn := setupCacheAccess(t, ir.RelReads, ir.RelWrites)
+	if len(ctx.Errors) != 0 {
+		t.Fatalf("errors = %v", ctx.Errors)
+	}
+	if len(fn.Env) != 4 {
+		t.Errorf("env = %v", fn.Env)
+	}
+}
+
+func TestCacheAccessFromAServiceSetsTheSettingsAsContainerEnv(t *testing.T) {
+	for _, relation := range []ir.Relation{ir.RelReads, ir.RelWrites} {
+		ctx := newContext(t, []ir.Node{
+			serviceNodeWith(t, "n4", "web", defaultService),
+			cacheNode(t, "n8", "sessions", ir.CacheProps{Size: ir.SizeMedium}),
+		})
+		svc := resolveService(ctx, ctx.Project.Nodes[0])
+		cache := resolveCache(ctx, ctx.Project.Nodes[1])
+		resolveDataAccess(ctx, ir.Edge{ID: "e1", From: "n4", To: "n8", Relation: relation}, svc, cache)
+		svc.Finalise()
+
+		if len(ctx.Errors) != 0 {
+			t.Fatalf("%s: errors = %v", relation, ctx.Errors)
+		}
+		if diff := cmp.Diff(cacheSettings, containerEnvOf(t, ctx, appID)); diff != "" {
+			t.Errorf("%s: container env (-want +got):\n%s", relation, diff)
+		}
+		if svc.NeedsNetwork {
+			t.Errorf("%s: the service was asked to join the network", relation)
+		}
+	}
+}

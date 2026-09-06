@@ -24,6 +24,8 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 		connectDatabase(ctx, from, to, target)
 	case resolve.BucketExports:
 		grantBucket(ctx, edge, from, to, target)
+	case resolve.CacheExports:
+		connectCache(ctx, from, to, target)
 	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
@@ -46,6 +48,15 @@ func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target reso
 	from.SetEnv(prefix+"_PORT", ir.Str(strconv.FormatFloat(float64(port), 'f', -1, 64)))
 	from.SetEnv(prefix+"_NAME", target.Name)
 	from.SetEnv(prefix+"_USER", target.User)
+	from.SetEnv(prefix+"_PASSWORD", target.Password)
+}
+
+// The cache answers on its public endpoint over TLS, so nothing joins the network. The port
+// is the ssl_port attribute rather than a literal, which is why it is not a string here.
+func connectCache(ctx *resolve.Context, from, to *resolve.Handle, target resolve.CacheExports) {
+	prefix := strings.ToUpper(ctx.Local(to.Node.Name))
+	from.SetEnv(prefix+"_HOST", target.Host)
+	from.SetEnv(prefix+"_PORT", target.Port)
 	from.SetEnv(prefix+"_PASSWORD", target.Password)
 }
 

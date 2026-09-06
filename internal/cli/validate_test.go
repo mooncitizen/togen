@@ -198,7 +198,7 @@ func TestValidateReportsANodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	}
 }
 
-func TestValidateReportsAzureNodesTheResolverDoesNotSupportYet(t *testing.T) {
+func TestValidateAcceptsAnAzureProjectWithACache(t *testing.T) {
 	cwd := t.TempDir()
 	writeProject(t, cwd, map[string]any{
 		"version":     1,
@@ -210,11 +210,12 @@ func TestValidateReportsAzureNodesTheResolverDoesNotSupportYet(t *testing.T) {
 		"edges":       []any{},
 	})
 	result := Validate(cwd)
-	if result.Code != 1 {
+	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "node c1") || !strings.Contains(result.Lines[0], "not supported by the azure resolver yet") {
-		t.Fatalf("lines = %v", result.Lines)
+	want := []string{"togen/project.json is valid (1 node, 0 edges)"}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
 	}
 }
 
