@@ -30,9 +30,11 @@ type ServiceExports struct {
 	ListenerARN ir.Value
 }
 
+// ARN and URL are AWS. ID is the GCP topic, and DeadLetter its dead letter topic when the node
+// asks for one, so a consumer's subscription can point at it.
 type QueueExports struct {
-	ARN, URL, Name ir.Value
-	FIFO           bool
+	ARN, URL, Name, ID, DeadLetter ir.Value
+	FIFO                           bool
 }
 
 type BucketExports struct{ ARN, Name ir.Value }

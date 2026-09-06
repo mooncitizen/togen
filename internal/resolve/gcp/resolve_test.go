@@ -69,7 +69,7 @@ func TestResolveRefusesTheNodeTypesItDoesNotSupportYetAndSkipsTheirEdges(t *test
 	var want ir.Errors
 	for _, n := range p.Nodes {
 		switch n.Type {
-		case ir.NodeFunction, ir.NodeGateway, ir.NodeDatabase, ir.NodeService:
+		case ir.NodeFunction, ir.NodeGateway, ir.NodeDatabase, ir.NodeService, ir.NodeQueue:
 			continue
 		}
 		want = append(want, ir.ValidationError{
@@ -290,6 +290,102 @@ func TestResolveProducesAValidGraphForAServiceReadingADatabaseBehindAGateway(t *
 	terraformFmt(t, files)
 }
 
+func TestResolveProducesAValidGraphForAQueueWorkedByAFunctionAndAService(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		functionNode(t, "n2", "orders", defaultFunction),
+		functionNode(t, "n6", "worker", defaultFunction),
+		serviceNode(t, "n4", "notifier", defaultService),
+		queueNode(t, "n5", "jobs", ir.QueueProps{FIFO: true, DeadLetter: true, RetentionDays: 7}),
+	}, []ir.Edge{
+		{ID: "e1", From: "n2", To: "n5", Relation: ir.RelPublishes},
+		{ID: "e2", From: "n6", To: "n5", Relation: ir.RelConsumes},
+		{ID: "e3", From: "n4", To: "n5", Relation: ir.RelConsumes},
+	})
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Fatalf("graph is not valid:\n%s", errs.Error())
+	}
+
+	var types []string
+	for _, r := range g.Resources {
+		types = append(types, r.Type)
+	}
+	wantTypes := []string{
+		"google_storage_bucket",
+		"google_service_account",
+		"google_storage_bucket_object",
+		"google_cloudfunctions2_function",
+		"google_service_account",
+		"google_storage_bucket_object",
+		"google_cloudfunctions2_function",
+		"google_service_account",
+		"google_cloud_run_v2_service",
+		"google_pubsub_topic",
+		"google_pubsub_topic",
+		"google_pubsub_topic_iam_member",
+		"google_pubsub_subscription",
+		"google_pubsub_topic_iam_member",
+		"google_cloud_run_v2_service_iam_member",
+		"google_project_iam_member",
+		"google_eventarc_trigger",
+		"google_cloud_run_v2_service_iam_member",
+		"google_service_account_iam_member",
+		"google_pubsub_subscription",
+		"google_pubsub_subscription_iam_member",
+	}
+	if diff := cmp.Diff(wantTypes, types); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"google_project"}, dataTypes(g.Data)); diff != "" {
+		t.Errorf("data sources (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"jobs_topic"}, outputNames(g.Outputs)); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	if countOfTypeIn(g.Resources, "google_compute_network") != 0 {
+		t.Error("a queue pulled in the network")
+	}
+
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	main := string(files["main.tf"])
+	for _, want := range []string{
+		`data "google_project" "current"`,
+		`member = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-pubsub.iam.gserviceaccount.com"`,
+		`enable_message_ordering    = true`,
+		`push_endpoint = google_cloud_run_v2_service.notifier.uri`,
+		`topic = google_pubsub_topic.jobs.id`,
+	} {
+		if !strings.Contains(main, want) {
+			t.Errorf("main.tf lacks %q", want)
+		}
+	}
+	terraformFmt(t, files)
+}
+
+func dataTypes(data []ir.DataSource) []string {
+	var types []string
+	for _, d := range data {
+		types = append(types, d.Type)
+	}
+	return types
+}
+
+func countOfTypeIn(resources []ir.Resource, typ string) int {
+	n := 0
+	for _, r := range resources {
+		if r.Type == typ {
+			n++
+		}
+	}
+	return n
+}
+
 func variableNames(vars []ir.Variable) []string {
 	var names []string
 	for _, v := range vars {
@@ -300,8 +396,8 @@ func variableNames(vars []ir.Variable) []string {
 
 func TestResolveReportsAnEdgeItDoesNotSupport(t *testing.T) {
 	ctx, _ := newContext(t, nil, nil)
-	New().ResolveEdge(ctx, ir.Edge{ID: "e1", Relation: ir.RelPublishes}, nil, nil)
-	want := ir.Errors{{EdgeID: "e1", Message: "'publishes' edges are not supported by the gcp resolver yet"}}
+	New().ResolveEdge(ctx, ir.Edge{ID: "e1", Relation: "subscribes"}, nil, nil)
+	want := ir.Errors{{EdgeID: "e1", Message: "'subscribes' edges are not supported by the gcp resolver yet"}}
 	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
