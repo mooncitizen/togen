@@ -83,6 +83,9 @@
             <p class="text-[11px] text-muted">{item.summary}</p>
           {/if}
           <div class="mt-2 flex flex-col gap-1">
+            {#if item.note}
+              <p class="text-xs text-muted">{item.note}</p>
+            {/if}
             {#each item.lines as line (line.label)}
               <div
                 class="grid grid-cols-[1fr_auto_auto] items-baseline gap-x-3 text-xs"

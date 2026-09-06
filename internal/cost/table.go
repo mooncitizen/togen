@@ -9,11 +9,12 @@ import (
 // Table renders the document the way togen cost prints it: a block per item with its lines
 // and subtotal, the things left out, then the total with where the prices came from.
 func (d Document) Table() []string {
-	var nameW, kindW, labelW, qtyW, unitW, priceW int
+	var nameW, kindW, labelW, qtyW, unitW, priceW, noteW int
 	amountW := 7
 	for _, item := range d.Items {
 		nameW = max(nameW, len(item.Name))
 		kindW = max(kindW, len(item.Kind))
+		noteW = max(noteW, len(item.Note))
 		amountW = max(amountW, len(money(item.Subtotal)))
 		for _, l := range item.Lines {
 			labelW = max(labelW, len(l.Label))
@@ -28,11 +29,14 @@ func (d Document) Table() []string {
 		kindW = max(kindW, len(o.Kind))
 	}
 
-	amountAt := 2 + labelW + 2 + qtyW + 1 + unitW + 5 + priceW + 1 + len(d.Currency) + 2
+	amountAt := max(2+labelW+2+qtyW+1+unitW+5+priceW+1+len(d.Currency)+2, 2+noteW+2)
 
 	var out []string
 	for _, item := range d.Items {
 		out = append(out, strings.TrimRight(fmt.Sprintf("%-*s  %-*s  %s", nameW, item.Name, kindW, item.Kind, item.Summary), " "))
+		if item.Note != "" {
+			out = append(out, "  "+item.Note)
+		}
 		for _, l := range item.Lines {
 			out = append(out, fmt.Sprintf("  %-*s  %*s %-*s  x  %*s %s  %*s",
 				labelW, l.Label, qtyW, quantity(l.Quantity), unitW, l.Unit, priceW, unitPrice(l.UnitPrice), d.Currency,

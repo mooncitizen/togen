@@ -1103,18 +1103,31 @@ func TestGetCostReturnsTheEstimate(t *testing.T) {
 	if doc.Provider != ir.ProviderAWS || doc.Region != "eu-west-2" || doc.Currency != "USD" || doc.SnapshotDate == "" {
 		t.Errorf("document = %+v", doc)
 	}
-	if len(doc.Items) != 2 || doc.Items[0].Name != "main-db" || doc.Items[1].Name != "network" {
-		t.Fatalf("items = %+v", doc.Items)
+	var names []string
+	var total float64
+	for _, item := range doc.Items {
+		names = append(names, item.Name)
+		total += item.Subtotal
 	}
-	if storage := doc.Items[0].Lines[1]; storage.Label != "storage gp2" || storage.Quantity != 50 {
+	if diff := cmp.Diff([]string{"api", "handler", "main-db", "network"}, names); diff != "" {
+		t.Fatalf("items (-want +got):\n%s", diff)
+	}
+	for _, atRest := range doc.Items[:2] {
+		if atRest.Note != "priced at rest, usage not set" || len(atRest.Lines) != 0 || atRest.Subtotal != 0 {
+			t.Errorf("%s = %+v", atRest.Name, atRest)
+		}
+	}
+	if storage := doc.Items[2].Lines[1]; storage.Label != "storage gp2" || storage.Quantity != 50 {
 		t.Errorf("storage = %+v", storage)
 	}
-	if want := doc.Items[0].Subtotal + doc.Items[1].Subtotal; doc.Total != want || doc.Total <= 0 {
-		t.Errorf("total = %v, want %v", doc.Total, want)
+	if doc.Total != total || doc.Total <= 0 {
+		t.Errorf("total = %v, want %v", doc.Total, total)
 	}
 	wantOmitted := []cost.Omission{
-		{Name: "api", Kind: "gateway", Reason: "no aws prices for this node type yet"},
-		{Name: "handler", Kind: "function", Reason: "no aws prices for this node type yet"},
+		{Name: "api", Kind: "gateway", Reason: "requests"},
+		{Name: "api", Kind: "gateway", Reason: "data transfer"},
+		{Name: "handler", Kind: "function", Reason: "requests"},
+		{Name: "handler", Kind: "function", Reason: "duration"},
 		{Name: "main-db", Kind: "database", Reason: "backups beyond 50 GB"},
 		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
 	}

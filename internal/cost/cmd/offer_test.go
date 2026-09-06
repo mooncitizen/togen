@@ -80,6 +80,98 @@ func TestScanOfferPicksOneSkuPerDatabaseLookup(t *testing.T) {
 	}
 }
 
+func scanTestdata(t *testing.T, service, region string) ([]cost.Lookup, [][]cost.SKU) {
+	t.Helper()
+	file, err := os.Open(filepath.Join("testdata", service+"-"+region+".csv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+	jobs, err := plan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, j := range jobs {
+		if j.service == service && j.region == region {
+			matched, err := scanOffer(file, j.lookups)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return j.lookups, matched
+		}
+	}
+	t.Fatalf("no %s job for %s", service, region)
+	return nil, nil
+}
+
+func onlyMatch(t *testing.T, l cost.Lookup, matched []cost.SKU) cost.SKU {
+	t.Helper()
+	if len(matched) != 1 {
+		t.Fatalf("%s (%s) matched %d rows: %+v", l.Label, l.Describe(), len(matched), matched)
+	}
+	return matched[0]
+}
+
+// testdata/AWSLambda-eu-west-2.csv is a slice of the real offer file from 2026-09-04: the x86
+// request and duration rows, the duration sku's three tiers, and the neighbours the matchers
+// must leave (arm64, Lambda@Edge, provisioned concurrency, ephemeral storage, managed
+// instances, and the free tier rows that belong to no region).
+func TestScanOfferKeepsTheFirstTierOfTheLambdaMeters(t *testing.T) {
+	lookups, matched := scanTestdata(t, "AWSLambda", "eu-west-2")
+	if len(lookups) != 2 {
+		t.Fatalf("lookups = %d, want 2", len(lookups))
+	}
+	common := map[string]string{"productFamily": "Serverless", "termType": "OnDemand", "regionCode": "eu-west-2"}
+	attributes := func(group, usage string) map[string]string {
+		out := map[string]string{"group": group, "usagetype": usage}
+		for k, v := range common {
+			out[k] = v
+		}
+		return out
+	}
+	want := []cost.SKU{
+		{ID: "NDYBVXT3KB548Z2A", Service: "AWSLambda", Unit: "Request", Price: 0.0000002,
+			Attributes: attributes("AWS-Lambda-Requests", "EUW2-Request")},
+		{ID: "RP9RSZYUC96SQ4G2", Service: "AWSLambda", Unit: "Lambda-GB-Second", Price: 0.0000166667, UpTo: 6000000000,
+			Attributes: attributes("AWS-Lambda-Duration", "EUW2-Lambda-GB-Second")},
+	}
+	for i, l := range lookups {
+		if diff := cmp.Diff(want[i], onlyMatch(t, l, matched[i])); diff != "" {
+			t.Errorf("%s (-want +got):\n%s", l.Label, diff)
+		}
+	}
+}
+
+// The SQS and API Gateway files for a region are small enough to check in whole.
+func TestScanOfferPicksTheStandardAndFifoRequestMeters(t *testing.T) {
+	lookups, matched := scanTestdata(t, "AWSQueueService", "eu-west-2")
+	if len(lookups) != 2 {
+		t.Fatalf("lookups = %d, want 2", len(lookups))
+	}
+	standard := onlyMatch(t, lookups[0], matched[0])
+	if standard.ID != "7DSEXZJZCF4MMFKF" || standard.Price != 0.0000004 || standard.UpTo != 100000000000 || standard.Attributes["queueType"] != "Standard" {
+		t.Errorf("standard = %+v", standard)
+	}
+	fifo := onlyMatch(t, lookups[1], matched[1])
+	if fifo.ID != "7JDCXCCHVYH99G79" || fifo.Price != 0.0000005 || fifo.UpTo != 100000000000 || fifo.Attributes["queueType"] != "FIFO (first-in, first-out)" {
+		t.Errorf("fifo = %+v", fifo)
+	}
+}
+
+func TestScanOfferPicksTheHttpApiRequestMeter(t *testing.T) {
+	lookups, matched := scanTestdata(t, "AmazonApiGateway", "eu-west-2")
+	if len(lookups) != 1 {
+		t.Fatalf("lookups = %d, want 1", len(lookups))
+	}
+	got := onlyMatch(t, lookups[0], matched[0])
+	want := cost.SKU{ID: "MFY3FVZZSQWYVNHM", Service: "AmazonApiGateway", Unit: "Requests", Price: 0.00000116, UpTo: 300000000, Attributes: map[string]string{
+		"productFamily": "API Calls", "usagetype": "EUW2-ApiGatewayHttpRequest", "termType": "OnDemand", "regionCode": "eu-west-2",
+	}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("sku (-want +got):\n%s", diff)
+	}
+}
+
 const ec2Slice = `"FormatVersion","v1.0"
 "Disclaimer","This pricing list is for informational purposes only."
 "Publication Date","2026-09-04T23:11:17Z"

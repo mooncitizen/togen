@@ -13,7 +13,12 @@ type Item struct {
 	Name    string
 	Kind    string
 	Summary string
+	// A line under the node explaining its subtotal, such as a pay-per-use type priced at rest.
+	Note    string
 	Lookups []Lookup
+	// Meters the usage block will drive. The estimate leaves them out until it is set; the
+	// refresh keeps their prices so they are in the snapshot when it is.
+	Usage []Lookup
 	// Charges the item incurs that no lookup covers, so the output can say so.
 	Unpriced []string
 }
@@ -42,6 +47,7 @@ type Priced struct {
 	Name     string  `json:"name"`
 	Kind     string  `json:"kind"`
 	Summary  string  `json:"summary,omitempty"`
+	Note     string  `json:"note,omitempty"`
 	Lines    []Line  `json:"lines"`
 	Subtotal float64 `json:"subtotal"`
 }
@@ -125,7 +131,7 @@ func Estimate(project *ir.Project, m Matchers, snapshot *Snapshot, now time.Time
 }
 
 func price(item Item, snapshot *Snapshot) (Priced, error) {
-	out := Priced{Name: item.Name, Kind: item.Kind, Summary: item.Summary, Lines: []Line{}}
+	out := Priced{Name: item.Name, Kind: item.Kind, Summary: item.Summary, Note: item.Note, Lines: []Line{}}
 	for _, l := range item.Lookups {
 		sku, err := snapshot.Find(l)
 		if err != nil {

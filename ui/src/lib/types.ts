@@ -114,6 +114,7 @@ export type CostItem = {
   name: string;
   kind: string;
   summary?: string;
+  note?: string;
   lines: CostLine[];
   subtotal: number;
 };

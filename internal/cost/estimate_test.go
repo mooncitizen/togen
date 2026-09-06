@@ -11,10 +11,23 @@ import (
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
-// Prices databases with an instance and a disk, and adds a nat when there is a database.
+// Prices databases with an instance and a disk, gateways at rest on a request meter, and adds
+// a nat when there is a database.
 type fakeMatchers struct{}
 
 func (fakeMatchers) Node(n ir.Node, region string) (Item, bool, error) {
+	if n.Type == ir.NodeGateway {
+		requests := lookup("requests", region)
+		requests.Quantity, requests.Unit = 0, "requests"
+		return Item{
+			Name:     n.Name,
+			Kind:     string(n.Type),
+			Summary:  "HTTP API",
+			Note:     "priced at rest, usage not set",
+			Usage:    []Lookup{requests},
+			Unpriced: []string{"requests", "data transfer"},
+		}, true, nil
+	}
 	if n.Type != ir.NodeDatabase {
 		return Item{}, false, nil
 	}
@@ -49,11 +62,12 @@ func project(region string, nodes ...ir.Node) *ir.Project {
 var (
 	gateway  = ir.Node{ID: "n1", Type: ir.NodeGateway, Name: "api"}
 	database = ir.Node{ID: "n2", Type: ir.NodeDatabase, Name: "orders-db"}
+	queue    = ir.Node{ID: "n3", Type: ir.NodeQueue, Name: "jobs"}
 	taken    = time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
 )
 
 func TestEstimatePricesEveryLineAndAddsThemUp(t *testing.T) {
-	doc, err := Estimate(project("eu-west-2", gateway, database), fakeMatchers{}, fixture(), taken)
+	doc, err := Estimate(project("eu-west-2", gateway, database, queue), fakeMatchers{}, fixture(), taken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,6 +76,10 @@ func TestEstimatePricesEveryLineAndAddsThemUp(t *testing.T) {
 		Region:   "eu-west-2",
 		Currency: "USD",
 		Items: []Priced{
+			{
+				Name: "api", Kind: "gateway", Summary: "HTTP API", Note: "priced at rest, usage not set",
+				Lines: []Line{}, Subtotal: 0,
+			},
 			{
 				Name: "orders-db", Kind: "database", Summary: "small, 20 GB",
 				Lines: []Line{
@@ -77,7 +95,9 @@ func TestEstimatePricesEveryLineAndAddsThemUp(t *testing.T) {
 			},
 		},
 		NotPriced: []Omission{
-			{Name: "api", Kind: "gateway", Reason: "no aws prices for this node type yet"},
+			{Name: "jobs", Kind: "queue", Reason: "no aws prices for this node type yet"},
+			{Name: "api", Kind: "gateway", Reason: "requests"},
+			{Name: "api", Kind: "gateway", Reason: "data transfer"},
 			{Name: "orders-db", Kind: "database", Reason: "backups beyond 20 GB"},
 			{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
 		},
@@ -160,11 +180,14 @@ func TestEstimateNeedsASnapshotWhenThereAreMatchers(t *testing.T) {
 }
 
 func TestTableLinesUpTheColumns(t *testing.T) {
-	doc, err := Estimate(project("eu-west-2", gateway, database), fakeMatchers{}, fixture(), taken.Add(100*24*time.Hour))
+	doc, err := Estimate(project("eu-west-2", gateway, database, queue), fakeMatchers{}, fixture(), taken.Add(100*24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
+		"api        gateway       HTTP API",
+		"  priced at rest, usage not set",
+		"                                     0.00",
 		"orders-db  database      small, 20 GB",
 		"  db       730 h   x  0.0180 USD    13.14",
 		"  storage   20 GB  x  0.1330 USD     2.66",
@@ -173,12 +196,34 @@ func TestTableLinesUpTheColumns(t *testing.T) {
 		"  nat      730 h   x  0.0500 USD    36.50",
 		"                                    36.50",
 		"not priced",
-		"  api        gateway       no aws prices for this node type yet",
+		"  jobs       queue         no aws prices for this node type yet",
+		"  api        gateway       requests",
+		"  api        gateway       data transfer",
 		"  orders-db  database      backups beyond 20 GB",
 		"  network    implicit VPC  nat gateway data processed",
 		"",
 		"warning: the bundled aws prices are 100 days old (taken 2026-09-05)",
 		"total  52.30 USD/month  eu-west-2, list prices from 2026-09-05, estimate not a quote",
+	}
+	if diff := cmp.Diff(want, doc.Table()); diff != "" {
+		t.Errorf("table (-want +got):\n%s", diff)
+	}
+}
+
+func TestTablePutsTheSubtotalPastTheNoteWhenNothingHasLines(t *testing.T) {
+	doc, err := Estimate(project("eu-west-2", gateway), fakeMatchers{}, fixture(), taken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"api  gateway  HTTP API",
+		"  priced at rest, usage not set",
+		"                                    0.00",
+		"not priced",
+		"  api  gateway  requests",
+		"  api  gateway  data transfer",
+		"",
+		"total  0.00 USD/month  eu-west-2, list prices from 2026-09-05, estimate not a quote",
 	}
 	if diff := cmp.Diff(want, doc.Table()); diff != "" {
 		t.Errorf("table (-want +got):\n%s", diff)

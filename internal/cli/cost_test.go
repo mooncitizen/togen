@@ -17,8 +17,21 @@ func TestCostPrintsATableForAValidProject(t *testing.T) {
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	if result.Lines[0] != "main-db  database      db.t4g.micro, postgres 17, single-AZ, 20 GB" {
-		t.Errorf("first line = %q", result.Lines[0])
+	squeezed := make([]string, len(result.Lines))
+	for i, line := range result.Lines {
+		squeezed[i] = strings.Join(strings.Fields(line), " ")
+	}
+	wantAtRest := []string{
+		"api gateway HTTP API",
+		"priced at rest, usage not set",
+		"0.00",
+		"handler function node, 512 MB, x86_64",
+		"priced at rest, usage not set",
+		"0.00",
+		"main-db database db.t4g.micro, postgres 17, single-AZ, 20 GB",
+	}
+	if diff := cmp.Diff(wantAtRest, squeezed[:7]); diff != "" {
+		t.Errorf("first lines (-want +got):\n%s", diff)
 	}
 	var priced, omitted []string
 	for _, line := range result.Lines {
@@ -33,8 +46,10 @@ func TestCostPrintsATableForAValidProject(t *testing.T) {
 		t.Errorf("priced lines (-want +got):\n%s", diff)
 	}
 	wantOmitted := []string{
-		"api gateway no aws prices for this node type yet",
-		"handler function no aws prices for this node type yet",
+		"api gateway requests",
+		"api gateway data transfer",
+		"handler function requests",
+		"handler function duration",
 	}
 	if diff := cmp.Diff(wantOmitted, omitted); diff != "" {
 		t.Errorf("not priced (-want +got):\n%s", diff)
@@ -58,10 +73,16 @@ func TestCostPrintsTheDocumentAsJSON(t *testing.T) {
 	if doc.Provider != "aws" || doc.Region != "eu-west-2" || doc.Currency != "USD" || doc.SnapshotDate == "" {
 		t.Errorf("document = %+v", doc)
 	}
-	if len(doc.Items) != 2 || doc.Items[0].Name != "main-db" || len(doc.Items[0].Lines) != 2 || doc.Items[1].Name != "network" {
-		t.Errorf("items = %+v", doc.Items)
+	if len(doc.Items) != 4 || doc.Items[0].Name != "api" || doc.Items[1].Name != "handler" || doc.Items[2].Name != "main-db" || doc.Items[3].Name != "network" {
+		t.Fatalf("items = %+v", doc.Items)
 	}
-	if want := doc.Items[0].Subtotal + doc.Items[1].Subtotal; doc.Total != want || doc.Total <= 0 {
+	if api := doc.Items[0]; api.Note != "priced at rest, usage not set" || len(api.Lines) != 0 || api.Subtotal != 0 {
+		t.Errorf("api = %+v", api)
+	}
+	if db := doc.Items[2]; db.Note != "" || len(db.Lines) != 2 {
+		t.Errorf("main-db = %+v", db)
+	}
+	if want := doc.Items[2].Subtotal + doc.Items[3].Subtotal; doc.Total != want || doc.Total <= 0 {
 		t.Errorf("total = %v, want %v", doc.Total, want)
 	}
 	if doc.Note != "list prices from "+doc.SnapshotDate+", estimate not a quote" {

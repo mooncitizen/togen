@@ -22,6 +22,8 @@ Routing stays in API Gateway. Paths and methods are already routes there, so lis
 
 The path is passed through to the service as it stands. A route on `/web` arrives at the container as `/web`, so the service has to serve that prefix.
 
+Cost: `togen cost` prices a gateway at rest. An HTTP API has no hourly charge, so the node has a zero subtotal with the line `priced at rest, usage not set` under it, and `requests` and `data transfer` are listed under not priced until the `usage` block in `togen.yml` sets `requests` (from ADR 0009). The request meter is in the bundled snapshot ready for that: the `API Calls` family of the `AmazonApiGateway` offer file with the `ApiGatewayHttpRequest` usage type, on demand, in the project's region, which is the HTTP API's rate and about a third of the REST API's. It is tiered and the snapshot holds the first tier's rate with the point where it ends. Data transfer out is an EC2 charge rather than the gateway's and stays unpriced. The VPC link an HTTP API uses to reach a service has no charge of its own; the load balancer behind it is the service's. The matcher is `internal/resolve/aws/cost.go`.
+
 ## GCP
 
 Not implemented yet. The real API Gateway product is beta and needs an OpenAPI document, so the plan is to expose the Cloud Run URL directly with a public invoker binding.
