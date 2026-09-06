@@ -80,8 +80,8 @@ func TestResolveProducesAValidGraphForTheExampleProject(t *testing.T) {
 		Version: "~> 6.0",
 		Config:  ir.Attrs{ir.A("region", ir.Str("eu-west-2"))},
 	}
-	if diff := cmp.Diff(want, g.Provider); diff != "" {
-		t.Errorf("provider (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]ir.Provider{want}, g.Providers); diff != "" {
+		t.Errorf("providers (-want +got):\n%s", diff)
 	}
 
 	var types []string

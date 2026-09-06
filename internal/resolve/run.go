@@ -19,6 +19,7 @@ func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {
 	}
 
 	ctx := NewContext(project)
+	ctx.RequireProvider(prov.ProviderBlock(project))
 	if failure := resolveAll(ctx, prov); failure != nil {
 		return nil, failure
 	}
@@ -29,7 +30,7 @@ func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {
 
 	g := &ir.Graph{
 		TerraformVersion: ">= 1.5",
-		Provider:         prov.ProviderBlock(project),
+		Providers:        ctx.Providers(),
 		Data:             ctx.DataSources(),
 		Resources:        ctx.Resources(),
 		Variables:        ctx.Variables,

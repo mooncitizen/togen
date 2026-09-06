@@ -30,7 +30,17 @@ func ValidateGraph(g *Graph) Errors {
 			}
 		}
 	}
-	v.walkAttrs(g.Provider.Config, "provider."+g.Provider.Name)
+	if len(g.Providers) == 0 {
+		v.report("providers", "the graph has no providers")
+	}
+	providers := map[string]bool{}
+	for _, p := range g.Providers {
+		if providers[p.Name] {
+			v.report("provider."+p.Name, fmt.Sprintf("duplicate provider '%s'", p.Name))
+		}
+		providers[p.Name] = true
+		v.walkAttrs(p.Config, "provider."+p.Name)
+	}
 	for _, variable := range g.Variables {
 		v.walk(variable.Default, "variable."+variable.Name)
 	}
