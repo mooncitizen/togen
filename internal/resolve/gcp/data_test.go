@@ -99,6 +99,35 @@ func TestDataAccessDoesNotDuplicateWiringForReadsAndWrites(t *testing.T) {
 	}
 }
 
+func TestAServiceReadingADatabaseGetsTheConnectionAndTheConnector(t *testing.T) {
+	ctx, project := newContext(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		databaseNode(t, "n3", "main-db", defaultDatabase),
+	}, []ir.Edge{{ID: "e1", From: "n4", To: "n3", Relation: ir.RelReads}})
+	svc := resolveService(ctx, project.Nodes[0])
+	db := resolveDatabase(ctx, project.Nodes[1])
+	resolveDataAccess(ctx, project.Edges[0], svc, db)
+	svc.Finalise()
+
+	if diff := cmp.Diff(databaseEnv, svc.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+	if !svc.NeedsNetwork {
+		t.Error("the service did not join the network")
+	}
+	access, _ := template(t, ctx).Get("vpc_access")
+	want := ir.B(ir.Attrs{
+		ir.A("connector", ir.R(connectorID, ir.Field("id"))),
+		ir.A("egress", ir.Str("PRIVATE_RANGES_ONLY")),
+	})
+	if diff := cmp.Diff(ir.Value(want), access); diff != "" {
+		t.Errorf("vpc_access (-want +got):\n%s", diff)
+	}
+	if len(ctx.Errors) != 0 {
+		t.Errorf("errors = %v", ctx.Errors)
+	}
+}
+
 func TestDataAccessReportsUnsupportedEnds(t *testing.T) {
 	ctx, project := newContext(t, []ir.Node{
 		{ID: "n1", Type: ir.NodeGateway, Name: "api"},

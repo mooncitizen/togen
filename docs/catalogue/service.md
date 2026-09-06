@@ -41,7 +41,30 @@ Cost: `togen cost` prices a service on the Fargate meters from the bundled ECS l
 
 ## GCP
 
-Not implemented yet. Planned: `google_cloud_run_v2_service` with a service account, and for a public service a `google_cloud_run_v2_service_iam_member` granting `roles/run.invoker` to `allUsers` rather than a load balancer.
+- `google_service_account` with `account_id` `<project>-<environment>-<name>`. The service runs as it, and it is what `calls` edges grant to. Account ids are capped at 30 characters, so a long project, environment and name combination is refused with a message saying which to shorten.
+- `google_cloud_run_v2_service` in the project's region with `deletion_protection` off, so `terraform destroy` works without a second edit. The template runs as the service account, carries a `scaling` block with `min_instance_count` from `minReplicas` and `max_instance_count` from `maxReplicas`, and one container with the `image`, a `ports` block for `port`, cpu and memory limits from the size, and an `env` block per variable: the node's `env` first, sorted by name, then whatever edges add. Cloud Run scales the service itself, so unlike AWS both replica bounds take effect. A service with `minReplicas` of 1 or more is billed for that many idle instances.
+- `ingress` is `INGRESS_TRAFFIC_INTERNAL_ONLY` unless `public`, when it is `INGRESS_TRAFFIC_ALL`. There is no load balancer either way. Cloud Run gives every service an HTTPS URL of its own.
+- If any edge gives the service access to something on the private network, the template gains a `vpc_access` block naming the implicit network's connector with `PRIVATE_RANGES_ONLY` egress, and the first node that needs the network creates it. A `reads` or `writes` edge to a database does that. A service with no such edge stays off the connector.
+
+Sizes are Cloud Run cpu and memory limits: small 1 cpu and 512Mi, medium 1 cpu and 1Gi, large 2 cpu and 2Gi. Cloud Run wants whole vCPUs above 1 and at least 512Mi per vCPU beyond the first, so these are the pairs that line up with the function's memory table.
+
+The generated code does not enable APIs. The GCP project needs Cloud Run enabled before the first apply, and the image has to be somewhere Cloud Run can pull from (Artifact Registry, or a public registry).
+
+### Public services
+
+`public` adds a `google_cloud_run_v2_service_iam_member` granting `roles/run.invoker` to `allUsers` on the service, and an output `<name>_url` carrying the service's URL. A private service has no binding and no output; its URL still reaches callers inside the project through the `calls` edge.
+
+### Edges
+
+A `routes` edge from the gateway opens the service to the internet and outputs its URL as `<gateway>_<name>_url`, the same shape as a routed function; see [gateway](gateway.md). A public service already answers to `allUsers`, so a route to one adds the output alone rather than a second binding on the same service.
+
+A `reads` or `writes` edge to a database sets the connection details on the container and puts the service on the connector, described under [database](database.md).
+
+A `calls` edge to a service grants the caller's service account `roles/run.invoker` on the target and sets `<TARGET>_URL` on the caller. A `calls` edge to a function does the same on the function's Cloud Run service, since a 2nd gen function answers HTTP through Cloud Run and that is where `run.invoker` is checked. Callers are functions or services, and each caller gets its own binding named `<target>_from_<caller>`. The caller still has to send an identity token for the target's URL with each request (the Google auth libraries fetch one from the metadata server), because Cloud Run checks the token, not the network.
+
+Two things to know before relying on that. Cloud Run only counts a request from another Cloud Run service as internal when the caller routes all of its egress through the VPC, and the resolver puts callers on the connector with `PRIVATE_RANGES_ONLY` egress, which sends `run.app` traffic over the public path. So a call to a private service is refused at the ingress today, and the target has to be `public` (its binding still matters: `allUsers` opens the URL, the caller's token is what an application should check) until the resolver routes caller egress through the VPC. And the URL is Terraform's reference to the target, so two services that call each other are a cycle Terraform refuses; a `calls` loop needs one side to find the other some other way.
+
+Cost: `togen cost` has no GCP prices yet and reports the service as not priced.
 
 ## Azure
 

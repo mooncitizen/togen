@@ -9,7 +9,6 @@ import (
 	"github.com/mooncitizen/togen/internal/resolve"
 )
 
-// A service is Cloud Run too (ADR 0010), so its handle will take this path once it exists.
 func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) {
 	if _, ok := from.Exports.(resolve.CloudRunExports); !ok {
 		ctx.Report(ir.ValidationError{
