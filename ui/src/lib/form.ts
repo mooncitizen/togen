@@ -65,6 +65,10 @@ export function nameField(): Field {
   return toField('name', variants[0].properties.name, true);
 }
 
+export function projectField(key: 'name' | 'environment'): Field {
+  return toField(key, schema.properties[key], true);
+}
+
 export function pathField(): Field {
   return toField('path', edgeSpecs.path, false);
 }

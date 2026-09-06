@@ -100,6 +100,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("PUT /api/project", s.putProject)
 	mux.HandleFunc("POST /api/project/init", s.postInit)
 	mux.HandleFunc("GET /api/examples", s.getExamples)
+	mux.HandleFunc("GET /api/workspace", s.getWorkspace)
 	mux.HandleFunc("GET /api/layout", s.getLayout)
 	mux.HandleFunc("PUT /api/layout", s.putLayout)
 	mux.HandleFunc("GET /api/views", s.getViews)

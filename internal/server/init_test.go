@@ -60,6 +60,22 @@ func TestGetProjectIsNotFoundWithoutAProject(t *testing.T) {
 	}
 }
 
+func TestGetWorkspaceNamesTheDirectory(t *testing.T) {
+	dir, front, _ := emptyHarness(t)
+	code, raw := send(t, front, http.MethodGet, "/api/workspace", nil)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	var body map[string]string
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatalf("parse %s: %v", raw, err)
+	}
+	want := map[string]string{"dir": dir, "name": filepath.Base(dir)}
+	if diff := cmp.Diff(want, body); diff != "" {
+		t.Errorf("workspace (-want +got):\n%s", diff)
+	}
+}
+
 func TestPostInitWritesASketch(t *testing.T) {
 	dir, front, _ := emptyHarness(t)
 	code, raw := send(t, front, http.MethodPost, "/api/project/init",

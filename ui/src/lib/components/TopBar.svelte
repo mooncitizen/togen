@@ -2,15 +2,15 @@
   import { dash, money } from '../cost.ts';
   import { errorLines, getStore } from '../store.svelte.ts';
   import { accent } from '../style.ts';
-  import { getTheme } from '../theme.svelte.ts';
   import { errorLine } from '../validate.ts';
+  import ThemeToggle from './ThemeToggle.svelte';
+  import Wordmark from './Wordmark.svelte';
 
   type Status = { tone: 'ok' | 'warn' | 'err'; text: string; lines: string[] };
 
   const tones = { ok: 'bg-ok', warn: 'bg-warn', err: 'bg-err' };
 
   const store = getStore();
-  const theme = getTheme();
   const project = $derived(store.project);
   const lines = $derived(store.error === null ? [] : errorLines(store.error));
   const problems = $derived(store.problems.map(errorLine));
@@ -85,10 +85,7 @@
 <header
   class="relative flex h-12 shrink-0 items-center gap-3 border-b border-border bg-panel pr-3 pl-4"
 >
-  <div class="flex items-baseline gap-1.5">
-    <span class="text-sm font-semibold">Togen</span>
-    <span class="text-xs text-muted">studio</span>
-  </div>
+  <Wordmark />
   <span class="h-5 w-px bg-border"></span>
   {#if project}
     <div class="flex min-w-0 items-center gap-2">
@@ -173,42 +170,7 @@
         <span class="truncate">{status.text}</span>
       </span>
     {/if}
-    <button
-      class="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md border border-transparent text-muted hover:bg-raised hover:text-text"
-      aria-label={theme.scheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-      title={theme.scheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
-      onclick={() => theme.toggle()}
-    >
-      {#if theme.scheme === 'dark'}
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          stroke-linecap="round"
-        >
-          <circle cx="12" cy="12" r="4" />
-          <path
-            d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
-          />
-        </svg>
-      {:else}
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.75"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
-        </svg>
-      {/if}
-    </button>
+    <ThemeToggle />
     <button
       class="inline-flex h-[30px] shrink-0 items-center rounded-md border border-border-strong bg-raised px-3 font-medium enabled:hover:bg-panel disabled:opacity-40"
       disabled={project === null}

@@ -49,6 +49,15 @@ func (s *Server) getProject(w http.ResponseWriter, _ *http.Request) {
 
 // Always version 2, whatever the file holds; the file itself is only
 // rewritten by the next PUT.
+// The first-run screen names the directory a project would be created in.
+func (s *Server) getWorkspace(w http.ResponseWriter, _ *http.Request) {
+	dir := s.dir
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"dir": dir, "name": filepath.Base(dir)})
+}
+
 func (s *Server) getLayout(w http.ResponseWriter, _ *http.Request) {
 	layout, err := workspace.LoadLayout(s.dir)
 	if err != nil {
