@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getStore } from '../store.svelte.ts';
+  import About from './About.svelte';
   import Palette from './Palette.svelte';
 
   const store = getStore();
@@ -37,7 +38,10 @@
     </ul>
   </section>
   <Palette />
-  <div class="mt-auto border-t border-border px-4 py-2.5 font-mono text-[11px] text-faint">
-    togen/project.json
+  <div
+    class="mt-auto flex items-center justify-between border-t border-border py-2 pr-2.5 pl-4 text-[11px] text-faint"
+  >
+    <span class="font-mono">togen/project.json</span>
+    <About />
   </div>
 </aside>

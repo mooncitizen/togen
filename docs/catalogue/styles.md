@@ -2,7 +2,7 @@
 
 The look every node type has when `togen.yml` says nothing: a colour, an icon and a shape per type, chosen per provider so a diagram looks like the cloud it targets. The table lives in `internal/style`, keyed by provider, and `just generate` publishes it as `schema/styles.json` for the canvas. `style.kinds` in `togen.yml` overrides a type and `style.nodes` one node; the order is node, then kind, then this scheme (ADR 0007).
 
-Colours are the category colours each vendor uses in its own architecture icon set, so a queue is the same pink in Togen as in an AWS deck. Icon ids are `<provider>/<service>` and name an icon in that set; this table only names them, the files and each set's licence notice are the canvas's to bundle. Databases and caches are drawn as a `cylinder`, everything else as a `card`. Each provider also has an accent colour and a colour for the network boundary the resolver creates implicitly.
+Colours are the category colours each vendor uses in its own architecture icon set, so a queue is the same pink in Togen as in an AWS deck. Icon ids are `<provider>/<service>` and name an icon in that set; the files live under `ui/icons/<provider>/` with each set's terms in a `NOTICE.md` beside them, and the studio's about panel shows the same notices. The icons are the vendors' own drawings, used as their terms permit, in architecture diagrams. Databases and caches are drawn as a `cylinder`, everything else as a `card`. Each provider also has an accent colour and a colour for the network boundary the resolver creates implicitly.
 
 `icon` in `togen.yml` accepts any id below or a path relative to `togen.yml` starting with `./` or `../`.
 

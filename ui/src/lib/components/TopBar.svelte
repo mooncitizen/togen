@@ -1,13 +1,11 @@
 <script lang="ts">
   import { errorLines, getStore } from '../store.svelte.ts';
+  import { accent } from '../style.ts';
   import { getTheme } from '../theme.svelte.ts';
-  import type { Provider } from '../types.ts';
   import { errorLine } from '../validate.ts';
 
   type Status = { tone: 'ok' | 'warn' | 'err'; text: string; lines: string[] };
 
-  // The vendors' brand colours, until the provider schemes arrive with the icons.
-  const dots: Record<Provider, string> = { aws: '#ED7100', gcp: '#4285F4', azure: '#0078D4' };
   const tones = { ok: 'bg-ok', warn: 'bg-warn', err: 'bg-err' };
 
   const store = getStore();
@@ -94,7 +92,7 @@
       <span
         class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-border bg-raised px-2 text-[11px] font-semibold tracking-[.04em] uppercase"
       >
-        <span class="h-2 w-2 rounded-full" style="background: {dots[project.provider]}"></span>
+        <span class="h-2 w-2 rounded-full" style="background: {accent(project.provider)}"></span>
         {project.provider}
       </span>
       <span class="font-mono text-xs text-muted">{project.region}</span>

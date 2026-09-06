@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mooncitizen/togen/internal/ir"
@@ -66,6 +68,41 @@ func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
 		workspace.Config
 		Deprecated string `json:"deprecated,omitempty"`
 	}{config, note})
+}
+
+// An icon in togen.yml is a path relative to the file, so it is served from the
+// project root and nowhere else, and only in the two formats a browser draws.
+func (s *Server) getIcon(w http.ResponseWriter, r *http.Request) {
+	rel := r.URL.Query().Get("path")
+	path, ok := iconPath(s.dir, rel)
+	if !ok {
+		writeError(w, http.StatusBadRequest, "the icon must be an .svg or .png file under the project root")
+		return
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "no such icon: "+rel)
+		return
+	}
+	w.Header().Set("Content-Type", iconTypes[strings.ToLower(filepath.Ext(path))])
+	_, _ = w.Write(raw)
+}
+
+var iconTypes = map[string]string{".svg": "image/svg+xml", ".png": "image/png"}
+
+func iconPath(root, rel string) (string, bool) {
+	if rel == "" || filepath.IsAbs(rel) || strings.HasPrefix(rel, "/") {
+		return "", false
+	}
+	if _, ok := iconTypes[strings.ToLower(filepath.Ext(rel))]; !ok {
+		return "", false
+	}
+	path := filepath.Join(root, filepath.FromSlash(rel))
+	inside, err := filepath.Rel(root, path)
+	if err != nil || inside == ".." || strings.HasPrefix(inside, ".."+string(filepath.Separator)) {
+		return "", false
+	}
+	return path, true
 }
 
 func (s *Server) putProject(w http.ResponseWriter, r *http.Request) {
