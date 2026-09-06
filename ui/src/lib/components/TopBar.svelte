@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { dash, money } from '../cost.ts';
   import { errorLines, getStore } from '../store.svelte.ts';
   import { accent } from '../style.ts';
   import { getTheme } from '../theme.svelte.ts';
@@ -15,6 +16,9 @@
   const problems = $derived(store.problems.map(errorLine));
   const status = $derived(describe());
   const blocked = $derived(reason());
+  const estimate = $derived(
+    store.cost === null ? dash : `${money(store.cost.total)} ${store.cost.currency}/mo`,
+  );
 
   let open = $state(false);
 
@@ -142,6 +146,14 @@
         <path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
       </svg>
     </button>
+    <button
+      class="inline-flex h-[26px] shrink-0 items-center rounded-full border bg-raised px-2.5 font-mono text-xs hover:border-border-strong {store.costOpen
+        ? 'border-border-strong'
+        : 'border-border'} {store.cost === null ? 'text-muted' : ''}"
+      aria-pressed={store.costOpen}
+      title="Monthly estimate"
+      onclick={() => store.toggleCost()}>{estimate}</button
+    >
     {#if status.lines.length > 0}
       <button
         class="inline-flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-border bg-raised px-2.5 text-xs hover:border-border-strong"

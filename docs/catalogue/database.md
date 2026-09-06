@@ -17,6 +17,8 @@ Engine versions allowed: postgres 17, 16, 15. MySQL 8.4, 8.0. Default is the fir
 
 A `reads` or `writes` edge from a function adds an ingress rule from the function's security group on the engine port, an IAM statement allowing `secretsmanager:GetSecretValue` on the managed secret, and the env vars `<NAME>_HOST`, `<NAME>_PORT`, `<NAME>_NAME`, `<NAME>_SECRET_ARN` on the function. The function is placed in the VPC.
 
+Cost: `togen cost` prices a database as two meters from the bundled RDS list prices. The instance is 730 hours a month of the `Database Instance` SKU for the size's instance class, the engine, `Single-AZ` or `Multi-AZ` from `highAvailability`, on demand, in the project's region. Storage is `storageGb` GB-months of `General Purpose` (gp2), which is what `aws_db_instance` provisions when no `storage_type` is set, with the same engine and deployment option, so Multi-AZ doubles both meters as AWS bills them. The engine version does not change the price and is shown only in the summary. Backups beyond the allocated size, I/O, snapshot exports and data transfer are not priced, and the output says so. The first node that needs the VPC also brings the NAT gateway's hourly charge under `network`; the data it processes is not priced. The matcher is `internal/resolve/aws/cost.go`, beside the size table, so a change to the sizes and its price consequence are one diff.
+
 ## GCP
 
 Not implemented yet. Planned: `google_sql_database_instance` with private IP over a service networking connection, plus database and user.

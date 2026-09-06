@@ -107,6 +107,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /api/config", s.getConfig)
 	mux.HandleFunc("GET /api/icon", s.getIcon)
 	mux.HandleFunc("POST /api/generate", s.postGenerate)
+	mux.HandleFunc("GET /api/cost", s.getCost)
 	mux.HandleFunc("GET /api/events", s.events)
 	mux.HandleFunc("/api/", notFound)
 	mux.HandleFunc("/", s.serveUI)

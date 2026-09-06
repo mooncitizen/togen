@@ -45,6 +45,10 @@ build-cli:
 generate:
     go run ./internal/schema/cmd
 
+# Rebuild internal/cost/prices/aws.json from the AWS Price List. Pass --check to compare without writing.
+refresh-prices *flags='':
+    go run ./internal/cost/cmd {{flags}}
+
 # Generate every example and run terraform validate and fmt -check on it.
 acceptance: build-cli
     bash scripts/acceptance.sh

@@ -19,6 +19,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/workspace"
 )
@@ -1082,4 +1083,69 @@ func TestEventsFollowTheViewsButNotTheApi(t *testing.T) {
 		t.Fatalf("put: code = %d, body = %s", code, raw)
 	}
 	expectNoEvent(t, events)
+}
+
+func TestGetCostReturnsTheEstimate(t *testing.T) {
+	dir, front, _ := harness(t)
+	project := exampleProject()
+	project["nodes"] = append(project["nodes"].([]any),
+		map[string]any{"id": "n3", "type": "database", "name": "main-db", "properties": map[string]any{"storageGb": 50}})
+	writeDoc(t, workspace.ProjectPath(dir), project)
+
+	code, raw := send(t, front, http.MethodGet, "/api/cost", nil)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	var doc cost.Document
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse %s: %v", raw, err)
+	}
+	if doc.Provider != ir.ProviderAWS || doc.Region != "eu-west-2" || doc.Currency != "USD" || doc.SnapshotDate == "" {
+		t.Errorf("document = %+v", doc)
+	}
+	if len(doc.Items) != 2 || doc.Items[0].Name != "main-db" || doc.Items[1].Name != "network" {
+		t.Fatalf("items = %+v", doc.Items)
+	}
+	if storage := doc.Items[0].Lines[1]; storage.Label != "storage gp2" || storage.Quantity != 50 {
+		t.Errorf("storage = %+v", storage)
+	}
+	if want := doc.Items[0].Subtotal + doc.Items[1].Subtotal; doc.Total != want || doc.Total <= 0 {
+		t.Errorf("total = %v, want %v", doc.Total, want)
+	}
+	wantOmitted := []cost.Omission{
+		{Name: "api", Kind: "gateway", Reason: "no aws prices for this node type yet"},
+		{Name: "handler", Kind: "function", Reason: "no aws prices for this node type yet"},
+		{Name: "main-db", Kind: "database", Reason: "backups beyond 50 GB"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+	}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetCostIsNotFoundWithoutAProject(t *testing.T) {
+	dir, front, _ := harness(t)
+	if err := os.Remove(workspace.ProjectPath(dir)); err != nil {
+		t.Fatal(err)
+	}
+	code, raw := send(t, front, http.MethodGet, "/api/cost", nil)
+	if code != http.StatusNotFound {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+}
+
+func TestGetCostReportsAnInvalidProject(t *testing.T) {
+	dir, front, _ := harness(t)
+	project := exampleProject()
+	project["edges"] = []any{map[string]any{"id": "e1", "from": "n1", "to": "zz", "relation": "routes"}}
+	writeDoc(t, workspace.ProjectPath(dir), project)
+
+	code, raw := send(t, front, http.MethodGet, "/api/cost", nil)
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"edges.0 (edge e1): edge refers to missing node 'zz'"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
 }
