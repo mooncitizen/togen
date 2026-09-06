@@ -2,7 +2,6 @@ package gcp
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/mooncitizen/togen/internal/ir"
@@ -22,7 +21,7 @@ const (
 )
 
 func resolveFunction(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.FunctionProps](ctx, node)
+	p := resolve.Props[ir.FunctionProps](ctx, node)
 	runtime, ok := runtimes[p.Runtime]
 	if !ok {
 		ctx.Fail(fmt.Sprintf("function '%s' has an unknown runtime '%s'", node.Name, p.Runtime))
@@ -107,7 +106,7 @@ func resolveFunction(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 	h := &resolve.Handle{
 		Node:    node,
 		Primary: fnID,
-		Env:     sortedEnv(p.Env),
+		Env:     resolve.SortedEnv(p.Env),
 		Exports: resolve.CloudRunExports{
 			Service:        ir.R(fnID, ir.Field("name")),
 			Location:       ir.R(fnID, ir.Field("location")),
@@ -157,18 +156,4 @@ func ensureSourceBucket(ctx *resolve.Context) ir.ID {
 	id := ir.ID{Type: bucket.Type, Name: bucket.Name}
 	ctx.Scratch[functionsLabel] = id
 	return id
-}
-
-// Go maps do not keep insertion order, so env is emitted alphabetically to stay deterministic.
-func sortedEnv(env map[string]string) ir.Attrs {
-	keys := make([]string, 0, len(env))
-	for k := range env {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	out := make(ir.Attrs, 0, len(keys))
-	for _, k := range keys {
-		out = append(out, ir.A(k, ir.Str(env[k])))
-	}
-	return out
 }

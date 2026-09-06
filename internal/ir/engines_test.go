@@ -12,7 +12,9 @@ func TestDefaultEngineVersionIsTheFirstOne(t *testing.T) {
 		{ProviderAWS, EnginePostgres, "17", true},
 		{ProviderAWS, EngineMySQL, "8.4", true},
 		{ProviderAWS, "oracle", "", false},
-		{ProviderGCP, EnginePostgres, "", false},
+		{ProviderGCP, EnginePostgres, "17", true},
+		{ProviderGCP, EngineMySQL, "8.4", true},
+		{"nowhere", EnginePostgres, "", false},
 	} {
 		got, ok := DefaultEngineVersion(c.provider, c.engine)
 		if got != c.want || ok != c.ok {
