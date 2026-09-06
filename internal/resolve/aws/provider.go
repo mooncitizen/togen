@@ -76,11 +76,3 @@ func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.H
 		})
 	}
 }
-
-func nodeProps[T any](ctx *resolve.Context, n ir.Node) T {
-	p, err := ir.NodeProps[T](n)
-	if err != nil {
-		ctx.Fail(fmt.Sprintf("node '%s' has properties the aws resolver cannot read: %v", n.ID, err))
-	}
-	return p
-}

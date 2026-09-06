@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"reflect"
+	"slices"
 
 	"github.com/mooncitizen/togen/internal/ir"
 )
@@ -10,7 +11,9 @@ type Exports interface{ isExports() }
 
 type DatabaseExports struct{ Host, Port, Name, SecretARN ir.Value }
 
-type FunctionExports struct{ ARN, InvokeARN, FunctionName ir.Value }
+// ARN and InvokeARN are AWS. URL and PrincipalID are Azure: the function app's hostname and the
+// managed identity that edges grant to.
+type FunctionExports struct{ ARN, InvokeARN, FunctionName, URL, PrincipalID ir.Value }
 
 type GatewayExports struct{ APIID, ExecutionARN, URL ir.Value }
 
@@ -60,4 +63,18 @@ func (h *Handle) AddStatement(s ir.Value) {
 		}
 	}
 	h.Statements = append(h.Statements, s)
+}
+
+// Go maps do not keep insertion order, so env is emitted alphabetically to stay deterministic.
+func SortedEnv(env map[string]string) ir.Attrs {
+	keys := make([]string, 0, len(env))
+	for k := range env {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	out := make(ir.Attrs, 0, len(keys))
+	for _, k := range keys {
+		out = append(out, ir.A(k, ir.Str(env[k])))
+	}
+	return out
 }

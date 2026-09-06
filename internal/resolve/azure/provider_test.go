@@ -96,6 +96,51 @@ func TestResolveProducesAValidGraphForAnEmptyProject(t *testing.T) {
 	}
 }
 
+func TestResolveProducesAValidGraphForAGatewayAndAFunction(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		{ID: "n2", Type: ir.NodeFunction, Name: "orders"},
+	})
+	p.Edges = []ir.Edge{{
+		ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes,
+		Properties: ir.EdgeProperties{Path: "/orders", Methods: []ir.Method{ir.MethodGet}},
+	}}
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Errorf("graph is not valid:\n%s", errs.Error())
+	}
+	var types []string
+	for _, r := range g.Resources {
+		types = append(types, r.Type)
+	}
+	want := []string{
+		"azurerm_resource_group",
+		"azurerm_service_plan",
+		"azurerm_storage_account",
+		"azurerm_linux_function_app",
+	}
+	if diff := cmp.Diff(want, types); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	if len(g.Outputs) != 1 || g.Outputs[0].Name != "api_orders_url" {
+		t.Errorf("outputs = %+v", g.Outputs)
+	}
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	if !strings.Contains(string(files["main.tf"]), `resource "azurerm_linux_function_app" "orders"`) {
+		t.Errorf("main.tf:\n%s", files["main.tf"])
+	}
+	wantURL := `"https://${azurerm_linux_function_app.orders.default_hostname}"`
+	if !strings.Contains(string(files["outputs.tf"]), wantURL) {
+		t.Errorf("outputs.tf:\n%s", files["outputs.tf"])
+	}
+}
+
 func TestResolveRejectsOtherProviders(t *testing.T) {
 	p := newProject(t, nil)
 	p.Provider = ir.ProviderAWS
@@ -105,8 +150,11 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 	}
 }
 
-func TestResolveRefusesEveryNodeType(t *testing.T) {
+func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
 	for _, typ := range ir.NodeTypes {
+		if typ == ir.NodeFunction || typ == ir.NodeGateway {
+			continue
+		}
 		ctx := newContext(t, nil)
 		handle, ok := New().ResolveNode(ctx, ir.Node{ID: "n1", Type: typ, Name: "thing"})
 		if ok || handle != nil {
@@ -136,8 +184,11 @@ func TestResolveReportsEveryNodeInFileOrder(t *testing.T) {
 	}
 }
 
-func TestResolveRefusesEveryRelation(t *testing.T) {
+func TestResolveRefusesTheRelationsWithoutAResolverYet(t *testing.T) {
 	for _, rel := range ir.Relations {
+		if rel == ir.RelRoutes {
+			continue
+		}
 		ctx := newContext(t, nil)
 		New().ResolveEdge(ctx, ir.Edge{ID: "e1", Relation: rel}, nil, nil)
 		want := ir.Errors{{

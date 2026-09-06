@@ -21,6 +21,7 @@ type Example struct {
 var list = []Example{
 	{ID: "aws-basic", Description: "One of every node type, wired up with the defaults"},
 	{ID: "aws-full", Description: "Every node type, relation and property this milestone supports"},
+	{ID: "azure-basic", Description: "A gateway routing to a function, on Azure"},
 }
 
 func List() []Example { return slices.Clone(list) }

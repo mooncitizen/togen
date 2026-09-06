@@ -2,7 +2,6 @@ package aws
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
@@ -25,7 +24,7 @@ const (
 )
 
 func resolveFunction(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.FunctionProps](ctx, node)
+	p := resolve.Props[ir.FunctionProps](ctx, node)
 	rt, ok := runtimes[p.Runtime]
 	if !ok {
 		ctx.Fail(fmt.Sprintf("function '%s' has an unknown runtime '%s'", node.Name, p.Runtime))
@@ -98,7 +97,7 @@ func resolveFunction(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 	h := &resolve.Handle{
 		Node:    node,
 		Primary: fnID,
-		Env:     sortedEnv(p.Env),
+		Env:     resolve.SortedEnv(p.Env),
 		Exports: resolve.FunctionExports{
 			ARN:          ir.R(fnID, ir.Field("arn")),
 			InvokeARN:    ir.R(fnID, ir.Field("invoke_arn")),
@@ -179,18 +178,4 @@ func ensureSecurityGroup(ctx *resolve.Context, h *resolve.Handle) ir.ID {
 	h.SecurityGroup = &sgID
 	h.NeedsNetwork = true
 	return sgID
-}
-
-// Go maps do not keep insertion order, so env is emitted alphabetically to stay deterministic.
-func sortedEnv(env map[string]string) ir.Attrs {
-	keys := make([]string, 0, len(env))
-	for k := range env {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	out := make(ir.Attrs, 0, len(keys))
-	for _, k := range keys {
-		out = append(out, ir.A(k, ir.Str(env[k])))
-	}
-	return out
 }

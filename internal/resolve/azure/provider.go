@@ -44,6 +44,12 @@ func (provider) NameLimits() []resolve.NameLimit {
 }
 
 func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, bool) {
+	switch n.Type {
+	case ir.NodeGateway:
+		return resolveGateway(n), true
+	case ir.NodeFunction:
+		return resolveFunction(ctx, n), true
+	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,
 		Message: fmt.Sprintf("node type '%s' is not supported by the azure resolver yet", n.Type),
@@ -51,7 +57,11 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 	return nil, false
 }
 
-func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, _, _ *resolve.Handle) {
+func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.Handle) {
+	if e.Relation == ir.RelRoutes {
+		resolveRoutes(ctx, e, from, to)
+		return
+	}
 	ctx.Report(ir.ValidationError{
 		EdgeID:  e.ID,
 		Message: fmt.Sprintf("'%s' edges are not supported by the azure resolver yet", e.Relation),

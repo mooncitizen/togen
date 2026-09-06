@@ -30,4 +30,8 @@ Not implemented yet. The real API Gateway product is beta and needs an OpenAPI d
 
 ## Azure
 
-Not implemented yet. API Management takes hours to provision, so the plan is Container Apps ingress with `external_enabled`.
+No resources (ADR 0010). API Management takes three hours to create even on the Consumption tier, so the gateway is the routed targets' own public hostnames, and a gateway node on its own produces nothing at all.
+
+A `routes` edge to a function adds an output `<gateway>_<target>_url`, `https://` plus the function app's `default_hostname`. There is one output per routed target, named for both ends, whether the gateway routes to one target or several, so the name does not change when a second route is added. A route to a service, when it lands, will follow the same shape with the Container App's ingress FQDN. The same route key on two edges is refused as on AWS, so a project stays valid across providers.
+
+The routing itself is the function's job. Azure Functions declares HTTP triggers, their routes and their methods in the code, under the `/api` prefix by default, and nothing in the infrastructure can add a route to a running app. The edge's path and methods are therefore written into the target's app settings as `<GATEWAY>_ROUTES`, a comma separated list of `<METHOD> <path>` such as `GET /orders,POST /orders`, accumulated across every edge from that gateway to that function, so the code can read what the sketch expects it to serve.

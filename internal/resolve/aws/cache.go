@@ -10,7 +10,7 @@ import (
 const cachePort = 6379
 
 func resolveCache(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.CacheProps](ctx, node)
+	p := resolve.Props[ir.CacheProps](ctx, node)
 	local := ctx.Local(node.Name)
 	network := ensureNetwork(ctx)
 

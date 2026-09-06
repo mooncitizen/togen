@@ -10,7 +10,7 @@ import (
 )
 
 func resolveDatabase(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.DatabaseProps](ctx, node)
+	p := resolve.Props[ir.DatabaseProps](ctx, node)
 	engine, ok := ir.Engines[ir.ProviderAWS][p.Engine]
 	if !ok {
 		ctx.Fail(fmt.Sprintf("database '%s' has an unknown engine '%s'", node.Name, p.Engine))

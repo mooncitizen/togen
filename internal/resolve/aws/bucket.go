@@ -8,7 +8,7 @@ import (
 )
 
 func resolveBucket(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.BucketProps](ctx, node)
+	p := resolve.Props[ir.BucketProps](ctx, node)
 	local := ctx.Local(node.Name)
 
 	// S3 names are global, so a fixed name collides the second time anyone generates the same
