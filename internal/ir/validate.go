@@ -108,9 +108,9 @@ func SchemaErrors(root *jsonschema.ValidationError, instance any) Errors {
 	var out Errors
 	var walk func(e *jsonschema.ValidationError, loc []string)
 	walk = func(e *jsonschema.ValidationError, loc []string) {
-		// v6.0.3 aliases a shared buffer into a propertyNames error's location, and the
-		// pattern failure beneath it carries none, so both keep the enclosing object's.
-		if _, ok := e.ErrorKind.(*kind.PropertyNames); !ok && len(e.InstanceLocation) > 0 {
+		if names, ok := e.ErrorKind.(*kind.PropertyNames); ok {
+			loc = append(locationFromSchema(e.SchemaURL, loc), names.Property)
+		} else if len(e.InstanceLocation) > 0 {
 			loc = e.InstanceLocation
 		}
 		causes := e.Causes
@@ -132,6 +132,39 @@ func SchemaErrors(root *jsonschema.ValidationError, instance any) Errors {
 		}
 	}
 	walk(root, root.InstanceLocation)
+	return out
+}
+
+// v6.0.3 hands a propertyNames error a location it later overwrites, so the path is
+// read off the schema pointer instead, with the enclosing location supplying the
+// array indexes a pointer cannot. The pattern failure beneath it carries no location
+// and inherits this one.
+func locationFromSchema(schemaURL string, known []string) []string {
+	_, pointer, found := strings.Cut(schemaURL, "#/")
+	if !found {
+		return known
+	}
+	var out []string
+	parts := strings.Split(pointer, "/")
+	for i := 0; i < len(parts); i++ {
+		switch parts[i] {
+		case "properties":
+			if i+1 == len(parts) {
+				return known
+			}
+			out = append(out, parts[i+1])
+			i++
+		case "items":
+			if len(out) >= len(known) {
+				return known
+			}
+			out = append(out, known[len(out)])
+		case "oneOf", "anyOf", "allOf":
+			i++
+		default:
+			return out
+		}
+	}
 	return out
 }
 

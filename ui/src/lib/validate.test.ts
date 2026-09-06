@@ -73,9 +73,9 @@ test('the schema pass says what the CLI says', () => {
   ).toEqual(["edges.0.properties.path (edge edge-1): 'users' does not match pattern '^/'"]);
 });
 
-test('an env key the schema refuses is reported against the node', () => {
+test('an env key the schema refuses is reported at the key', () => {
   expect(lines([{ ...orders, properties: { env: { 'api url': 'x' } } }])).toEqual([
-    "nodes.0.properties.env (node function-1): 'api url' does not match pattern '^[A-Z][A-Z0-9_]*$'",
+    "nodes.0.properties.env.api url (node function-1): 'api url' does not match pattern '^[A-Z][A-Z0-9_]*$'",
   ]);
 });
 

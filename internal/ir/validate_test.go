@@ -108,7 +108,7 @@ func TestValidateProjectReportsOneSchemaErrorPerMistake(t *testing.T) {
 		{
 			name:    "an env key that is not upper snake case",
 			nodes:   []any{map[string]any{"id": "x", "type": "function", "name": "f", "properties": map[string]any{"env": map[string]any{"bad-key": "1"}}}},
-			path:    "nodes.0",
+			path:    "nodes.0.properties.env.bad-key",
 			nodeID:  "x",
 			message: "bad-key",
 		},
@@ -155,6 +155,22 @@ func TestValidateProjectReportsSchemaErrorsOnEdges(t *testing.T) {
 	}
 	if errs[0].Path != "edges.0.relation" || errs[0].EdgeID != "e1" {
 		t.Fatalf("error = %+v", errs[0])
+	}
+}
+
+func TestValidateProjectReportsEachBadEnvKeyAtItsOwnPath(t *testing.T) {
+	errs := errorsOf(t, withDoc(t, "nodes", []any{map[string]any{
+		"id": "x", "type": "function", "name": "f",
+		"properties": map[string]any{"env": map[string]any{"bad-key": "1", "OK": "2", "also bad": "3"}},
+	}}))
+	paths := make([]string, len(errs))
+	for i, e := range errs {
+		paths[i] = e.Path
+	}
+	slices.Sort(paths)
+	want := []string{"nodes.0.properties.env.also bad", "nodes.0.properties.env.bad-key"}
+	if d := cmp.Diff(want, paths); d != "" {
+		t.Fatal(d)
 	}
 }
 
