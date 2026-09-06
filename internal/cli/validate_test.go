@@ -185,14 +185,14 @@ func TestValidateReportsANodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
 		"provider":    "gcp",
 		"region":      "europe-west2",
 		"environment": "dev",
-		"nodes":       []any{map[string]any{"id": "q1", "type": "queue", "name": "jobs"}},
+		"nodes":       []any{map[string]any{"id": "b1", "type": "bucket", "name": "uploads"}},
 		"edges":       []any{},
 	})
 	result := Validate(cwd)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	want := []string{"project (node q1): node type 'queue' is not supported by the gcp resolver yet"}
+	want := []string{"project (node b1): node type 'bucket' is not supported by the gcp resolver yet"}
 	if diff := cmp.Diff(want, result.Lines); diff != "" {
 		t.Errorf("lines (-want +got):\n%s", diff)
 	}

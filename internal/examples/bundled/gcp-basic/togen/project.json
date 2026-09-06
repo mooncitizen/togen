@@ -17,7 +17,20 @@
       "type": "database",
       "name": "orders-db",
       "properties": { "engine": "postgres", "size": "small" }
-    }
+    },
+    {
+      "id": "function-2",
+      "type": "function",
+      "name": "worker",
+      "properties": { "runtime": "node", "handler": "index.handler" }
+    },
+    {
+      "id": "service-1",
+      "type": "service",
+      "name": "notifier",
+      "properties": { "image": "nginx:1.27", "port": 8080 }
+    },
+    { "id": "queue-1", "type": "queue", "name": "jobs" }
   ],
   "edges": [
     {
@@ -27,6 +40,9 @@
       "relation": "routes",
       "properties": { "path": "/orders", "methods": ["GET", "POST"] }
     },
-    { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" }
+    { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" },
+    { "id": "edge-3", "from": "function-1", "to": "queue-1", "relation": "publishes" },
+    { "id": "edge-4", "from": "function-2", "to": "queue-1", "relation": "consumes" },
+    { "id": "edge-5", "from": "service-1", "to": "queue-1", "relation": "consumes" }
   ]
 }
