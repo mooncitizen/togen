@@ -1,34 +1,46 @@
 api        gateway       HTTP API
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
 orders     function      node, 512 MB, x86_64
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
 orders-db  database      db.t4g.micro, postgres 17, single-AZ, 20 GB
-  instance     730 h   x  0.0180 USD    13.14
-  storage gp2   20 GB  x  0.1330 USD     2.66
-                                        15.80
+  instance         730 h       x  0.0180 USD    13.14
+  storage gp2       20 GB      x  0.1330 USD     2.66
+                                                15.80
+web        service       0.25 vCPU, 0.5 GB, 1 task, public
+  vcpu           182.5 vCPU-h  x  0.0466 USD     8.50
+  memory           365 GB-h    x  0.0051 USD     1.87
+  load balancer    730 h       x  0.0265 USD    19.32
+                                                29.69
 jobs       queue         standard
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
 worker     function      node, 512 MB, x86_64
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
+uploads    bucket        standard storage, versioned, private
+  priced at rest, usage not set
+                                                 0.00
+sessions   cache         cache.t4g.micro, redis 7.1, 1 node
+  node             730 h       x  0.0180 USD    13.14
+                                                13.14
 network    implicit VPC
-  nat gateway  730 h   x  0.0500 USD    36.50
-                                        36.50
+  nat gateway      730 h       x  0.0500 USD    36.50
+                                                36.50
 not priced
-  web        service       no aws prices for this node type yet
-  uploads    bucket        no aws prices for this node type yet
-  sessions   cache         no aws prices for this node type yet
   api        gateway       requests
   api        gateway       data transfer
   orders     function      requests
   orders     function      duration
   orders-db  database      backups beyond 20 GB
+  web        service       load balancer capacity units
   jobs       queue         messages
   worker     function      requests
   worker     function      duration
+  uploads    bucket        storage
+  uploads    bucket        requests
+  uploads    bucket        egress
   network    implicit VPC  nat gateway data processed
 
-total  52.30 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote
+total  95.13 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote

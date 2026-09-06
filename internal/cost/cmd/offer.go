@@ -27,6 +27,8 @@ var columns = map[string]string{
 	"volumeType":       "Volume Type",
 	"group":            "Group",
 	"queueType":        "Queue Type",
+	"cacheEngine":      "Cache Engine",
+	"storageClass":     "Storage Class",
 }
 
 func fetchOffer(ctx context.Context, client *http.Client, url string, lookups []cost.Lookup) outcome {

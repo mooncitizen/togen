@@ -18,7 +18,7 @@ Properties: size.
 
 `replication_group_id` is capped at 40 characters, which is the tightest limit AWS puts on anything Togen names. The generated name is `<project>-<environment>-<node>`, so a long project name leaves little room for the cache. The resolver reports it against the node rather than letting AWS reject the apply.
 
-Sizes: small `cache.t4g.micro`, medium `cache.t4g.medium`, large `cache.r7g.large`.
+Sizes: small `cache.t4g.micro`, medium `cache.t4g.medium`, large `cache.r7g.large`. In me-south-1 and me-central-1, which offer no t4g cache nodes, small and medium are `cache.t3.micro` and `cache.t3.medium`.
 
 ### Edges
 
@@ -29,6 +29,8 @@ Either one adds an ingress rule on the cache's security group allowing TCP 6379 
 There is no IAM statement, because ElastiCache Redis has no IAM to speak of. Access is the network and nothing else.
 
 A cache is reached over the private network, so an edge to one pulls a function into the VPC exactly as a database edge does: the function gets a security group, a `vpc_config` over the private subnets, and the VPC access execution role. A project of functions and caches pays for the NAT gateway.
+
+Cost: `togen cost` prices a cache as one meter from the bundled ElastiCache list prices: 730 hours a month of the `Cache Instance` SKU for the size's node type, Redis, on demand, in the project's region, times the one node that `num_cache_clusters` sets, so turning failover on later doubles it. The plain node hour is the one picked, not the extended support rates AWS lists for the same node type. Backups are off, so nothing is left unpriced beyond the data transfer the catalogue README rules out. The first node that needs the VPC also brings the NAT gateway's hourly charge under `network`. The matcher is `internal/resolve/aws/cost.go`, beside the size table and the node count, so a change to either and its price consequence are one diff.
 
 ## GCP
 

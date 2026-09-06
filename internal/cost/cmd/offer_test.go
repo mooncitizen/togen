@@ -9,7 +9,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/mooncitizen/togen/internal/cost"
-	"github.com/mooncitizen/togen/internal/resolve/aws"
 )
 
 // testdata/AmazonRDS-eu-west-2.csv is a slice of the real offer file from 2026-09-04: its
@@ -187,17 +186,113 @@ const ec2Slice = `"FormatVersion","v1.0"
 
 func natLookup(t *testing.T, region string) cost.Lookup {
 	t.Helper()
-	lookups, err := aws.Cost().Catalogue(region)
+	return lookupsFor(t, "AmazonEC2", region)[0]
+}
+
+// The lookups the refresh would run against one service's offer file for a region.
+func lookupsFor(t *testing.T, service, region string) []cost.Lookup {
+	t.Helper()
+	jobs, err := plan()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, l := range lookups {
-		if l.Service == "AmazonEC2" {
-			return l
+	for _, j := range jobs {
+		if j.service == service && j.region == region {
+			return j.lookups
 		}
 	}
-	t.Fatal("no nat gateway lookup")
-	return cost.Lookup{}
+	t.Fatalf("no %s job for %s", service, region)
+	return nil
+}
+
+func scanSlice(t *testing.T, name string, lookups []cost.Lookup) [][]cost.SKU {
+	t.Helper()
+	file, err := os.Open(filepath.Join("testdata", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = file.Close() }()
+	matched, err := scanOffer(file, lookups)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return matched
+}
+
+// The slices under testdata are cut from the real offer files of 2026-08-31: the rows the
+// matchers should pick and the neighbours a loose filter would catch. Fargate has ARM,
+// Windows and ephemeral storage meters in the same family; ElastiCache has Valkey, Memcached,
+// extended support and reserved rows for the same node types; S3 has the annotation volume and
+// request tiers of other storage classes.
+func TestScanOfferPicksOneSkuPerLookupInEachService(t *testing.T) {
+	for service, want := range map[string]map[string]string{
+		"AmazonECS": {
+			`AmazonECS, productFamily=Compute, usagetype~(EU-|[A-Z]+\d-)?Fargate-vCPU-Hours:perCPU, termType=OnDemand, regionCode=eu-west-2`: "G265XVYY5YDS48U6",
+			`AmazonECS, productFamily=Compute, usagetype~(EU-|[A-Z]+\d-)?Fargate-GB-Hours, termType=OnDemand, regionCode=eu-west-2`:          "JPX9CCYJS97M953T",
+		},
+		"AWSELB": {
+			`AWSELB, productFamily=Load Balancer-Application, usagetype~(EU-|[A-Z]+\d-)?LoadBalancerUsage, termType=OnDemand, regionCode=eu-west-2`: "6AP766DZF74JPTE2",
+		},
+		"AmazonElastiCache": {
+			`AmazonElastiCache, productFamily=Cache Instance, instanceType=cache.t4g.micro, cacheEngine=Redis, usagetype~(EU-|[A-Z]+\d-)?NodeUsage:cache\.t4g\.micro, termType=OnDemand, regionCode=eu-west-2`:   "VYC98G9RNMYWYM9D",
+			`AmazonElastiCache, productFamily=Cache Instance, instanceType=cache.t4g.medium, cacheEngine=Redis, usagetype~(EU-|[A-Z]+\d-)?NodeUsage:cache\.t4g\.medium, termType=OnDemand, regionCode=eu-west-2`: "57NHQQAB3DM6VWDT",
+			`AmazonElastiCache, productFamily=Cache Instance, instanceType=cache.r7g.large, cacheEngine=Redis, usagetype~(EU-|[A-Z]+\d-)?NodeUsage:cache\.r7g\.large, termType=OnDemand, regionCode=eu-west-2`:   "JBYFTYHFEWT53H5U",
+		},
+		"AmazonS3": {
+			`AmazonS3, productFamily=Storage, storageClass=General Purpose, volumeType=Standard, usagetype~(EU-|[A-Z]+\d-)?TimedStorage-ByteHrs, termType=OnDemand, regionCode=eu-west-2`: "DV3FSFEQ3QM4J6VP",
+			`AmazonS3, productFamily=API Request, group=S3-API-Tier1, usagetype~(EU-|[A-Z]+\d-)?Requests-Tier1, termType=OnDemand, regionCode=eu-west-2`:                                  "CXT6934AJ2W6U8P9",
+			`AmazonS3, productFamily=API Request, group=S3-API-Tier2, usagetype~(EU-|[A-Z]+\d-)?Requests-Tier2, termType=OnDemand, regionCode=eu-west-2`:                                  "3D99223WSVTX96UP",
+		},
+	} {
+		t.Run(service, func(t *testing.T) {
+			lookups := lookupsFor(t, service, "eu-west-2")
+			matched := scanSlice(t, service+"-eu-west-2.csv", lookups)
+			got := map[string]string{}
+			for i, l := range lookups {
+				if len(matched[i]) != 1 {
+					t.Errorf("%s (%s) matched %d rows", l.Label, l.Describe(), len(matched[i]))
+					continue
+				}
+				got[l.Describe()] = matched[i][0].ID
+			}
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("skus (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// S3 standard storage is one sku in three tiers, the first 50 TB at 0.024.
+func TestScanOfferKeepsTheFirstTierOfTheS3StorageMeter(t *testing.T) {
+	var storage cost.Lookup
+	for _, l := range lookupsFor(t, "AmazonS3", "eu-west-2") {
+		if l.Label == "storage" {
+			storage = l
+		}
+	}
+	matched := scanSlice(t, "AmazonS3-eu-west-2.csv", []cost.Lookup{storage})
+	want := cost.SKU{ID: "DV3FSFEQ3QM4J6VP", Service: "AmazonS3", Unit: "GB-Mo", Price: 0.024, UpTo: 51200, Attributes: map[string]string{
+		"productFamily": "Storage", "storageClass": "General Purpose", "volumeType": "Standard",
+		"usagetype": "EUW2-TimedStorage-ByteHrs", "termType": "OnDemand", "regionCode": "eu-west-2",
+	}}
+	if diff := cmp.Diff([]cost.SKU{want}, matched[0]); diff != "" {
+		t.Errorf("storage (-want +got):\n%s", diff)
+	}
+}
+
+// us-east-1 has no region prefix, which leaves the trust store hour (TS-LoadBalancerUsage)
+// one short prefix away from the load balancer hour.
+func TestScanOfferPicksTheApplicationLoadBalancerHourWithOrWithoutARegionPrefix(t *testing.T) {
+	for region, want := range map[string]string{"eu-west-2": "6AP766DZF74JPTE2", "us-east-1": "37CUWUT8GSNQEPUV"} {
+		lookups := lookupsFor(t, "AWSELB", region)
+		if len(lookups) != 1 {
+			t.Fatalf("%s: lookups = %d, want 1", region, len(lookups))
+		}
+		matched := scanSlice(t, "AWSELB-"+region+".csv", lookups)
+		if len(matched[0]) != 1 || matched[0][0].ID != want {
+			t.Errorf("%s: matched %+v, want %s", region, matched[0], want)
+		}
+	}
 }
 
 func TestScanOfferPicksThePlainNatGatewayHourWithOrWithoutARegionPrefix(t *testing.T) {
