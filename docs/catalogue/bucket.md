@@ -36,7 +36,32 @@ Cost: `togen cost` prices a bucket at rest. S3 charges nothing for a bucket that
 
 ## GCP
 
-Not implemented yet. Planned: `google_storage_bucket` with uniform bucket level access, versioning on the `versioning` block, and public reads through an IAM member granting `roles/storage.objectViewer` to `allUsers` rather than a bucket policy.
+- `google_storage_bucket.<name>` named `<gcp project id>-<project>-<environment>-<name>`, in the project's region, with `uniform_bucket_level_access` on so access is IAM alone and no object carries an ACL of its own. Cloud Storage names are global, and a GCP project id is itself globally unique, so it goes in front (from `var.project`, the same way the functions' source bucket is named) and the name is predictable before the first apply: no random suffix, no lookup of an output. Project, environment and node names are already lowercase, which bucket names require. Names are capped at 63 characters and a project id can be 30, so the rest is held to 32 characters and a longer one is refused at generate time with the same message as the other name limits.
+- `force_destroy = false`, unlike the AWS bucket. Destroying a project with a bucket that still holds objects fails until the bucket is emptied by hand. That is deliberate: a bucket is where the data lives, and the scaffold's convenience should not extend to deleting it.
+- `versioning { enabled = true }` when `versioning` is on, which it is by default. Off emits no block at all, the same as on AWS: a new bucket is unversioned already.
+- Output `<name>_bucket`, the bucket's name.
+
+A bucket does not need the VPC or the connector.
+
+### public
+
+`public` adds `google_storage_bucket_iam_member.<name>_public` granting `roles/storage.objectViewer` to `allUsers`. That is read of the objects and of the listing, which is what the role carries; there is no way to allow one and not the other with uniform access. An organisation policy enforcing public access prevention overrides it, and the apply then fails on the member rather than silently leaving the bucket private.
+
+A public bucket is world readable by anyone who knows the name, and the name is predictable. Take it for assets, not for anything with a customer in it.
+
+### Edges
+
+A `reads` edge from a function or a service grants the caller's service account `roles/storage.objectViewer` on the bucket (`google_storage_bucket_iam_member.<bucket>_reads_from_<caller>`): get and list, the two things the AWS edge grants as separate statements.
+
+A `writes` edge grants `roles/storage.objectUser` (`google_storage_bucket_iam_member.<bucket>_writes_from_<caller>`): create, overwrite and delete, and also get and list, because the role carries them and there is no narrower predefined role that can delete. A writer on GCP can therefore read, where on AWS it cannot. `roles/storage.objectCreator` alone cannot overwrite an object, which is what most writers do.
+
+Both set `<NAME>_BUCKET` on the caller, where `<NAME>` is the bucket's name upper-snake-cased and the value is the bucket's name, so the code does not have to repeat the naming rule.
+
+Storage answers on its public endpoint, so neither edge pulls the caller onto the connector.
+
+Lifecycle rules and CORS are not supported yet.
+
+Cost: `togen cost` has no GCP prices yet and reports the bucket as not priced.
 
 ## Azure
 

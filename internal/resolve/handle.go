@@ -42,7 +42,8 @@ type QueueExports struct {
 	FIFO             bool
 }
 
-type BucketExports struct{ ARN, Name ir.Value }
+// ARN is AWS. ID is the GCP bucket's id, which an IAM member binds to.
+type BucketExports struct{ ARN, ID, Name ir.Value }
 
 type CacheExports struct{ Host, Port ir.Value }
 

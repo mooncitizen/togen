@@ -69,7 +69,7 @@ func TestResolveRefusesTheNodeTypesItDoesNotSupportYetAndSkipsTheirEdges(t *test
 	var want ir.Errors
 	for _, n := range p.Nodes {
 		switch n.Type {
-		case ir.NodeFunction, ir.NodeGateway, ir.NodeDatabase, ir.NodeService, ir.NodeQueue:
+		case ir.NodeFunction, ir.NodeGateway, ir.NodeDatabase, ir.NodeService, ir.NodeQueue, ir.NodeBucket:
 			continue
 		}
 		want = append(want, ir.ValidationError{
@@ -360,6 +360,65 @@ func TestResolveProducesAValidGraphForAQueueWorkedByAFunctionAndAService(t *test
 		`enable_message_ordering    = true`,
 		`push_endpoint = google_cloud_run_v2_service.notifier.uri`,
 		`topic = google_pubsub_topic.jobs.id`,
+	} {
+		if !strings.Contains(main, want) {
+			t.Errorf("main.tf lacks %q", want)
+		}
+	}
+	terraformFmt(t, files)
+}
+
+func TestResolveProducesAValidGraphForAPublicBucketReadAndWrittenByAFunction(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		functionNode(t, "n2", "orders", defaultFunction),
+		bucketNode("n7", "uploads", `{"public":true}`),
+	}, []ir.Edge{
+		{ID: "e1", From: "n2", To: "n7", Relation: ir.RelReads},
+		{ID: "e2", From: "n2", To: "n7", Relation: ir.RelWrites},
+	})
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Fatalf("graph is not valid:\n%s", errs.Error())
+	}
+
+	var types []string
+	for _, r := range g.Resources {
+		types = append(types, r.Type)
+	}
+	wantTypes := []string{
+		"google_storage_bucket",
+		"google_service_account",
+		"google_storage_bucket_object",
+		"google_cloudfunctions2_function",
+		"google_storage_bucket",
+		"google_storage_bucket_iam_member",
+		"google_storage_bucket_iam_member",
+		"google_storage_bucket_iam_member",
+	}
+	if diff := cmp.Diff(wantTypes, types); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"uploads_bucket"}, outputNames(g.Outputs)); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	if countOfTypeIn(g.Resources, "google_compute_network") != 0 {
+		t.Error("a bucket pulled in the network")
+	}
+
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	main := string(files["main.tf"])
+	for _, want := range []string{
+		`name                        = "${var.project}-shop-dev-uploads"`,
+		`bucket = google_storage_bucket.uploads.id`,
+		`role   = "roles/storage.objectUser"`,
+		`member = "allUsers"`,
+		`UPLOADS_BUCKET = google_storage_bucket.uploads.name`,
 	} {
 		if !strings.Contains(main, want) {
 			t.Errorf("main.tf lacks %q", want)

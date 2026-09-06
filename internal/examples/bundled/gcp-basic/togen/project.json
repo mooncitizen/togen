@@ -30,7 +30,8 @@
       "name": "notifier",
       "properties": { "image": "nginx:1.27", "port": 8080 }
     },
-    { "id": "queue-1", "type": "queue", "name": "jobs" }
+    { "id": "queue-1", "type": "queue", "name": "jobs" },
+    { "id": "bucket-1", "type": "bucket", "name": "uploads" }
   ],
   "edges": [
     {
@@ -43,6 +44,7 @@
     { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" },
     { "id": "edge-3", "from": "function-1", "to": "queue-1", "relation": "publishes" },
     { "id": "edge-4", "from": "function-2", "to": "queue-1", "relation": "consumes" },
-    { "id": "edge-5", "from": "service-1", "to": "queue-1", "relation": "consumes" }
+    { "id": "edge-5", "from": "service-1", "to": "queue-1", "relation": "consumes" },
+    { "id": "edge-6", "from": "function-1", "to": "bucket-1", "relation": "writes" }
   ]
 }

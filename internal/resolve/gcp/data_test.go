@@ -154,3 +154,137 @@ func TestDataAccessReportsUnsupportedEnds(t *testing.T) {
 		t.Errorf("a refused edge wired the function: network %v, env %v", fn.NeedsNetwork, fn.Env)
 	}
 }
+
+func setupFunctionBucketAccess(t *testing.T, relations ...ir.Relation) (*resolve.Context, *resolve.Handle) {
+	t.Helper()
+	edges := make([]ir.Edge, len(relations))
+	for i, r := range relations {
+		edges[i] = ir.Edge{ID: "e" + string(rune('1'+i)), From: "n2", To: "n7", Relation: r}
+	}
+	ctx, project := newContext(t, []ir.Node{
+		functionNode(t, "n2", "handler", defaultFunction),
+		bucketNode("n7", "uploads", "{}"),
+	}, edges)
+	fn := resolveFunction(ctx, project.Nodes[0])
+	bucket := resolveBucket(ctx, project.Nodes[1])
+	for _, e := range project.Edges {
+		resolveDataAccess(ctx, e, fn, bucket)
+	}
+	fn.Finalise()
+	return ctx, fn
+}
+
+func setupServiceBucketAccess(t *testing.T, relations ...ir.Relation) (*resolve.Context, *resolve.Handle) {
+	t.Helper()
+	edges := make([]ir.Edge, len(relations))
+	for i, r := range relations {
+		edges[i] = ir.Edge{ID: "e" + string(rune('1'+i)), From: "n4", To: "n7", Relation: r}
+	}
+	ctx, project := newContext(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		bucketNode("n7", "uploads", "{}"),
+	}, edges)
+	svc := resolveService(ctx, project.Nodes[0])
+	bucket := resolveBucket(ctx, project.Nodes[1])
+	for _, e := range project.Edges {
+		resolveDataAccess(ctx, e, svc, bucket)
+	}
+	svc.Finalise()
+	return ctx, svc
+}
+
+func bucketGrant(role string, account ir.ID) ir.Attrs {
+	return ir.Attrs{
+		ir.A("bucket", bucketRef),
+		ir.A("role", ir.Str(role)),
+		ir.A("member", ir.C(ir.Str("serviceAccount:"), ir.R(account, ir.Field("email")))),
+	}
+}
+
+var bucketEnv = ir.Attrs{ir.A("UPLOADS_BUCKET", bucketName)}
+
+func TestReadsFromABucketGrantsObjectViewerAndInjectsTheName(t *testing.T) {
+	ctx, fn := setupFunctionBucketAccess(t, ir.RelReads)
+
+	grant := named(t, ctx, ir.ID{Type: "google_storage_bucket_iam_member", Name: "uploads_reads_from_handler"})
+	if grant.SourceNode != "n7" || grant.SourceLabel != "uploads" {
+		t.Errorf("grant source = %q/%q", grant.SourceNode, grant.SourceLabel)
+	}
+	if diff := cmp.Diff(bucketGrant("roles/storage.objectViewer", fnAccountID), grant.Args); diff != "" {
+		t.Errorf("grant args (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(bucketEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+	env, _ := serviceConfig(t, ctx).Get("environment_variables")
+	if diff := cmp.Diff(ir.Value(ir.Map(bucketEnv)), env); diff != "" {
+		t.Errorf("environment_variables (-want +got):\n%s", diff)
+	}
+	if fn.NeedsNetwork || countOfType(ctx, "google_compute_network") != 0 {
+		t.Error("a bucket reader was put on the network")
+	}
+	if len(ctx.Errors) != 0 {
+		t.Errorf("errors = %v", ctx.Errors)
+	}
+}
+
+func TestWritesToABucketGrantsObjectUser(t *testing.T) {
+	ctx, fn := setupFunctionBucketAccess(t, ir.RelWrites)
+
+	grant := named(t, ctx, ir.ID{Type: "google_storage_bucket_iam_member", Name: "uploads_writes_from_handler"})
+	if diff := cmp.Diff(bucketGrant("roles/storage.objectUser", fnAccountID), grant.Args); diff != "" {
+		t.Errorf("grant args (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(bucketEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+	if got := countOfType(ctx, "google_storage_bucket_iam_member"); got != 1 {
+		t.Errorf("grants = %d", got)
+	}
+}
+
+func TestReadsAndWritesToOneBucketGrantBothRolesAndSetTheNameOnce(t *testing.T) {
+	ctx, fn := setupFunctionBucketAccess(t, ir.RelReads, ir.RelWrites)
+
+	wantTypes := []string{
+		"google_storage_bucket",
+		"google_service_account",
+		"google_storage_bucket_object",
+		"google_cloudfunctions2_function",
+		"google_storage_bucket",
+		"google_storage_bucket_iam_member",
+		"google_storage_bucket_iam_member",
+	}
+	if diff := cmp.Diff(wantTypes, resourceTypes(ctx)); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	named(t, ctx, ir.ID{Type: "google_storage_bucket_iam_member", Name: "uploads_reads_from_handler"})
+	named(t, ctx, ir.ID{Type: "google_storage_bucket_iam_member", Name: "uploads_writes_from_handler"})
+	if diff := cmp.Diff(bucketEnv, fn.Env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+}
+
+func TestAServiceReadingAndWritingABucketIsGrantedOnItsOwnAccount(t *testing.T) {
+	ctx, svc := setupServiceBucketAccess(t, ir.RelReads, ir.RelWrites)
+
+	reads := named(t, ctx, ir.ID{Type: "google_storage_bucket_iam_member", Name: "uploads_reads_from_web"})
+	if diff := cmp.Diff(bucketGrant("roles/storage.objectViewer", svcAccountID), reads.Args); diff != "" {
+		t.Errorf("reads grant (-want +got):\n%s", diff)
+	}
+	writes := named(t, ctx, ir.ID{Type: "google_storage_bucket_iam_member", Name: "uploads_writes_from_web"})
+	if diff := cmp.Diff(bucketGrant("roles/storage.objectUser", svcAccountID), writes.Args); diff != "" {
+		t.Errorf("writes grant (-want +got):\n%s", diff)
+	}
+	env, _ := container(t, ctx).Get("env")
+	want := ir.B(ir.Attrs{ir.A("name", ir.Str("UPLOADS_BUCKET")), ir.A("value", bucketName)})
+	if diff := cmp.Diff(ir.Value(want), env); diff != "" {
+		t.Errorf("container env (-want +got):\n%s", diff)
+	}
+	if svc.NeedsNetwork {
+		t.Error("a bucket writer was put on the network")
+	}
+	if len(ctx.Errors) != 0 {
+		t.Errorf("errors = %v", ctx.Errors)
+	}
+}
