@@ -383,7 +383,7 @@ func TestGenerateReportsUnsupportedTarget(t *testing.T) {
 	}
 }
 
-func TestGenerateReportsUnsupportedProvider(t *testing.T) {
+func TestGenerateReportsEveryNodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	cwd := generateCwd(t)
 	project := exampleProject()
 	project["provider"] = "gcp"
@@ -394,8 +394,44 @@ func TestGenerateReportsUnsupportedProvider(t *testing.T) {
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
-	if want := "provider 'gcp' is not supported yet"; result.Lines[0] != want {
-		t.Errorf("line = %q, want %q", result.Lines[0], want)
+	want := []string{
+		"project (node n1): node type 'gateway' is not supported by the gcp resolver yet",
+		"project (node n2): node type 'function' is not supported by the gcp resolver yet",
+		"project (node n3): node type 'database' is not supported by the gcp resolver yet",
+	}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
+	}
+	if workspace.Exists(filepath.Join(cwd, "infra")) {
+		t.Error("infra/ was written despite the refusal")
+	}
+}
+
+func TestGenerateWritesTheProviderAndItsVariableForAnEmptyGCPProject(t *testing.T) {
+	cwd := generateCwd(t)
+	project := exampleProject()
+	project["provider"] = "gcp"
+	project["region"] = "europe-west2"
+	project["nodes"] = []any{}
+	project["edges"] = []any{}
+	writeProject(t, cwd, project)
+
+	result := Generate(cwd, "", "", false)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	want := []string{"wrote 3 files to infra/hcl", "  main.tf", "  providers.tf", "  variables.tf"}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
+	}
+	providers := readFileText(t, filepath.Join(cwd, "infra", "hcl", "providers.tf"))
+	for _, want := range []string{`source  = "hashicorp/google"`, "project = var.project", `region  = "europe-west2"`} {
+		if !strings.Contains(providers, want) {
+			t.Errorf("providers.tf lacks %q:\n%s", want, providers)
+		}
+	}
+	if variables := readFileText(t, filepath.Join(cwd, "infra", "hcl", "variables.tf")); !strings.Contains(variables, `variable "project"`) {
+		t.Errorf("variables.tf lacks the project variable:\n%s", variables)
 	}
 }
 

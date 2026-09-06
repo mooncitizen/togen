@@ -1,0 +1,58 @@
+package gcp
+
+import (
+	"fmt"
+
+	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/resolve"
+)
+
+type provider struct{}
+
+func New() resolve.Provider { return provider{} }
+
+func (provider) Name() ir.CloudProvider { return ir.ProviderGCP }
+
+const projectVar = "project"
+
+func (provider) ProviderBlock(p *ir.Project) ir.Provider {
+	return ir.Provider{
+		Name:    "google",
+		Source:  "hashicorp/google",
+		Version: "~> 8.0",
+		Config: ir.Attrs{
+			ir.A("project", ir.V(projectVar)),
+			ir.A("region", ir.Str(p.Region)),
+		},
+	}
+}
+
+func (provider) Variables(*ir.Project) []ir.Variable {
+	return []ir.Variable{{
+		Name:        projectVar,
+		Description: "The id of the Google Cloud project to deploy into",
+		Type:        "string",
+	}}
+}
+
+func (provider) NameLimits() []resolve.NameLimit {
+	return []resolve.NameLimit{
+		{Type: "google_cloud_run_v2_service", Arg: "name", Max: 63},
+		{Type: "google_vpc_access_connector", Arg: "name", Max: connectorNameMax},
+	}
+}
+
+func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, bool) {
+	ctx.Report(ir.ValidationError{
+		NodeID:  n.ID,
+		Message: fmt.Sprintf("node type '%s' is not supported by the gcp resolver yet", n.Type),
+	})
+	return nil, false
+}
+
+func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, _, _ *resolve.Handle) {
+	ctx.Report(ir.ValidationError{
+		EdgeID:  e.ID,
+		Message: fmt.Sprintf("'%s' edges are not supported by the gcp resolver yet", e.Relation),
+	})
+}

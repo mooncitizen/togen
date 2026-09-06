@@ -20,6 +20,11 @@ func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {
 
 	ctx := NewContext(project)
 	ctx.RequireProvider(prov.ProviderBlock(project))
+	if vp, ok := prov.(VariableProvider); ok {
+		for _, v := range vp.Variables(project) {
+			ctx.AddVariable(v)
+		}
+	}
 	if failure := resolveAll(ctx, prov); failure != nil {
 		return nil, failure
 	}
