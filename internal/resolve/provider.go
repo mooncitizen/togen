@@ -15,3 +15,9 @@ type Provider interface {
 	ResolveNode(ctx *Context, n ir.Node) (*Handle, bool)
 	ResolveEdge(ctx *Context, e ir.Edge, from, to *Handle)
 }
+
+// ProviderBlock has no context to declare through, so a provider whose block reads a
+// variable declares it here and Run adds it ahead of anything the nodes declare.
+type VariableProvider interface {
+	Variables(p *ir.Project) []ir.Variable
+}

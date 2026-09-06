@@ -177,7 +177,7 @@ func TestValidateReportsResolverErrorsAgainstTheNode(t *testing.T) {
 	}
 }
 
-func TestValidateSkipsResolverChecksWhenThereIsNoResolver(t *testing.T) {
+func TestValidateReportsANodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	cwd := t.TempDir()
 	writeProject(t, cwd, map[string]any{
 		"version":     1,
@@ -189,8 +189,12 @@ func TestValidateSkipsResolverChecksWhenThereIsNoResolver(t *testing.T) {
 		"edges":       []any{},
 	})
 	result := Validate(cwd)
-	if result.Code != 0 {
+	if result.Code != 1 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	want := []string{"project (node q1): node type 'queue' is not supported by the gcp resolver yet"}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
 	}
 }
 

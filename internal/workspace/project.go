@@ -6,9 +6,13 @@ import (
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
 	"github.com/mooncitizen/togen/internal/resolve/aws"
+	"github.com/mooncitizen/togen/internal/resolve/gcp"
 )
 
-var resolvers = map[ir.CloudProvider]func() resolve.Provider{ir.ProviderAWS: aws.New}
+var resolvers = map[ir.CloudProvider]func() resolve.Provider{
+	ir.ProviderAWS: aws.New,
+	ir.ProviderGCP: gcp.New,
+}
 
 func LoadProject(cwd string) (*ir.Project, ir.Errors, error) {
 	raw, err := ReadJSONFile(ProjectPath(cwd), cwd)

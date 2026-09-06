@@ -85,11 +85,14 @@ func TestCostReportsValidationErrors(t *testing.T) {
 	}
 }
 
+// The gcp resolver refuses every node type for now, so only an empty project reaches the estimate.
 func TestCostPricesNothingForAProviderWithoutPrices(t *testing.T) {
 	cwd := generateCwd(t)
 	project := exampleProject()
 	project["provider"] = "gcp"
 	project["region"] = "europe-west2"
+	project["nodes"] = []any{}
+	project["edges"] = []any{}
 	writeProject(t, cwd, project)
 
 	result := Cost(cwd, false)
@@ -97,10 +100,6 @@ func TestCostPricesNothingForAProviderWithoutPrices(t *testing.T) {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	want := []string{
-		"not priced",
-		"  api      gateway   no gcp prices are bundled yet",
-		"  handler  function  no gcp prices are bundled yet",
-		"  main-db  database  no gcp prices are bundled yet",
 		"",
 		"total  0.00 USD/month  europe-west2, no gcp prices are bundled yet",
 	}

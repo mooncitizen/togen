@@ -136,6 +136,27 @@ func TestRunListsHelperProvidersAfterTheProjectsOwn(t *testing.T) {
 	}
 }
 
+type declaringProvider struct{ fakeProvider }
+
+func (*declaringProvider) Variables(p *ir.Project) []ir.Variable {
+	return []ir.Variable{{Name: "account", Description: "The " + p.Name + " account", Type: "string"}}
+}
+
+func TestRunDeclaresTheProviderVariables(t *testing.T) {
+	p := project([]ir.Node{{ID: "n1", Type: ir.NodeGateway, Name: "api"}}, nil)
+	g, err := Run(p, &declaringProvider{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	want := []ir.Variable{{Name: "account", Description: "The shop account", Type: "string"}}
+	if diff := cmp.Diff(want, g.Variables); diff != "" {
+		t.Errorf("variables (-want +got):\n%s", diff)
+	}
+	if g, err = Run(p, &fakeProvider{}); err != nil || len(g.Variables) != 0 {
+		t.Errorf("a provider without variables declared %+v, %v", g.Variables, err)
+	}
+}
+
 func TestRunReportsUnsupportedNodeAndSkipsItsEdges(t *testing.T) {
 	p := project(
 		[]ir.Node{
