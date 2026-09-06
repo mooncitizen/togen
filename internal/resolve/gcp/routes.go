@@ -45,18 +45,20 @@ func exposeTarget(ctx *resolve.Context, from, to *resolve.Handle, target resolve
 	if ctx.HasResource(bindingID) {
 		return
 	}
-	ctx.Add(ir.Resource{
-		Type:        bindingID.Type,
-		Name:        bindingID.Name,
-		SourceNode:  from.Node.ID,
-		SourceLabel: from.Node.Name,
-		Args: ir.Attrs{
-			ir.A("name", target.Service),
-			ir.A("location", target.Location),
-			ir.A("role", ir.Str("roles/run.invoker")),
-			ir.A("member", ir.Str("allUsers")),
-		},
-	})
+	if !ctx.HasResource(publicBindingID(ctx, to.Node)) {
+		ctx.Add(ir.Resource{
+			Type:        bindingID.Type,
+			Name:        bindingID.Name,
+			SourceNode:  from.Node.ID,
+			SourceLabel: from.Node.Name,
+			Args: ir.Attrs{
+				ir.A("name", target.Service),
+				ir.A("location", target.Location),
+				ir.A("role", ir.Str(invokerRole)),
+				ir.A("member", ir.Str("allUsers")),
+			},
+		})
+	}
 	ctx.AddOutput(ir.Output{
 		Name:        base + "_url",
 		Description: fmt.Sprintf("Public URL of the %s %s the %s gateway routes to", to.Node.Name, to.Node.Type, from.Node.Name),

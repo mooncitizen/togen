@@ -14,3 +14,12 @@ var databaseTiers = map[ir.Size]string{
 	ir.SizeMedium: "db-custom-2-7680",
 	ir.SizeLarge:  "db-custom-4-15360",
 }
+
+// Cloud Run limits: cpu is whole vCPUs as a string, memory needs at least 512Mi per vCPU above 1.
+type serviceSize struct{ CPU, Memory string }
+
+var serviceSizes = map[ir.Size]serviceSize{
+	ir.SizeSmall:  {CPU: "1", Memory: "512Mi"},
+	ir.SizeMedium: {CPU: "1", Memory: "1Gi"},
+	ir.SizeLarge:  {CPU: "2", Memory: "2Gi"},
+}

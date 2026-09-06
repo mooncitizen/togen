@@ -155,6 +155,133 @@ func TestRoutesToTwoFunctionsGiveEachItsOwnURL(t *testing.T) {
 	}
 }
 
+func setupServiceRoutes(t *testing.T, p ir.ServiceProps, edges []ir.Edge) *resolve.Context {
+	t.Helper()
+	ctx, project := newContext(t, []ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		serviceNode(t, "n4", "web", p),
+	}, edges)
+	gateway := resolveGateway(project.Nodes[0])
+	svc := resolveService(ctx, project.Nodes[1])
+	ctx.SetHandle("n1", gateway)
+	ctx.SetHandle("n4", svc)
+	for _, e := range project.Edges {
+		resolveRoutes(ctx, e, gateway, svc)
+	}
+	svc.Finalise()
+	return ctx
+}
+
+func TestRoutesToAServiceOpenItToAllUsersAndOutputItsURL(t *testing.T) {
+	ctx := setupServiceRoutes(t, defaultService, []ir.Edge{{
+		ID: "e1", From: "n1", To: "n4", Relation: ir.RelRoutes,
+		Properties: ir.EdgeProperties{Path: "/", Methods: []ir.Method{ir.MethodAny}},
+	}})
+	if len(ctx.Errors) != 0 {
+		t.Fatalf("errors = %v", ctx.Errors)
+	}
+
+	binding := named(t, ctx, ir.ID{Type: bindingID.Type, Name: "api_web"})
+	if binding.SourceNode != "n1" || binding.SourceLabel != "api" {
+		t.Errorf("binding source = %q/%q", binding.SourceNode, binding.SourceLabel)
+	}
+	want := ir.Attrs{
+		ir.A("name", ir.R(svcID, ir.Field("name"))),
+		ir.A("location", ir.R(svcID, ir.Field("location"))),
+		ir.A("role", ir.Str("roles/run.invoker")),
+		ir.A("member", ir.Str("allUsers")),
+	}
+	if diff := cmp.Diff(want, binding.Args); diff != "" {
+		t.Errorf("binding args (-want +got):\n%s", diff)
+	}
+	wantOutputs := []ir.Output{{
+		Name:        "api_web_url",
+		Description: "Public URL of the web service the api gateway routes to",
+		Value:       ir.R(svcID, ir.Field("uri")),
+	}}
+	if diff := cmp.Diff(wantOutputs, ctx.Outputs); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	ingress, _ := named(t, ctx, svcID).Args.Get("ingress")
+	if diff := cmp.Diff(ir.Value(ir.Str("INGRESS_TRAFFIC_INTERNAL_ONLY")), ingress); diff != "" {
+		t.Errorf("ingress (-want +got):\n%s", diff)
+	}
+}
+
+// The service's own binding already opens it, and a second allUsers member on the same service
+// would fight the first on destroy.
+func TestRoutesToAPublicServiceAddTheOutputAlone(t *testing.T) {
+	p := defaultService
+	p.Public = true
+	ctx := setupServiceRoutes(t, p, []ir.Edge{{
+		ID: "e1", From: "n1", To: "n4", Relation: ir.RelRoutes,
+		Properties: ir.EdgeProperties{Path: "/", Methods: []ir.Method{ir.MethodAny}},
+	}})
+	if len(ctx.Errors) != 0 {
+		t.Fatalf("errors = %v", ctx.Errors)
+	}
+	var bindings []string
+	for _, r := range byType(ctx, bindingID.Type) {
+		bindings = append(bindings, r.Name)
+	}
+	if diff := cmp.Diff([]string{"web"}, bindings); diff != "" {
+		t.Errorf("bindings (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"web_url", "api_web_url"}, outputNames(ctx.Outputs)); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+}
+
+func TestRoutesToAFunctionAndAServiceGiveEachItsOwnURL(t *testing.T) {
+	g, err := resolve.Run(newProject(t, []ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		functionNode(t, "n2", "handler", defaultFunction),
+		serviceNode(t, "n4", "web", defaultService),
+	}, []ir.Edge{
+		{
+			ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes,
+			Properties: ir.EdgeProperties{Path: "/orders", Methods: []ir.Method{ir.MethodGet}},
+		},
+		{
+			ID: "e2", From: "n1", To: "n4", Relation: ir.RelRoutes,
+			Properties: ir.EdgeProperties{Path: "/", Methods: []ir.Method{ir.MethodGet}},
+		},
+	}), New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var bindings []string
+	for _, r := range g.Resources {
+		if r.Type == bindingID.Type {
+			bindings = append(bindings, r.Name)
+		}
+	}
+	if diff := cmp.Diff([]string{"api_handler", "api_web"}, bindings); diff != "" {
+		t.Errorf("bindings (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"api_handler_url", "api_web_url"}, outputNames(g.Outputs)); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+}
+
+func TestRoutesRejectsAFunctionAndAServiceClaimingTheSameRouteKey(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		functionNode(t, "n2", "handler", defaultFunction),
+		serviceNode(t, "n4", "web", defaultService),
+	}, []ir.Edge{
+		{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes},
+		{ID: "e2", From: "n1", To: "n4", Relation: ir.RelRoutes},
+	})
+	want := ir.Errors{{
+		EdgeID:  "e2",
+		Message: "route 'ANY /' on gateway 'api' is already used by edge 'e1'",
+	}}
+	if diff := cmp.Diff(want, runErrors(t, p)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
 func TestRoutesRejectsTwoEdgesClaimingTheSameRouteKey(t *testing.T) {
 	p := twoFunctionProject([]ir.Edge{
 		{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes},
