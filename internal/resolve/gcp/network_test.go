@@ -218,6 +218,8 @@ func TestProviderBlock(t *testing.T) {
 	}
 	wantLimits := []resolve.NameLimit{
 		{Type: "google_cloud_run_v2_service", Arg: "name", Max: 63},
+		{Type: "google_cloudfunctions2_function", Arg: "name", Max: 63},
+		{Type: "google_service_account", Arg: "account_id", Max: 30},
 		{Type: "google_vpc_access_connector", Arg: "name", Max: 25},
 	}
 	if diff := cmp.Diff(wantLimits, New().NameLimits()); diff != "" {

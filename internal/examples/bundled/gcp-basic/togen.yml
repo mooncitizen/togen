@@ -1,0 +1,14 @@
+version: 1
+targets: [hcl]
+outDir: infra
+
+# style:
+#   theme: dark            # dark, light or system
+#   kinds:                 # every node of a type
+#     database:
+#       color: "#C925D1"
+#       icon: aws/rds      # a bundled icon id, or a path relative to this file
+#       shape: cylinder
+#   nodes:                 # one node, by name
+#     orders-db:
+#       color: "#DD344C"

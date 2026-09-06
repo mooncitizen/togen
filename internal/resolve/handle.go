@@ -17,6 +17,10 @@ type FunctionExports struct{ ARN, InvokeARN, FunctionName, URL, PrincipalID ir.V
 
 type GatewayExports struct{ APIID, ExecutionARN, URL ir.Value }
 
+// Cloud Run backs a GCP function as well as a GCP service, so both export the same things: the
+// service an invoker binding names, the URL a caller is given, and the account edges grant to.
+type CloudRunExports struct{ Service, Location, URL, ServiceAccount ir.Value }
+
 // ServiceExports carries a nil URL when the service is not reachable from the internet, and a
 // nil ListenerARN until something puts a load balancer in front of it.
 type ServiceExports struct {
@@ -38,6 +42,7 @@ type CacheExports struct{ Host, Port ir.Value }
 func (DatabaseExports) isExports() {}
 func (FunctionExports) isExports() {}
 func (GatewayExports) isExports()  {}
+func (CloudRunExports) isExports() {}
 func (ServiceExports) isExports()  {}
 func (QueueExports) isExports()    {}
 func (BucketExports) isExports()   {}
