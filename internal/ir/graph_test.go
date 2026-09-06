@@ -9,12 +9,12 @@ import (
 func testGraph(resources ...Resource) *Graph {
 	return &Graph{
 		TerraformVersion: ">= 1.5",
-		Provider: Provider{
+		Providers: []Provider{{
 			Name:    "aws",
 			Source:  "hashicorp/aws",
 			Version: "~> 6.0",
 			Config:  Attrs{A("region", Str("eu-west-2"))},
-		},
+		}},
 		Resources: resources,
 	}
 }
@@ -145,11 +145,32 @@ func TestValidateGraphChecksVariablesAndOutputs(t *testing.T) {
 
 func TestValidateGraphChecksTheProviderConfig(t *testing.T) {
 	g := testGraph()
-	g.Provider.Config = Attrs{A("region", R(ID{Type: "aws_vpc", Name: "gone"}, Field("id")))}
+	g.Providers[0].Config = Attrs{A("region", R(ID{Type: "aws_vpc", Name: "gone"}, Field("id")))}
 	want := Errors{{
 		Path:    "provider.aws.region",
 		Message: "reference to unknown resource 'aws_vpc.gone'",
 	}}
+	if d := cmp.Diff(want, ValidateGraph(g)); d != "" {
+		t.Fatal(d)
+	}
+}
+
+func TestValidateGraphRefusesADuplicateProvider(t *testing.T) {
+	g := testGraph()
+	g.Providers = append(g.Providers,
+		Provider{Name: "random", Source: "hashicorp/random", Version: "~> 3.6"},
+		Provider{Name: "random", Source: "hashicorp/random", Version: "~> 3.7"},
+	)
+	want := Errors{{Path: "provider.random", Message: "duplicate provider 'random'"}}
+	if d := cmp.Diff(want, ValidateGraph(g)); d != "" {
+		t.Fatal(d)
+	}
+}
+
+func TestValidateGraphRefusesAGraphWithNoProviders(t *testing.T) {
+	g := testGraph()
+	g.Providers = nil
+	want := Errors{{Path: "providers", Message: "the graph has no providers"}}
 	if d := cmp.Diff(want, ValidateGraph(g)); d != "" {
 		t.Fatal(d)
 	}

@@ -2,6 +2,7 @@ package resolve
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mooncitizen/togen/internal/ir"
@@ -17,6 +18,7 @@ type Context struct {
 	// Pointers, because a node resolver keeps one and mutates Args at finalise.
 	resources []*ir.Resource
 	data      []*ir.DataSource
+	providers []ir.Provider
 	declared  map[string]bool
 	handles   map[string]*Handle
 }
@@ -55,6 +57,18 @@ func (c *Context) declare(kind string, id ir.ID) {
 	}
 	c.declared[key] = true
 }
+
+func (c *Context) RequireProvider(p ir.Provider) ir.Provider {
+	for _, existing := range c.providers {
+		if existing.Name == p.Name {
+			return existing
+		}
+	}
+	c.providers = append(c.providers, p)
+	return p
+}
+
+func (c *Context) Providers() []ir.Provider { return slices.Clone(c.providers) }
 
 func (c *Context) AddVariable(v ir.Variable) { c.Variables = append(c.Variables, v) }
 

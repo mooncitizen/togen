@@ -145,7 +145,7 @@ type Output struct {
 
 type Graph struct {
 	TerraformVersion string
-	Provider         Provider
+	Providers        []Provider
 	Data             []DataSource
 	Resources        []Resource
 	Variables        []Variable

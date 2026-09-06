@@ -64,15 +64,26 @@ func emitProviders(g *ir.Graph) ([]byte, error) {
 	tf.Body().SetAttributeValue("required_version", cty.StringVal(g.TerraformVersion))
 	tf.Body().AppendNewline()
 	required := tf.Body().AppendNewBlock("required_providers", nil)
-	required.Body().SetAttributeRaw(g.Provider.Name, hclwrite.TokensForObject([]hclwrite.ObjectAttrTokens{
-		{Name: hclwrite.TokensForIdentifier("source"), Value: quoted(g.Provider.Source)},
-		{Name: hclwrite.TokensForIdentifier("version"), Value: quoted(g.Provider.Version)},
-	}))
+	var entries ir.Attrs
+	for _, p := range g.Providers {
+		entries = append(entries, ir.A(p.Name, ir.M(
+			ir.A("source", ir.Str(p.Source)),
+			ir.A("version", ir.Str(p.Version)),
+		)))
+	}
+	if _, err := setArgs(required.Body(), false, entries); err != nil {
+		return nil, fmt.Errorf("required_providers: %w", err)
+	}
 
-	body.AppendNewline()
-	provider := body.AppendNewBlock("provider", []string{g.Provider.Name})
-	if _, err := setArgs(provider.Body(), false, g.Provider.Config); err != nil {
-		return nil, fmt.Errorf("provider %s: %w", g.Provider.Name, err)
+	for _, p := range g.Providers {
+		if len(p.Config) == 0 {
+			continue
+		}
+		body.AppendNewline()
+		provider := body.AppendNewBlock("provider", []string{p.Name})
+		if _, err := setArgs(provider.Body(), false, p.Config); err != nil {
+			return nil, fmt.Errorf("provider %s: %w", p.Name, err)
+		}
 	}
 	return hclwrite.Format(f.Bytes()), nil
 }

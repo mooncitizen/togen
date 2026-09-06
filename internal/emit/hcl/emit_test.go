@@ -17,12 +17,12 @@ var update = flag.Bool("update", false, "rewrite the golden files")
 func graph() *ir.Graph {
 	return &ir.Graph{
 		TerraformVersion: ">= 1.5",
-		Provider: ir.Provider{
+		Providers: []ir.Provider{{
 			Name:    "aws",
 			Source:  "hashicorp/aws",
 			Version: "~> 6.0",
 			Config:  ir.Attrs{ir.A("region", ir.Str("eu-west-2"))},
-		},
+		}},
 		Data: []ir.DataSource{
 			{
 				Type:        "aws_availability_zones",
@@ -100,6 +100,29 @@ func graph() *ir.Graph {
 	}
 }
 
+func withRandom(g *ir.Graph) *ir.Graph {
+	g.Providers = append(g.Providers, ir.Provider{Name: "random", Source: "hashicorp/random", Version: "~> 3.6"})
+	return g
+}
+
+func checkGolden(t *testing.T, name string, got []byte) {
+	t.Helper()
+	path := filepath.Join("testdata", name+".golden")
+	if *update {
+		if err := os.WriteFile(path, got, 0o644); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+		return
+	}
+	golden, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if diff := cmp.Diff(string(golden), string(got)); diff != "" {
+		t.Errorf("%s (-golden +got):\n%s", name, diff)
+	}
+}
+
 func TestEmit(t *testing.T) {
 	files, err := Emit(graph())
 	if err != nil {
@@ -115,21 +138,16 @@ func TestEmit(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing %s", name)
 		}
-		path := filepath.Join("testdata", name+".golden")
-		if *update {
-			if err := os.WriteFile(path, got, 0o644); err != nil {
-				t.Fatalf("write %s: %v", path, err)
-			}
-			continue
-		}
-		golden, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read %s: %v", path, err)
-		}
-		if diff := cmp.Diff(string(golden), string(got)); diff != "" {
-			t.Errorf("%s (-golden +got):\n%s", name, diff)
-		}
+		checkGolden(t, name, got)
 	}
+}
+
+func TestEmitWritesEveryRequiredProvider(t *testing.T) {
+	files, err := Emit(withRandom(graph()))
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	checkGolden(t, "providers-two.tf", files["providers.tf"])
 }
 
 func TestEmitOmitsEmptyFiles(t *testing.T) {
@@ -163,18 +181,20 @@ func TestTerraformFmt(t *testing.T) {
 	if err != nil {
 		t.Skip("terraform is not on PATH")
 	}
-	files, err := Emit(graph())
-	if err != nil {
-		t.Fatalf("Emit: %v", err)
-	}
-	dir := t.TempDir()
-	for name, body := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), body, 0o600); err != nil {
-			t.Fatalf("write %s: %v", name, err)
+	for name, g := range map[string]*ir.Graph{"one": graph(), "two": withRandom(graph())} {
+		files, err := Emit(g)
+		if err != nil {
+			t.Fatalf("Emit: %v", err)
 		}
-	}
-	out, err := exec.Command(bin, "fmt", "-check", "-diff", dir).CombinedOutput()
-	if err != nil {
-		t.Fatalf("terraform fmt reported changes: %v\n%s", err, out)
+		dir := t.TempDir()
+		for name, body := range files {
+			if err := os.WriteFile(filepath.Join(dir, name), body, 0o600); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+		}
+		out, err := exec.Command(bin, "fmt", "-check", "-diff", dir).CombinedOutput()
+		if err != nil {
+			t.Fatalf("%s: terraform fmt reported changes: %v\n%s", name, err, out)
+		}
 	}
 }

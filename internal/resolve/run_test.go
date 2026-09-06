@@ -13,6 +13,7 @@ import (
 type fakeProvider struct {
 	edges     []string
 	failOnAdd bool
+	requires  []ir.Provider
 }
 
 func (f *fakeProvider) Name() ir.CloudProvider { return ir.ProviderAWS }
@@ -38,6 +39,9 @@ func (f *fakeProvider) ResolveNode(ctx *Context, n ir.Node) (*Handle, bool) {
 	if n.Type != ir.NodeGateway {
 		ctx.Report(ir.ValidationError{NodeID: n.ID, Message: "unsupported"})
 		return nil, false
+	}
+	for _, p := range f.requires {
+		ctx.RequireProvider(p)
 	}
 	local := ctx.Local(n.Name)
 	r := ctx.Add(ir.Resource{
@@ -102,14 +106,33 @@ func TestRunBuildsAGraph(t *testing.T) {
 		Version: "~> 1.0",
 		Config:  ir.Attrs{ir.A("region", ir.Str("eu-west-2"))},
 	}
-	if diff := cmp.Diff(want, g.Provider); diff != "" {
-		t.Errorf("provider block (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]ir.Provider{want}, g.Providers); diff != "" {
+		t.Errorf("providers (-want +got):\n%s", diff)
 	}
 	if len(g.Resources) != 1 || g.Resources[0].Name != "api" {
 		t.Fatalf("resources = %+v", g.Resources)
 	}
 	if len(g.Outputs) != 1 || g.Outputs[0].Name != "api_url" {
 		t.Errorf("finalise did not run: %+v", g.Outputs)
+	}
+}
+
+func TestRunListsHelperProvidersAfterTheProjectsOwn(t *testing.T) {
+	random := ir.Provider{Name: "random", Source: "hashicorp/random", Version: "~> 3.6"}
+	p := project([]ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		{ID: "n2", Type: ir.NodeGateway, Name: "adm"},
+	}, nil)
+	g, err := Run(p, &fakeProvider{requires: []ir.Provider{random}})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	var names []string
+	for _, prov := range g.Providers {
+		names = append(names, prov.Name)
+	}
+	if diff := cmp.Diff([]string{"fake", "random"}, names); diff != "" {
+		t.Errorf("providers (-want +got):\n%s", diff)
 	}
 }
 
@@ -192,6 +215,19 @@ func TestContextAddRefusesDuplicates(t *testing.T) {
 		}
 	}()
 	ctx.Add(ir.Resource{Type: "fake_api", Name: "main"})
+}
+
+func TestContextRequireProviderAddsOnce(t *testing.T) {
+	ctx := NewContext(project(nil, nil))
+	random := ir.Provider{Name: "random", Source: "hashicorp/random", Version: "~> 3.6"}
+	first := ctx.RequireProvider(random)
+	second := ctx.RequireProvider(ir.Provider{Name: "random", Source: "hashicorp/random", Version: "~> 3.7"})
+	if diff := cmp.Diff(first, second); diff != "" {
+		t.Errorf("second call (-first +second):\n%s", diff)
+	}
+	if diff := cmp.Diff([]ir.Provider{random}, ctx.Providers()); diff != "" {
+		t.Errorf("providers (-want +got):\n%s", diff)
+	}
 }
 
 func TestContextNaming(t *testing.T) {
