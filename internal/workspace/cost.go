@@ -6,9 +6,13 @@ import (
 	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve/aws"
+	"github.com/mooncitizen/togen/internal/resolve/azure"
 )
 
-var costMatchers = map[ir.CloudProvider]cost.Matchers{ir.ProviderAWS: aws.Cost()}
+var costMatchers = map[ir.CloudProvider]cost.Matchers{
+	ir.ProviderAWS:   aws.Cost(),
+	ir.ProviderAzure: azure.Cost(),
+}
 
 // The second return is the deprecation note from the configuration, empty when there is none.
 func Cost(cwd string) (cost.Document, string, error) {

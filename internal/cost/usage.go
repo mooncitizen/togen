@@ -62,7 +62,7 @@ func ParseRate(text string) (float64, error) {
 type Usage map[string]NodeUsage
 
 type NodeUsage struct {
-	Requests    Rate    `json:"requests,omitempty" yaml:"requests,omitempty" jsonschema:"description=Requests a gateway serves or a bucket takes (a rate)"`
+	Requests    Rate    `json:"requests,omitempty" yaml:"requests,omitempty" jsonschema:"description=Requests a gateway or a service serves or a bucket takes (a rate)"`
 	Invocations Rate    `json:"invocations,omitempty" yaml:"invocations,omitempty" jsonschema:"description=Times a function runs (a rate)"`
 	DurationMs  float64 `json:"durationMs,omitempty" yaml:"durationMs,omitempty" jsonschema:"minimum=0,description=Milliseconds one run of a function takes"`
 	Messages    Rate    `json:"messages,omitempty" yaml:"messages,omitempty" jsonschema:"description=Messages a queue carries (a rate)"`
@@ -77,7 +77,7 @@ var UsageKeys = map[ir.NodeType][]string{
 	ir.NodeFunction: {"invocations", "durationMs"},
 	ir.NodeQueue:    {"messages"},
 	ir.NodeBucket:   {"storageGb", "egressGb", "requests"},
-	ir.NodeService:  {"egressGb"},
+	ir.NodeService:  {"egressGb", "requests"},
 }
 
 var NetworkKeys = []string{"natGb"}

@@ -1,4 +1,5 @@
-// Refreshes internal/cost/prices/aws.json from the AWS Price List bulk offer files.
+// Refreshes the bundled price snapshots: internal/cost/prices/aws.json from the AWS Price List
+// bulk offer files, azure.json from the Azure Retail Prices API.
 package main
 
 import (
@@ -36,8 +37,18 @@ const (
 
 func main() {
 	check := flag.Bool("check", false, "fetch and compare with the committed snapshot instead of writing it")
+	provider := flag.String("provider", "aws", "which snapshot to refresh: aws or azure")
 	flag.Parse()
-	if err := run(*check); err != nil {
+	var err error
+	switch ir.CloudProvider(*provider) {
+	case ir.ProviderAWS:
+		err = run(*check)
+	case ir.ProviderAzure:
+		err = runAzure(*check)
+	default:
+		err = fmt.Errorf("no refresh for provider %q", *provider)
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -139,7 +150,7 @@ func run(check bool) error {
 	}
 	fmt.Fprintf(os.Stderr, "downloaded %s, %d skus, snapshot %s\n", size(downloaded), len(snapshot.SKUs), size(int64(len(raw))))
 	if check {
-		return compare(snapshot)
+		return compare(snapshot, snapshotPath)
 	}
 	if err := os.WriteFile(snapshotPath, raw, 0o644); err != nil {
 		return err
@@ -250,8 +261,8 @@ func encode(s cost.Snapshot) ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-func compare(live cost.Snapshot) error {
-	raw, err := os.ReadFile(snapshotPath)
+func compare(live cost.Snapshot, path string) error {
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
@@ -291,23 +302,27 @@ func compare(live cost.Snapshot) error {
 		}
 	}
 	if len(changes) > 0 {
-		return fmt.Errorf("the committed snapshot from %s differs from the live offer files:\n  %s\nrun just refresh-prices and review the diff",
+		return fmt.Errorf("the committed snapshot from %s differs from the live prices:\n  %s\nrun just refresh-prices and review the diff",
 			committed.Date, strings.Join(changes, "\n  "))
 	}
-	fmt.Fprintf(os.Stderr, "the committed snapshot from %s matches the live offer files (%d offer files have a newer version, no priced sku moved)\n",
+	fmt.Fprintf(os.Stderr, "the committed snapshot from %s matches the live prices (%d offer files have a newer version, no priced sku moved)\n",
 		committed.Date, newer)
 	return nil
 }
 
 func describe(sku cost.SKU) string {
+	region, regionAttribute := sku.Attributes["regionCode"], "regionCode"
+	if r, ok := sku.Attributes[azureRegion]; ok {
+		region, regionAttribute = r, azureRegion
+	}
 	var traits []string
 	for attribute, value := range sku.Attributes {
-		if attribute != "regionCode" && attribute != "termType" {
+		if attribute != regionAttribute && attribute != "termType" {
 			traits = append(traits, value)
 		}
 	}
 	slices.Sort(traits)
-	return fmt.Sprintf("%s %s in %s (%s) %s", sku.Service, sku.ID, sku.Attributes["regionCode"], strings.Join(traits, ", "), rate(sku))
+	return fmt.Sprintf("%s %s in %s (%s) %s", sku.Service, sku.ID, region, strings.Join(traits, ", "), rate(sku))
 }
 
 func rate(sku cost.SKU) string {

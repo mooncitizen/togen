@@ -192,7 +192,7 @@
               "type": "number"
             },
             "requests": {
-              "description": "Requests a gateway serves or a bucket takes (a rate)",
+              "description": "Requests a gateway or a service serves or a bucket takes (a rate)",
               "pattern": "^[0-9]+(\\.[0-9]+)?[kM]?/(min|hour|day|month)$",
               "type": "string"
             },
