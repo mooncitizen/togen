@@ -32,9 +32,15 @@ func invokerBinding(name, location ir.Value, account ir.ID) ir.Attrs {
 	}
 }
 
+func publicService() ir.ServiceProps {
+	p := defaultService
+	p.Public = true
+	return p
+}
+
 func TestCallsToAServiceGrantsTheFunctionsAccountInvokerAndInjectsTheURL(t *testing.T) {
 	ctx, project := newContext(t,
-		[]ir.Node{functionNode(t, "n2", "handler", defaultFunction), serviceNode(t, "n4", "web", defaultService)},
+		[]ir.Node{functionNode(t, "n2", "handler", defaultFunction), serviceNode(t, "n4", "web", publicService())},
 		callEdges("n2", "n4", 1))
 	caller := resolveFunction(ctx, project.Nodes[0])
 	web := resolveService(ctx, project.Nodes[1])
@@ -58,8 +64,8 @@ func TestCallsToAServiceGrantsTheFunctionsAccountInvokerAndInjectsTheURL(t *test
 	if diff := cmp.Diff(ir.Value(ir.Map(wantEnv)), env); diff != "" {
 		t.Errorf("environment_variables (-want +got):\n%s", diff)
 	}
-	if caller.NeedsNetwork || countOfType(ctx, "google_compute_network") != 0 {
-		t.Error("calling a service pulled the caller onto the connector")
+	if caller.NeedsNetwork || caller.NeedsAllEgress || countOfType(ctx, "google_compute_network") != 0 {
+		t.Error("calling a public service pulled the caller onto the connector")
 	}
 	wantData := []ir.DataSource{{Type: "google_project", Name: "current", SourceLabel: "project"}}
 	if diff := cmp.Diff(wantData, ctx.DataSources()); diff != "" {
@@ -135,6 +141,131 @@ func TestCallsBetweenTwoServicesAndBetweenTwoFunctionsWireTheSameWay(t *testing.
 	wantEnv := ir.Attrs{ir.A("MAILER_URL", runURL("mailer"))}
 	if diff := cmp.Diff(wantEnv, handler.Env); diff != "" {
 		t.Errorf("handler env (-want +got):\n%s", diff)
+	}
+}
+
+func TestCallsToAPrivateServiceSendsTheCallersEgressThroughTheVPCAndAddsANAT(t *testing.T) {
+	ctx, project := newContext(t, []ir.Node{
+		functionNode(t, "n2", "handler", defaultFunction),
+		serviceNode(t, "n5", "admin", defaultService),
+		serviceNode(t, "n4", "web", defaultService),
+	}, []ir.Edge{
+		{ID: "e1", From: "n2", To: "n5", Relation: ir.RelCalls},
+		{ID: "e2", From: "n4", To: "n5", Relation: ir.RelCalls},
+	})
+	handler := resolveFunction(ctx, project.Nodes[0])
+	admin := resolveService(ctx, project.Nodes[1])
+	web := resolveService(ctx, project.Nodes[2])
+	resolveCalls(ctx, project.Edges[0], handler, admin)
+	resolveCalls(ctx, project.Edges[1], web, admin)
+	handler.Finalise()
+	admin.Finalise()
+	web.Finalise()
+
+	if !handler.NeedsAllEgress || !web.NeedsAllEgress || admin.NeedsAllEgress {
+		t.Errorf("all egress: handler %v, web %v, admin %v", handler.NeedsAllEgress, web.NeedsAllEgress, admin.NeedsAllEgress)
+	}
+	config := serviceConfig(t, ctx)
+	for key, want := range map[string]ir.Value{
+		"vpc_connector":                 ir.R(connectorID, ir.Field("id")),
+		"vpc_connector_egress_settings": ir.Str("ALL_TRAFFIC"),
+	} {
+		if got, _ := config.Get(key); !cmp.Equal(want, got) {
+			t.Errorf("function %s = %#v, want %#v", key, got, want)
+		}
+	}
+	access, _ := template(t, ctx).Get("vpc_access")
+	wantAccess := ir.B(ir.Attrs{
+		ir.A("connector", ir.R(connectorID, ir.Field("id"))),
+		ir.A("egress", ir.Str("ALL_TRAFFIC")),
+	})
+	if diff := cmp.Diff(ir.Value(wantAccess), access); diff != "" {
+		t.Errorf("web vpc_access (-want +got):\n%s", diff)
+	}
+	adminTemplate, _ := named(t, ctx, ir.ID{Type: "google_cloud_run_v2_service", Name: "admin"}).Args.Get("template")
+	if _, ok := adminTemplate.(ir.Block)[0].Get("vpc_access"); ok {
+		t.Error("the private target went onto the connector itself")
+	}
+
+	subnet := firstOfType(t, ctx, "google_compute_subnetwork")
+	if got, _ := subnet.Args.Get("private_ip_google_access"); got != ir.Bool(true) {
+		t.Errorf("private_ip_google_access = %#v", got)
+	}
+	router := firstOfType(t, ctx, "google_compute_router")
+	wantRouter := ir.Attrs{
+		ir.A("name", ir.Str("shop-dev-router")),
+		ir.A("network", ir.R(ir.ID{Type: "google_compute_network", Name: "main"}, ir.Field("id"))),
+		ir.A("region", ir.Str("europe-west2")),
+	}
+	if diff := cmp.Diff(wantRouter, router.Args); diff != "" {
+		t.Errorf("router args (-want +got):\n%s", diff)
+	}
+	nat := firstOfType(t, ctx, "google_compute_router_nat")
+	wantNAT := ir.Attrs{
+		ir.A("name", ir.Str("shop-dev-nat")),
+		ir.A("router", ir.R(ir.ID{Type: "google_compute_router", Name: "main"}, ir.Field("name"))),
+		ir.A("region", ir.Str("europe-west2")),
+		ir.A("nat_ip_allocate_option", ir.Str("AUTO_ONLY")),
+		ir.A("source_subnetwork_ip_ranges_to_nat", ir.Str("ALL_SUBNETWORKS_ALL_IP_RANGES")),
+	}
+	if diff := cmp.Diff(wantNAT, nat.Args); diff != "" {
+		t.Errorf("nat args (-want +got):\n%s", diff)
+	}
+	for _, r := range append(byType(ctx, "google_compute_router"), byType(ctx, "google_compute_router_nat")...) {
+		if r.SourceLabel != "network" || r.SourceNode != "" {
+			t.Errorf("%s source = %q/%q", r.Type, r.SourceNode, r.SourceLabel)
+		}
+	}
+	if countOfType(ctx, "google_compute_router_nat") != 1 || countOfType(ctx, "google_compute_network") != 1 {
+		t.Errorf("resources = %v", resourceTypes(ctx))
+	}
+	if len(ctx.Errors) != 0 {
+		t.Errorf("errors = %v", ctx.Errors)
+	}
+}
+
+func TestCallsToAPublicServiceFromACallerOnTheNetworkKeepsPrivateRangesEgress(t *testing.T) {
+	ctx, project := newContext(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		serviceNode(t, "n5", "admin", publicService()),
+		databaseNode(t, "n3", "main-db", defaultDatabase),
+	}, []ir.Edge{
+		{ID: "e1", From: "n4", To: "n5", Relation: ir.RelCalls},
+		{ID: "e2", From: "n4", To: "n3", Relation: ir.RelReads},
+	})
+	web := resolveService(ctx, project.Nodes[0])
+	admin := resolveService(ctx, project.Nodes[1])
+	db := resolveDatabase(ctx, project.Nodes[2])
+	resolveCalls(ctx, project.Edges[0], web, admin)
+	resolveDataAccess(ctx, project.Edges[1], web, db)
+	web.Finalise()
+	admin.Finalise()
+
+	access, _ := template(t, ctx).Get("vpc_access")
+	wantAccess := ir.B(ir.Attrs{
+		ir.A("connector", ir.R(connectorID, ir.Field("id"))),
+		ir.A("egress", ir.Str("PRIVATE_RANGES_ONLY")),
+	})
+	if diff := cmp.Diff(ir.Value(wantAccess), access); diff != "" {
+		t.Errorf("vpc_access (-want +got):\n%s", diff)
+	}
+	if countOfType(ctx, "google_compute_router") != 0 || countOfType(ctx, "google_compute_router_nat") != 0 {
+		t.Errorf("a caller of a public service brought a NAT: %v", resourceTypes(ctx))
+	}
+}
+
+func TestCallsToAFunctionKeepsTheCallerOffTheConnector(t *testing.T) {
+	ctx, project := newContext(t,
+		[]ir.Node{serviceNode(t, "n4", "web", defaultService), functionNode(t, "n2", "handler", defaultFunction)},
+		callEdges("n4", "n2", 1))
+	web := resolveService(ctx, project.Nodes[0])
+	fn := resolveFunction(ctx, project.Nodes[1])
+	resolveCalls(ctx, project.Edges[0], web, fn)
+	web.Finalise()
+	fn.Finalise()
+
+	if web.NeedsAllEgress || countOfType(ctx, "google_compute_network") != 0 {
+		t.Error("calling a function pulled the caller onto the connector")
 	}
 }
 
@@ -219,6 +350,18 @@ func TestResolveRunsServicesThatCallEachOther(t *testing.T) {
 	if diff := cmp.Diff([]string{"google_project"}, dataTypes(g.Data)); diff != "" {
 		t.Errorf("data sources (-want +got):\n%s", diff)
 	}
+	var nats, networks int
+	for _, r := range g.Resources {
+		switch r.Type {
+		case "google_compute_router_nat":
+			nats++
+		case "google_compute_network":
+			networks++
+		}
+	}
+	if nats != 1 || networks != 1 {
+		t.Errorf("nats = %d, networks = %d", nats, networks)
+	}
 	files, err := hcl.Emit(g)
 	if err != nil {
 		t.Fatalf("Emit: %v", err)
@@ -228,6 +371,9 @@ func TestResolveRunsServicesThatCallEachOther(t *testing.T) {
 		`data "google_project" "current"`,
 		`value = "https://shop-dev-admin-${data.google_project.current.number}.europe-west2.run.app"`,
 		`value = "https://shop-dev-web-${data.google_project.current.number}.europe-west2.run.app"`,
+		`"ALL_TRAFFIC"`,
+		`private_ip_google_access = true`,
+		`resource "google_compute_router_nat" "main"`,
 	} {
 		if !strings.Contains(main, want) {
 			t.Errorf("main.tf lacks %q", want)

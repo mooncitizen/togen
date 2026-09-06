@@ -70,8 +70,10 @@ type Handle struct {
 	Env           ir.Attrs
 	Statements    []ir.Value
 	NeedsNetwork  bool
-	Exports       Exports
-	Finalise      func()
+	// Set by an edge whose target answers only to traffic that arrives through the VPC.
+	NeedsAllEgress bool
+	Exports        Exports
+	Finalise       func()
 }
 
 func (h *Handle) SetEnv(key string, v ir.Value) { h.Env.Set(key, v) }

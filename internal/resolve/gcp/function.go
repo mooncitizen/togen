@@ -118,10 +118,10 @@ func resolveFunction(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 		if len(h.Env) > 0 {
 			serviceConfig.Set("environment_variables", ir.Map(h.Env))
 		}
-		if h.NeedsNetwork {
-			network := ensureNetwork(ctx)
+		if h.NeedsNetwork || h.NeedsAllEgress {
+			network, egress := callerEgress(ctx, h)
 			serviceConfig.Set("vpc_connector", ir.R(network.Connector, ir.Field("id")))
-			serviceConfig.Set("vpc_connector_egress_settings", ir.Str("PRIVATE_RANGES_ONLY"))
+			serviceConfig.Set("vpc_connector_egress_settings", ir.Str(egress))
 		}
 		fn.Args.Set("service_config", ir.B(serviceConfig))
 	}

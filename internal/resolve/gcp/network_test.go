@@ -114,6 +114,7 @@ func TestNetworkHasNoAutomaticSubnetsAndOneInTheProjectRegion(t *testing.T) {
 		ir.A("network", ir.R(ir.ID{Type: "google_compute_network", Name: "main"}, ir.Field("id"))),
 		ir.A("region", ir.Str("europe-west2")),
 		ir.A("ip_cidr_range", ir.Str("10.0.0.0/24")),
+		ir.A("private_ip_google_access", ir.Bool(true)),
 	}
 	if diff := cmp.Diff(wantSubnet, subnet.Args); diff != "" {
 		t.Errorf("subnet args (-want +got):\n%s", diff)
@@ -185,6 +186,18 @@ func TestNetworkIsCreatedOncePerContext(t *testing.T) {
 	b := ensureNetwork(ctx)
 	if a != b {
 		t.Error("ensureNetwork built a second network")
+	}
+	if a.NAT != (ir.ID{}) || countOfType(ctx, "google_compute_router") != 0 {
+		t.Error("the network came with a NAT nobody asked for")
+	}
+	if c := ensureNAT(ctx); c != a || ensureNAT(ctx) != a {
+		t.Error("ensureNAT built a second network")
+	}
+	if got := countOfType(ctx, "google_compute_router_nat"); got != 1 {
+		t.Errorf("nats = %d", got)
+	}
+	if a.Router != (ir.ID{Type: "google_compute_router", Name: "main"}) || a.NAT != (ir.ID{Type: "google_compute_router_nat", Name: "main"}) {
+		t.Errorf("router = %v, nat = %v", a.Router, a.NAT)
 	}
 	if got := countOfType(ctx, "google_compute_network"); got != 1 {
 		t.Errorf("networks = %d", got)

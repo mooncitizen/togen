@@ -353,7 +353,8 @@ func bucketCost(n ir.Node, region string) (cost.Item, error) {
 }
 
 // The hourly usage type carries a region prefix in most files (EUW2-NatGateway-Hours) and none
-// in us-east-1, and the regional variant must not match, hence the pattern.
+// in us-east-1, and the regional variant must not match, hence the pattern. GCP's implicit
+// network carries a Cloud NAT too once a caller needs all-traffic egress; it is not priced yet.
 func networkCost(region string) cost.Item {
 	return cost.Item{
 		Name: networkLabel,

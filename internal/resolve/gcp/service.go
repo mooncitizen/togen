@@ -98,17 +98,26 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 		if len(h.Env) > 0 {
 			container.Set("env", containerEnv(h.Env))
 		}
-		if h.NeedsNetwork {
-			network := ensureNetwork(ctx)
+		if h.NeedsNetwork || h.NeedsAllEgress {
+			network, egress := callerEgress(ctx, h)
 			template.Set("vpc_access", ir.B(ir.Attrs{
 				ir.A("connector", ir.R(network.Connector, ir.Field("id"))),
-				ir.A("egress", ir.Str("PRIVATE_RANGES_ONLY")),
+				ir.A("egress", ir.Str(egress)),
 			}))
 		}
 		template.Set("containers", ir.B(container))
 		svc.Args.Set("template", ir.B(template))
 	}
 	return h
+}
+
+// Cloud Run counts a request as internal only when the caller sends all its egress through
+// the VPC, so a caller of a private service takes the whole route and the NAT that goes with it.
+func callerEgress(ctx *resolve.Context, h *resolve.Handle) (*Network, string) {
+	if h.NeedsAllEgress {
+		return ensureNAT(ctx), "ALL_TRAFFIC"
+	}
+	return ensureNetwork(ctx), "PRIVATE_RANGES_ONLY"
 }
 
 // A public service already answers to allUsers, so a route to it adds the output alone.
