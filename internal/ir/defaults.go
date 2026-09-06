@@ -127,6 +127,15 @@ func setTagDefaults(ptr any) error {
 				return fmt.Errorf("%s.%s: default %q is not a boolean", t.Name(), f.Name, def)
 			}
 			fv.SetBool(b)
+		case reflect.Pointer:
+			if fv.Type().Elem().Kind() != reflect.Int {
+				return fmt.Errorf("%s.%s: no default handling for %s", t.Name(), f.Name, fv.Type())
+			}
+			n, err := strconv.Atoi(def)
+			if err != nil {
+				return fmt.Errorf("%s.%s: default %q is not a whole number", t.Name(), f.Name, def)
+			}
+			fv.Set(reflect.ValueOf(&n))
 		}
 	}
 	return nil

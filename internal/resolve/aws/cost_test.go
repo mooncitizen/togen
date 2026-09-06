@@ -2,7 +2,6 @@ package aws
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -536,9 +535,7 @@ func TestServiceCostScalesWithTheSizeAndReplicas(t *testing.T) {
 		{ir.SizeMedium, 0, "1 vCPU, 2 GB, 0 tasks, private", 0, 0, 0},
 	} {
 		t.Run(c.summary, func(t *testing.T) {
-			// Written out by hand because omitempty would drop a replica count of zero.
-			raw := json.RawMessage(fmt.Sprintf(`{"image":"nginx:1.27","size":"%s","minReplicas":%d}`, c.size, c.replicas))
-			node := ir.Node{ID: "s1", Type: ir.NodeService, Name: "web", Properties: raw}
+			node := serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Size: c.size, MinReplicas: ir.Ptr(c.replicas)})
 			doc := estimate(t, "eu-west-2", []ir.Node{node})
 			svc := doc.Items[0]
 			if svc.Summary != c.summary || len(svc.Lines) != 2 || svc.Subtotal != c.subtotal {

@@ -13,7 +13,7 @@ var defaultService = ir.ServiceProps{
 	Image:       "nginx:1.27",
 	Port:        8080,
 	Size:        ir.SizeSmall,
-	MinReplicas: 1,
+	MinReplicas: ir.Ptr(1),
 	MaxReplicas: 2,
 }
 
@@ -197,7 +197,7 @@ func TestPrivateServiceHasNoBindingButStillExportsItsURL(t *testing.T) {
 
 func TestServiceSetsReplicasOnTheScalingBlock(t *testing.T) {
 	p := defaultService
-	p.MinReplicas = 2
+	p.MinReplicas = ir.Ptr(2)
 	p.MaxReplicas = 5
 	ctx, handle := setupService(t, p)
 	handle.Finalise()
@@ -285,5 +285,20 @@ func TestServiceNameIsCheckedAgainstItsLimit(t *testing.T) {
 	}}
 	if diff := cmp.Diff(want, runErrors(t, p)); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestServiceWithZeroMinReplicasScalesToZero(t *testing.T) {
+	p := defaultService
+	p.MinReplicas = ir.Ptr(0)
+	ctx, handle := setupService(t, p)
+	handle.Finalise()
+	scaling, _ := template(t, ctx).Get("scaling")
+	want := ir.B(ir.Attrs{
+		ir.A("min_instance_count", ir.Num(0)),
+		ir.A("max_instance_count", ir.Num(2)),
+	})
+	if diff := cmp.Diff(ir.Value(want), scaling); diff != "" {
+		t.Errorf("scaling (-want +got):\n%s", diff)
 	}
 }

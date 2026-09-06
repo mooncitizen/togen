@@ -184,6 +184,8 @@ test('a service offers its image, port, size, replicas, reach and env', async ()
   expect(control(screen, 'Image').required).toBe(true);
   expect(control(screen, 'Image').value).toBe('nginx:1.27');
   expect(control(screen, 'Port').placeholder).toBe('8080');
+  expect(control(screen, 'Min replicas').placeholder).toBe('1');
+  expect(control(screen, 'Min replicas').min).toBe('0');
   await expect.element(screen.getByText('required')).toBeInTheDocument();
   await expect.element(screen.getByText('Add variable')).toBeInTheDocument();
 });
@@ -349,6 +351,19 @@ test('a number outside its range says why, then saves once it is back in range',
     engine: 'postgres',
     size: 'small',
     storageGb: 50,
+  });
+});
+
+test('a min replicas of zero is saved as zero, not dropped as empty', async () => {
+  const screen = await show();
+  await open(screen, 'service-1');
+
+  await screen.getByLabelText('Min replicas', { exact: true }).fill('0');
+
+  await vi.waitFor(() => expect(puts('/api/project')).toHaveLength(1));
+  expect(saved(puts('/api/project')[0], 'service-1').properties).toEqual({
+    image: 'nginx:1.27',
+    minReplicas: 0,
   });
 });
 
