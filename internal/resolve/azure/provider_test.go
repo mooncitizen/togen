@@ -291,7 +291,7 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 
 func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
 	for _, typ := range ir.NodeTypes {
-		if typ == ir.NodeFunction || typ == ir.NodeGateway || typ == ir.NodeDatabase || typ == ir.NodeService {
+		if typ == ir.NodeFunction || typ == ir.NodeGateway || typ == ir.NodeDatabase || typ == ir.NodeService || typ == ir.NodeQueue {
 			continue
 		}
 		ctx := newContext(t, nil)
@@ -311,31 +311,26 @@ func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
 
 func TestResolveReportsEveryNodeInFileOrder(t *testing.T) {
 	p := newProject(t, []ir.Node{
-		{ID: "n1", Type: ir.NodeQueue, Name: "jobs"},
-		{ID: "n2", Type: ir.NodeBucket, Name: "uploads"},
+		{ID: "n1", Type: ir.NodeBucket, Name: "uploads"},
+		{ID: "n2", Type: ir.NodeCache, Name: "sessions"},
 	})
 	want := ir.Errors{
-		{NodeID: "n1", Message: "node type 'queue' is not supported by the azure resolver yet"},
-		{NodeID: "n2", Message: "node type 'bucket' is not supported by the azure resolver yet"},
+		{NodeID: "n1", Message: "node type 'bucket' is not supported by the azure resolver yet"},
+		{NodeID: "n2", Message: "node type 'cache' is not supported by the azure resolver yet"},
 	}
 	if diff := cmp.Diff(want, runErrors(t, p)); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }
 
-func TestResolveRefusesTheRelationsWithoutAResolverYet(t *testing.T) {
-	for _, rel := range ir.Relations {
-		if rel == ir.RelRoutes || rel == ir.RelCalls || rel == ir.RelReads || rel == ir.RelWrites {
-			continue
-		}
-		ctx := newContext(t, nil)
-		New().ResolveEdge(ctx, ir.Edge{ID: "e1", Relation: rel}, nil, nil)
-		want := ir.Errors{{
-			EdgeID:  "e1",
-			Message: fmt.Sprintf("'%s' edges are not supported by the azure resolver yet", rel),
-		}}
-		if diff := cmp.Diff(want, ctx.Errors); diff != "" {
-			t.Errorf("%s errors (-want +got):\n%s", rel, diff)
-		}
+func TestResolveRefusesARelationWithoutAResolver(t *testing.T) {
+	ctx := newContext(t, nil)
+	New().ResolveEdge(ctx, ir.Edge{ID: "e1", Relation: ir.Relation("triggers")}, nil, nil)
+	want := ir.Errors{{
+		EdgeID:  "e1",
+		Message: "'triggers' edges are not supported by the azure resolver yet",
+	}}
+	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }

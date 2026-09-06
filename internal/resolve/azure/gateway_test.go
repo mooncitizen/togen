@@ -178,7 +178,7 @@ func TestRoutesToAPrivateServiceOpenItsIngressAndOutputTheFQDN(t *testing.T) {
 	if diff := cmp.Diff(wantEnv, containerEnvOf(t, ctx, appID)); diff != "" {
 		t.Errorf("container env (-want +got):\n%s", diff)
 	}
-	wantExports := resolve.ServiceExports{Port: ir.Num(8080), Public: true, URL: webURL}
+	wantExports := resolve.ServiceExports{Port: ir.Num(8080), Public: true, URL: webURL, PrincipalID: webPrincipal}
 	if diff := cmp.Diff(wantExports, svc.Exports); diff != "" {
 		t.Errorf("exports (-want +got):\n%s", diff)
 	}

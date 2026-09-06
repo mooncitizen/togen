@@ -17,7 +17,8 @@
       "type": "database",
       "name": "orders-db",
       "properties": { "engine": "postgres", "size": "small" }
-    }
+    },
+    { "id": "queue-1", "type": "queue", "name": "jobs" }
   ],
   "edges": [
     {
@@ -27,6 +28,7 @@
       "relation": "routes",
       "properties": { "path": "/orders", "methods": ["GET", "POST"] }
     },
-    { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" }
+    { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" },
+    { "id": "edge-3", "from": "function-1", "to": "queue-1", "relation": "publishes" }
   ]
 }

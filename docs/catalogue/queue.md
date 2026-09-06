@@ -66,4 +66,34 @@ Cost: `togen cost` has no GCP prices yet and reports the queue as not priced.
 
 ## Azure
 
-Not implemented yet. Planned: `azurerm_servicebus_namespace` shared by the project and an `azurerm_servicebus_queue` per node, with `requires_session` for FIFO and the built in dead letter queue rather than a second resource.
+- `azurerm_servicebus_namespace.main`, one per project, named `<project>-<env>-bus` and made by the first queue. It is on the Basic tier unless a queue in the project is `fifo`, see below. Messages are encrypted at rest by Azure without any setting.
+- `azurerm_servicebus_queue.<name>` in that namespace. `default_message_ttl` is `retentionDays` as an ISO 8601 duration (`P4D` by default). The Basic tier holds a message for fourteen days at most, which is the property's maximum, so the tier never limits it.
+- Output `servicebus_namespace`, the fully qualified namespace `<project>-<env>-bus.servicebus.windows.net`, once per project.
+
+A queue does not join the virtual network. Clients reach the namespace over its public endpoint and prove who they are with a managed identity, so nothing here needs a connection string or a shared access key.
+
+### Dead lettering
+
+Every Service Bus queue has a dead letter subqueue built in, at `<queue>/$DeadLetterQueue`. There is no second resource and it cannot be turned off. `deadLetter` sets `dead_lettering_on_message_expiration`, so a message nobody read before `retentionDays` ran out is parked there rather than dropped, and sets `max_delivery_count` to 5, so a message that fails five deliveries is parked as it would be on SQS. With `deadLetter` off an expired message is dropped and the delivery count is left at the Service Bus default of ten, but a message that keeps failing still ends up in the subqueue, because Service Bus has no way to retry one forever.
+
+### FIFO
+
+A Service Bus queue is already first in, first out for one receiver taking messages one at a time. It stops being so as soon as there are two receivers, or one receiver working a batch, or a message is abandoned and delivered again. `fifo` sets `requires_session`: every message then has to carry a session id, and a receiver locks a session and gets its messages in the order they were sent, one session at a time. The session id is the SQS message group id in all but name, and ordering holds within a session, not across the queue. A publisher that leaves the session id off is refused.
+
+Sessions are not on the Basic tier, so one `fifo` queue in the project puts the shared namespace on Standard. Standard is a per-hour base charge plus operations where Basic is operations alone, and every queue in the project shares it. Nothing else here needs Standard.
+
+A function consuming a `fifo` queue has to set `isSessionsEnabled` on its trigger; Togen cannot do that for it.
+
+### Edges
+
+Both edges are an `azurerm_role_assignment` on the queue, scoped to it and nothing wider, for the caller's system assigned identity, with `principal_type` set to `ServicePrincipal` so the assignment does not wait for a fresh identity to replicate. Whoever runs `terraform apply` needs to be allowed to assign roles on the resource group (Owner, or User Access Administrator), which a plain Contributor is not.
+
+A `publishes` edge from a function or a service assigns Azure Service Bus Data Sender and sets `<NAME>_QUEUE` (the queue's name) and `<NAME>_NAMESPACE` (the fully qualified namespace) on the caller, where `<NAME>` is the queue's name upper-snake-cased. The SDKs take those two and a `DefaultAzureCredential` and need nothing else.
+
+A `consumes` edge assigns Azure Service Bus Data Receiver.
+
+From a function, `consumes` sets `<NAME>__fullyQualifiedNamespace` and `<NAME>_QUEUE`. The first is the app setting an identity based trigger connection reads: the Service Bus trigger's `connection` property names a setting prefix, and the Functions host looks for `<prefix>__fullyQualifiedNamespace` and signs in with the app's managed identity. So the trigger for a queue called `jobs` is `"connection": "JOBS"` with `"queueName": "%JOBS_QUEUE%"`, and the host does the polling. No lock duration or visibility timeout to raise: the host renews the message lock itself while the function runs.
+
+From a service, `consumes` sets the same `<NAME>_QUEUE` and `<NAME>_NAMESPACE` as `publishes` and leaves the container to poll for itself.
+
+Cost is not priced yet.
