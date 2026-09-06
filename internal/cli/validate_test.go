@@ -206,14 +206,14 @@ func TestValidateReportsAzureNodesTheResolverDoesNotSupportYet(t *testing.T) {
 		"provider":    "azure",
 		"region":      "uksouth",
 		"environment": "dev",
-		"nodes":       []any{map[string]any{"id": "b1", "type": "bucket", "name": "uploads"}},
+		"nodes":       []any{map[string]any{"id": "c1", "type": "cache", "name": "sessions"}},
 		"edges":       []any{},
 	})
 	result := Validate(cwd)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "node b1") || !strings.Contains(result.Lines[0], "not supported by the azure resolver yet") {
+	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "node c1") || !strings.Contains(result.Lines[0], "not supported by the azure resolver yet") {
 		t.Fatalf("lines = %v", result.Lines)
 	}
 }

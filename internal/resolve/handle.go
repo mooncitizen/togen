@@ -42,8 +42,13 @@ type QueueExports struct {
 	FIFO             bool
 }
 
-// ARN is AWS. ID is the GCP bucket's id, which an IAM member binds to.
-type BucketExports struct{ ARN, ID, Name ir.Value }
+// ARN is AWS and ID the GCP bucket id an IAM member binds to. Account, Container and Scope
+// are Azure: the storage account and container a client addresses, and the account id role
+// assignments are scoped to.
+type BucketExports struct {
+	ARN, ID, Name             ir.Value
+	Account, Container, Scope ir.Value
+}
 
 type CacheExports struct{ Host, Port ir.Value }
 

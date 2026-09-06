@@ -291,7 +291,7 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 
 func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
 	for _, typ := range ir.NodeTypes {
-		if typ == ir.NodeFunction || typ == ir.NodeGateway || typ == ir.NodeDatabase || typ == ir.NodeService || typ == ir.NodeQueue {
+		if typ != ir.NodeCache {
 			continue
 		}
 		ctx := newContext(t, nil)
@@ -311,11 +311,11 @@ func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
 
 func TestResolveReportsEveryNodeInFileOrder(t *testing.T) {
 	p := newProject(t, []ir.Node{
-		{ID: "n1", Type: ir.NodeBucket, Name: "uploads"},
-		{ID: "n2", Type: ir.NodeCache, Name: "sessions"},
+		{ID: "n1", Type: ir.NodeCache, Name: "sessions"},
+		{ID: "n2", Type: ir.NodeCache, Name: "pages"},
 	})
 	want := ir.Errors{
-		{NodeID: "n1", Message: "node type 'bucket' is not supported by the azure resolver yet"},
+		{NodeID: "n1", Message: "node type 'cache' is not supported by the azure resolver yet"},
 		{NodeID: "n2", Message: "node type 'cache' is not supported by the azure resolver yet"},
 	}
 	if diff := cmp.Diff(want, runErrors(t, p)); diff != "" {

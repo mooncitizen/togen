@@ -19,15 +19,17 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 		})
 		return
 	}
-	target, ok := to.Exports.(resolve.DatabaseExports)
-	if !ok {
+	switch target := to.Exports.(type) {
+	case resolve.DatabaseExports:
+		connectDatabase(ctx, from, to, target)
+	case resolve.BucketExports:
+		grantBucket(ctx, edge, from, to, target)
+	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
 			Message: fmt.Sprintf("%s to a %s is not supported by the azure resolver yet", edge.Relation, to.Node.Type),
 		})
-		return
 	}
-	connectDatabase(ctx, from, to, target)
 }
 
 // The server answers only from inside the virtual network, so the caller is marked as needing
@@ -45,4 +47,31 @@ func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target reso
 	from.SetEnv(prefix+"_NAME", target.Name)
 	from.SetEnv(prefix+"_USER", target.User)
 	from.SetEnv(prefix+"_PASSWORD", target.Password)
+}
+
+const (
+	blobReaderRole      = "Storage Blob Data Reader"
+	blobContributorRole = "Storage Blob Data Contributor"
+)
+
+// Blobs are reached over the account's public endpoint with the caller's managed identity, so
+// an edge is a role assignment and the names the caller addresses. The account is the scope:
+// it holds this one container and nothing else, and the account id has the same shape in every
+// provider version where the container's has not.
+func grantBucket(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle, target resolve.BucketExports) {
+	var principal ir.Value
+	switch caller := from.Exports.(type) {
+	case resolve.FunctionExports:
+		principal = caller.PrincipalID
+	case resolve.ServiceExports:
+		principal = caller.PrincipalID
+	}
+	if edge.Relation == ir.RelReads {
+		assignRole(ctx, from, to, "read", blobReaderRole, target.Scope, principal)
+	} else {
+		assignRole(ctx, from, to, "write", blobContributorRole, target.Scope, principal)
+	}
+	prefix := strings.ToUpper(ctx.Local(to.Node.Name))
+	from.SetEnv(prefix+"_ACCOUNT", target.Account)
+	from.SetEnv(prefix+"_CONTAINER", target.Container)
 }
