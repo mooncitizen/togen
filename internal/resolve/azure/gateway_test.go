@@ -1,10 +1,12 @@
 package azure
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/mooncitizen/togen/internal/emit/hcl"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
 )
@@ -150,23 +152,113 @@ func TestRoutesRejectTwoEdgesClaimingTheSameRouteKey(t *testing.T) {
 	}
 }
 
-func TestRoutesToAnUnsupportedTargetAreReported(t *testing.T) {
-	ctx := newContext(t, []ir.Node{gatewayNode})
+func TestRoutesToAPrivateServiceOpenItsIngressAndOutputTheFQDN(t *testing.T) {
+	ctx := newContext(t, []ir.Node{gatewayNode, serviceNodeWith(t, "n4", "web", defaultService)})
 	gateway := resolveGateway(ctx.Project.Nodes[0])
-	service := &resolve.Handle{
-		Node:    serviceNode("n4", "web"),
-		Exports: resolve.ServiceExports{},
+	svc := resolveService(ctx, ctx.Project.Nodes[1])
+	before := len(ctx.Resources())
+	resolveRoutes(ctx, routeEdge("e1", "n4", "/web", ir.MethodGet, ir.MethodPost), gateway, svc)
+	svc.Finalise()
+
+	if len(ctx.Errors) != 0 {
+		t.Fatalf("errors = %v", ctx.Errors)
 	}
-	resolveRoutes(ctx, routeEdge("e1", "n4", "/web", ir.MethodGet), gateway, service)
+	wantOutputs := []ir.Output{{
+		Name:        "api_web_url",
+		Description: "Public URL of the web service behind the api gateway",
+		Value:       webURL,
+	}}
+	if diff := cmp.Diff(wantOutputs, ctx.Outputs); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(ingressBlock(true, 8080)[0], appIngress(t, ctx, appID)); diff != "" {
+		t.Errorf("ingress (-want +got):\n%s", diff)
+	}
+	wantEnv := ir.Attrs{ir.A("API_ROUTES", ir.Str("GET /web,POST /web"))}
+	if diff := cmp.Diff(wantEnv, containerEnvOf(t, ctx, appID)); diff != "" {
+		t.Errorf("container env (-want +got):\n%s", diff)
+	}
+	wantExports := resolve.ServiceExports{Port: ir.Num(8080), Public: true, URL: webURL}
+	if diff := cmp.Diff(wantExports, svc.Exports); diff != "" {
+		t.Errorf("exports (-want +got):\n%s", diff)
+	}
+	if got := len(ctx.Resources()); got != before {
+		t.Errorf("a route added resources: %d, was %d", got, before)
+	}
+}
+
+func TestRoutesToAFunctionAndAServiceGiveOneOutputEach(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		gatewayNode,
+		functionNode(t, "n2", "orders", defaultFunction),
+		serviceNodeWith(t, "n4", "web", defaultService),
+	})
+	p.Edges = []ir.Edge{
+		routeEdge("e1", "n2", "/orders", ir.MethodGet),
+		routeEdge("e2", "n4", "/web", ir.MethodGet),
+		routeEdge("e3", "n4", "/web/{proxy+}", ir.MethodAny),
+	}
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Errorf("graph is not valid:\n%s", errs.Error())
+	}
+	var names []string
+	for _, o := range g.Outputs {
+		names = append(names, o.Name)
+	}
+	if diff := cmp.Diff([]string{"api_orders_url", "api_web_url"}, names); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	for _, want := range []string{
+		`"https://${azurerm_linux_function_app.orders.default_hostname}"`,
+		`"https://${azurerm_container_app.web.ingress[0].fqdn}"`,
+	} {
+		if !strings.Contains(string(files["outputs.tf"]), want) {
+			t.Errorf("outputs.tf lacks %s:\n%s", want, files["outputs.tf"])
+		}
+	}
+}
+
+func TestRoutesRejectAFunctionAndAServiceClaimingTheSameRouteKey(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		gatewayNode,
+		functionNode(t, "n2", "orders", defaultFunction),
+		serviceNodeWith(t, "n4", "web", defaultService),
+	})
+	p.Edges = []ir.Edge{
+		routeEdge("e1", "n2", "/web", ir.MethodGet),
+		routeEdge("e2", "n4", "/web", ir.MethodGet),
+	}
+	want := ir.Errors{{
+		EdgeID:  "e2",
+		Message: "route 'GET /web' on gateway 'api' is already used by edge 'e1'",
+	}}
+	if diff := cmp.Diff(want, runErrors(t, p)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestRoutesToAnUnsupportedTargetAreReported(t *testing.T) {
+	ctx := newContext(t, []ir.Node{gatewayNode, databaseNode(t, "n3", "main-db", smallPostgres)})
+	gateway := resolveGateway(ctx.Project.Nodes[0])
+	db := resolveDatabase(ctx, ctx.Project.Nodes[1])
+	resolveRoutes(ctx, routeEdge("e1", "n3", "/db", ir.MethodGet), gateway, db)
 
 	want := ir.Errors{{
 		EdgeID:  "e1",
-		Message: "routes to a service are not supported by the azure resolver yet",
+		Message: "routes to a database are not supported by the azure resolver yet",
 	}}
 	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
-	if len(ctx.Outputs) != 0 {
+	if len(ctx.Outputs) != 1 || ctx.Outputs[0].Name != "main_db_fqdn" {
 		t.Errorf("outputs = %+v", ctx.Outputs)
 	}
 }

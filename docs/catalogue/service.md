@@ -45,4 +45,22 @@ Not implemented yet. Planned: `google_cloud_run_v2_service` with a service accou
 
 ## Azure
 
-Not implemented yet. Planned: `azurerm_container_app` on a container app environment, with an `ingress` block and `external_enabled` for a public service. Consumption profile only accepts fixed cpu and memory pairs, so sizes map to those.
+- `azurerm_log_analytics_workspace.main`, `PerGB2018` with 30 day retention, one per project, created by the first service. Container Apps sends its console and system logs there, and 30 days matches the AWS log group.
+- `azurerm_container_app_environment.main`, one per project, created by the same first service. It sits on the implicit virtual network's `apps` subnet (`10.0.0.0/23`, delegated to `Microsoft.App/environments`), so the apps in it can reach the flexible servers on their private zones, and it declares the `Consumption` workload profile, which bills per second of cpu and memory while a replica runs and nothing when scaled to zero.
+- `azurerm_container_app` in the resource group every Azure project gets, in that environment, on the `Consumption` profile, with `revision_mode = "Single"` and a system assigned identity for the role assignments edges will add. The template carries `min_replicas` and `max_replicas` from the node and one container: the image, the cpu and memory pair for the size, and the node's `env` plus whatever edges add, as `env` blocks in the order they were set. Container Apps scales between the two counts on HTTP concurrency out of the box, so unlike AWS `maxReplicas` does something. The ingress has `target_port` from `port`, `external_enabled` from `public`, and sends all traffic to the latest revision, since revisions and traffic splitting are not in the catalogue.
+
+Sizes are the pairs the Consumption profile accepts: small 0.25 cpu and 0.5Gi, medium 0.5 and 1Gi, large 1 and 2Gi. Anything else is refused by Azure at apply, so these are not free choices.
+
+A public service gets an output `<name>_url`, `https://` plus the ingress FQDN. A private service's ingress is internal: the same FQDN answers only from inside the environment, and there is no output.
+
+HTTPS comes for free on the environment's own domain, which is why the URL is not `http://` as on AWS.
+
+### Edges
+
+A `routes` edge from a gateway makes the ingress external whatever `public` says, because on Azure the gateway is nothing but the target's own hostname (ADR 0010) and a route to an ingress the internet cannot reach would be a route to nothing. The gateway URL output is `<gateway>_<name>_url`, the same ingress FQDN, and the routes go in as `<GATEWAY>_ROUTES` in the container env, described under [gateway](gateway.md).
+
+A `reads` or `writes` edge to a database sets `<NAME>_HOST`, `<NAME>_PORT`, `<NAME>_NAME`, `<NAME>_USER` and `<NAME>_PASSWORD` in the container env, described under [database](database.md). The environment already sits on the network the server answers from, so a service reaches it where a consumption plan function cannot.
+
+A `calls` edge to a service sets `<TARGET>_URL` on the caller, `https://` plus the target's ingress FQDN. For a private service that is the internal FQDN, which a container app in the same environment resolves and a function app on the consumption plan does not, so a function calling a private service is marked as needing the network the same way the database edge marks it. A public service is called by its public FQDN. A `calls` edge to a function sets `<TARGET>_URL` to `https://` plus the function app's default hostname. Nothing else is created: everything on Azure answers HTTPS on its own name.
+
+Cost is not priced yet.
