@@ -65,4 +65,26 @@ Cost: `togen cost` has no GCP prices yet and reports the bucket as not priced.
 
 ## Azure
 
-Not implemented yet. Planned: `azurerm_storage_account` and an `azurerm_storage_container` per bucket node, with `container_access_type` set to `blob` for a public one and `private` otherwise.
+- `azurerm_storage_account.<name>`, one per bucket, named by the same rule as a function's account: project, environment and node name run together, lowercase alphanumerics only, cut to 24 characters with the project trimmed first. Standard tier, LRS, `min_tls_version = "TLS1_2"`, and a `blob_properties` block with `versioning_enabled` set from `versioning`. Azure keeps versioning as a flag on the account rather than a separate resource, so off is written as `false` rather than left out, and turning it off later is a plan the account can apply.
+- `azurerm_storage_container.<name>` in that account, named `<project>-<env>-<name>`, with `container_access_type = "private"`.
+- Outputs `<name>_account` and `<name>_container`. The account name is the one a client needs and the truncation rule makes it hard to guess.
+
+One account per bucket rather than one per project because the edges grant on the account: two containers in one account would be readable by every caller granted either one.
+
+A bucket needs no resource group of its own and no network. It joins the project's resource group and is reached over the account's public blob endpoint, `https://<account>.blob.core.windows.net`, which the code builds from `<NAME>_ACCOUNT`.
+
+### public
+
+`public` sets `allow_nested_items_to_be_public = true` on the account and `container_access_type = "blob"` on the container. `blob` is anonymous read of the blobs by name and not of the listing, the same shape as the AWS policy; `container` would open the listing too and nothing asks for that. A private bucket writes the account flag as `false` explicitly, so the result does not depend on which provider major changed the default.
+
+### Edges
+
+A `reads` edge from a function or a service is an `azurerm_role_assignment` of Storage Blob Data Reader to the caller's system-assigned identity, a `writes` edge one of Storage Blob Data Contributor. Contributor covers read, write and delete, so a writer on Azure can also read, which is wider than the AWS put and delete; there is no built-in role for writing without reading, and a custom role is more than this stage wants.
+
+Both are scoped to the storage account, not the container. The account holds this one container and nothing else, so the grant reaches the same blobs either way, and the account's `id` is a resource manager id in every version of the provider where the container's has changed shape between majors. The assignment is named `<caller>_<bucket>_read` or `_write` and carries `principal_type = "ServicePrincipal"`, so it does not wait on directory replication of a fresh identity.
+
+Both set `<NAME>_ACCOUNT` and `<NAME>_CONTAINER` on the caller, as app settings on a function app and container env on a container app. The caller authenticates with its managed identity (`DefaultAzureCredential` in the SDKs) and needs no key or connection string, which is why neither is exported.
+
+Neither edge asks for the virtual network, so a project of functions and buckets creates none.
+
+Not yet: lifecycle management and static websites.
