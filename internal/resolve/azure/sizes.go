@@ -21,3 +21,17 @@ var appSizes = map[ir.Size]appSize{
 	ir.SizeMedium: {0.5, "1Gi"},
 	ir.SizeLarge:  {1, "2Gi"},
 }
+
+type cacheSKU struct {
+	capacity float64
+	family   string
+	name     string
+}
+
+// The C family takes capacity 0 to 6 and the P family 1 to 5, so the three are picked as
+// whole triples. Basic is one node with no SLA, Standard adds a replica.
+var cacheSizes = map[ir.Size]cacheSKU{
+	ir.SizeSmall:  {0, "C", "Basic"},
+	ir.SizeMedium: {1, "C", "Standard"},
+	ir.SizeLarge:  {3, "C", "Standard"},
+}

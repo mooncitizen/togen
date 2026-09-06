@@ -57,6 +57,8 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 		return resolveQueue(ctx, n), true
 	case ir.NodeBucket:
 		return resolveBucket(ctx, n), true
+	case ir.NodeCache:
+		return resolveCache(ctx, n), true
 	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,

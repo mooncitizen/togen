@@ -19,7 +19,8 @@
       "properties": { "engine": "postgres", "size": "small" }
     },
     { "id": "queue-1", "type": "queue", "name": "jobs" },
-    { "id": "bucket-1", "type": "bucket", "name": "uploads" }
+    { "id": "bucket-1", "type": "bucket", "name": "uploads" },
+    { "id": "cache-1", "type": "cache", "name": "sessions" }
   ],
   "edges": [
     {
@@ -31,6 +32,7 @@
     },
     { "id": "edge-2", "from": "function-1", "to": "database-1", "relation": "reads" },
     { "id": "edge-3", "from": "function-1", "to": "queue-1", "relation": "publishes" },
-    { "id": "edge-4", "from": "function-1", "to": "bucket-1", "relation": "writes" }
+    { "id": "edge-4", "from": "function-1", "to": "bucket-1", "relation": "writes" },
+    { "id": "edge-5", "from": "function-1", "to": "cache-1", "relation": "reads" }
   ]
 }

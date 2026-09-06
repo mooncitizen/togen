@@ -1,7 +1,6 @@
 package azure
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -289,34 +288,36 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 	}
 }
 
-func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
-	for _, typ := range ir.NodeTypes {
-		if typ != ir.NodeCache {
-			continue
-		}
-		ctx := newContext(t, nil)
-		handle, ok := New().ResolveNode(ctx, ir.Node{ID: "n1", Type: typ, Name: "thing"})
-		if ok || handle != nil {
-			t.Errorf("ResolveNode(%s) = %v, %v", typ, handle, ok)
-		}
-		want := ir.Errors{{
-			NodeID:  "n1",
-			Message: fmt.Sprintf("node type '%s' is not supported by the azure resolver yet", typ),
-		}}
-		if diff := cmp.Diff(want, ctx.Errors); diff != "" {
-			t.Errorf("%s errors (-want +got):\n%s", typ, diff)
-		}
+// Every node type in the IR now resolves, so an unsupported one cannot be written into a
+// project any more: ApplyDefaults rejects an unknown type before the resolver sees it. The
+// report is still reachable through ResolveNode itself, which is where a new type will land.
+func TestResolveReportsANodeTypeItDoesNotSupport(t *testing.T) {
+	ctx := newContext(t, nil)
+	handle, ok := New().ResolveNode(ctx, ir.Node{ID: "n9", Type: "cdn", Name: "edge"})
+	if ok || handle != nil {
+		t.Fatalf("ResolveNode = %v, %v", handle, ok)
+	}
+	want := ir.Errors{{
+		NodeID:  "n9",
+		Message: "node type 'cdn' is not supported by the azure resolver yet",
+	}}
+	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }
 
-func TestResolveReportsEveryNodeInFileOrder(t *testing.T) {
+func TestResolveReportsEveryUnsupportedEdgeInFileOrder(t *testing.T) {
 	p := newProject(t, []ir.Node{
-		{ID: "n1", Type: ir.NodeCache, Name: "sessions"},
-		{ID: "n2", Type: ir.NodeCache, Name: "pages"},
+		{ID: "n1", Type: ir.NodeFunction, Name: "orders"},
+		{ID: "n2", Type: ir.NodeFunction, Name: "mailer"},
 	})
+	p.Edges = []ir.Edge{
+		{ID: "e1", From: "n1", To: "n2", Relation: ir.Relation("mirrors")},
+		{ID: "e2", From: "n2", To: "n1", Relation: ir.Relation("mirrors")},
+	}
 	want := ir.Errors{
-		{NodeID: "n1", Message: "node type 'cache' is not supported by the azure resolver yet"},
-		{NodeID: "n2", Message: "node type 'cache' is not supported by the azure resolver yet"},
+		{EdgeID: "e1", Message: "'mirrors' edges are not supported by the azure resolver yet"},
+		{EdgeID: "e2", Message: "'mirrors' edges are not supported by the azure resolver yet"},
 	}
 	if diff := cmp.Diff(want, runErrors(t, p)); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)

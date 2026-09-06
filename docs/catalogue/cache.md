@@ -38,4 +38,19 @@ Not implemented yet. Planned: `google_redis_instance` with `connect_mode` `PRIVA
 
 ## Azure
 
-Not implemented yet. Planned: `azurerm_redis_cache`, where the size is a capacity, family and SKU that have to be a valid combination rather than three independent choices.
+- `azurerm_redis_cache.<name>` in the resource group every Azure project gets, named `<project>-<environment>-<name>`. No network: the cache answers on its public hostname, and only a caller holding the access key gets in. Private endpoints are not modelled yet.
+- The non-SSL port is off and `minimum_tls_version` is `1.2`, so the endpoint speaks TLS on 6380 and nothing else. As on AWS the client has to be told: `rediss://`, `tls: {}` for node-redis, `ssl=True` for redis-py.
+- `redis_version` is `6`. Version 4 is retired and the provider will not create a new cache on it.
+- Output `<name>_hostname`.
+
+The name is capped at 63 characters, which the resolver reports against the node rather than letting Azure reject the apply.
+
+Sizes are one valid `capacity`, `family` and `sku_name` triple each, because the provider accepts C0 to C6 and P1 to P5 and nothing in between. Small is Basic C0 (250 MB, one node, no SLA). Medium is Standard C1 (1 GB) and large Standard C3 (6 GB), both with a replica. Premium and the P family are not offered: they bring clustering and virtual network injection, which are out of scope here.
+
+### Edges
+
+`reads` and `writes` do the same thing, as on AWS. Either one sets `<NAME>_HOST`, `<NAME>_PORT` and `<NAME>_PASSWORD` on the caller, where `<NAME>` is the cache's name upper-snake-cased: the hostname, the SSL port, and the primary access key. On a function they are app settings, on a service container env. Both edges between the same pair set the three once.
+
+The port is the resource's `ssl_port` attribute rather than a literal, so it is a number Terraform converts to a string in the settings.
+
+The access key sits in the app settings until the secrets story lands, exactly as the database password does. There is no role assignment: Azure Cache for Redis has no data plane role to grant, access is the key.
