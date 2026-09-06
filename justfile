@@ -49,8 +49,13 @@ generate:
 acceptance: build-cli
     bash scripts/acceptance.sh
 
-# Install the canvas's dependencies from the lockfile.
-ui-deps:
+# Copy the IBM Plex faces the canvas embeds out of the nix store.
+fonts:
+    mkdir -p ui/src/fonts
+    install -m 644 "$IBM_PLEX"/IBMPlexSans-Regular.otf "$IBM_PLEX"/IBMPlexSans-Medium.otf "$IBM_PLEX"/IBMPlexSans-SemiBold.otf "$IBM_PLEX"/IBMPlexMono-Regular.otf "$IBM_PLEX"/IBMPlexMono-Medium.otf ui/src/fonts/
+
+# Install the canvas's dependencies: the packages from the lockfile and the fonts from nix.
+ui-deps: fonts
     pnpm --dir ui install --frozen-lockfile
 
 # Build the canvas and copy it where the binary embeds it.

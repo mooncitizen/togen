@@ -34,34 +34,50 @@
 
 {#if node !== null || edge !== null}
   <aside
-    class="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-stone-200 bg-white"
+    class="flex w-80 shrink-0 flex-col border-l border-border bg-panel"
     aria-label="Inspector"
     transition:fly={{ x: 24, duration: 120 }}
   >
-    <header class="flex items-center gap-2 border-b border-stone-200 px-3 py-2">
-      <span class="rounded bg-stone-100 px-1.5 py-0.5 text-xs tracking-wide text-stone-600 uppercase"
+    <header class="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4">
+      <span class="text-[11px] font-semibold tracking-[.06em] text-muted uppercase"
         >{node?.type ?? edge?.relation}</span
       >
       <button
-        class="ml-auto rounded px-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+        class="ml-auto inline-flex h-[30px] w-[30px] items-center justify-center rounded-md text-muted hover:bg-raised hover:text-text"
         aria-label="Close inspector"
-        onclick={() => store.clearSelection()}>×</button
+        onclick={() => store.clearSelection()}
       >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12M18 6 6 18" />
+        </svg>
+      </button>
     </header>
-    {#if node !== null}
-      {#key node.id}
-        <NodeForm {node} />
-      {/key}
-    {:else if edge !== null}
-      {#key edge.id}
-        <EdgeForm {edge} />
-      {/key}
-    {/if}
-    <div class="mt-auto border-t border-stone-200 p-3">
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      {#if node !== null}
+        {#key node.id}
+          <NodeForm {node} />
+        {/key}
+      {:else if edge !== null}
+        {#key edge.id}
+          <EdgeForm {edge} />
+        {/key}
+      {/if}
+    </div>
+    <footer class="flex shrink-0 items-center justify-between border-t border-border px-3 py-2.5">
       <button
-        class="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+        class="inline-flex h-[30px] items-center rounded-md border border-transparent px-3 font-medium text-err hover:bg-raised"
         onclick={remove}>Delete {node === null ? 'edge' : 'node'}</button
       >
-    </div>
+      <span class="text-[11px] text-faint">{store.saving ? 'Saving' : 'Saved'}</span>
+    </footer>
   </aside>
 {/if}

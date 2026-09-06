@@ -118,20 +118,20 @@
   }
 </script>
 
-<div class="flex flex-col gap-4 p-3">
+<div class="flex flex-col gap-3.5 p-4">
   <div class="flex flex-col gap-1">
-    <label class="text-xs font-medium text-stone-700" for="{node.id}-name">{name.label}</label>
+    <label class="text-xs font-medium" for="{node.id}-name">{name.label}</label>
     <input
       id="{node.id}-name"
-      class="rounded border border-stone-300 px-1.5 py-1 text-sm"
+      class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
       type="text"
       maxlength={name.maxLength}
       pattern={name.pattern}
       value={node.name}
       oninput={(event) => setName(event.currentTarget.value)}
     />
-    {#if reasons.name}<p class="text-xs text-red-700">{reasons.name}</p>{/if}
-    <p class="text-xs text-stone-500">{name.description}</p>
+    {#if reasons.name}<p class="text-xs text-err">{reasons.name}</p>{/if}
+    <p class="text-[11px] text-faint">{name.description}</p>
   </div>
 
   {#each fields as field (field.key)}
@@ -139,28 +139,28 @@
       <EnvEditor {field} values={env(field)} onchange={(next) => set(field.key, next)} />
     {:else if field.kind === 'toggle'}
       <div class="flex flex-col gap-1">
-        <label class="flex items-center gap-2 text-xs font-medium text-stone-700" for={id(field)}>
+        <label class="flex items-center gap-2 text-xs font-medium" for={id(field)}>
           <input
             id={id(field)}
-            class="relative h-4 w-7 shrink-0 appearance-none rounded-full bg-stone-300 transition-colors after:absolute after:top-0.5 after:left-0.5 after:h-3 after:w-3 after:rounded-full after:bg-white after:transition-transform after:content-[''] checked:bg-emerald-600 checked:after:translate-x-3"
+            class="relative h-5 w-[34px] shrink-0 appearance-none rounded-full bg-border-strong transition-colors after:absolute after:top-0.5 after:left-0.5 after:h-4 after:w-4 after:rounded-full after:bg-white after:transition-transform after:content-[''] checked:bg-accent checked:after:translate-x-3.5"
             type="checkbox"
             checked={ticked(field)}
             onchange={(event) => setToggle(field, event.currentTarget.checked)}
           />
           {field.label}
         </label>
-        <p class="text-xs text-stone-500">{field.description}</p>
+        <p class="text-[11px] text-faint">{field.description}</p>
       </div>
     {:else}
       <div class="flex flex-col gap-1">
         <div class="flex items-baseline gap-1.5">
-          <label class="text-xs font-medium text-stone-700" for={id(field)}>{field.label}</label>
-          {#if field.required}<span class="text-xs text-stone-400">required</span>{/if}
+          <label class="text-xs font-medium" for={id(field)}>{field.label}</label>
+          {#if field.required}<span class="text-[11px] text-faint">required</span>{/if}
         </div>
         {#if field.kind === 'select'}
           <select
             id={id(field)}
-            class="rounded border border-stone-300 px-1.5 py-1 text-sm"
+            class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
             value={shown(field)}
             onchange={(event) => setSelect(field, event.currentTarget.value)}
           >
@@ -172,7 +172,7 @@
         {:else if field.kind === 'number'}
           <input
             id={id(field)}
-            class="rounded border border-stone-300 px-1.5 py-1 text-sm"
+            class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
             type="number"
             min={field.min}
             max={field.max}
@@ -185,7 +185,7 @@
         {:else}
           <input
             id={id(field)}
-            class="rounded border border-stone-300 px-1.5 py-1 text-sm"
+            class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
             type="text"
             minlength={field.minLength}
             maxlength={field.maxLength}
@@ -196,8 +196,8 @@
             oninput={(event) => setText(field, event.currentTarget.value)}
           />
         {/if}
-        {#if reasons[field.key]}<p class="text-xs text-red-700">{reasons[field.key]}</p>{/if}
-        <p class="text-xs text-stone-500">{field.description}</p>
+        {#if reasons[field.key]}<p class="text-xs text-err">{reasons[field.key]}</p>{/if}
+        <p class="text-[11px] text-faint">{field.description}</p>
       </div>
     {/if}
   {/each}

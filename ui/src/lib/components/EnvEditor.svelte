@@ -46,27 +46,27 @@
 </script>
 
 <div class="flex flex-col gap-1.5">
-  <span class="text-xs font-medium text-stone-700">{field.label}</span>
+  <span class="text-xs font-medium">{field.label}</span>
   {#each rows as row, index (index)}
     <div class="flex items-center gap-1">
       <input
-        class="w-1/2 min-w-0 rounded border px-1.5 py-1 font-mono text-xs {bad(row)
-          ? 'border-red-500'
-          : 'border-stone-300'}"
+        class="h-8 w-1/2 min-w-0 rounded-md border bg-input px-2.5 font-mono text-xs {bad(row)
+          ? 'border-err'
+          : 'border-border-strong'}"
         aria-label="Env key {index + 1}"
         placeholder="NAME"
         value={row.key}
         oninput={(event) => edit(index, 'key', event.currentTarget.value)}
       />
       <input
-        class="w-1/2 min-w-0 rounded border border-stone-300 px-1.5 py-1 text-xs"
+        class="h-8 w-1/2 min-w-0 rounded-md border border-border-strong bg-input px-2.5 font-mono text-xs"
         aria-label="Env value {index + 1}"
         placeholder="value"
         value={row.value}
         oninput={(event) => edit(index, 'value', event.currentTarget.value)}
       />
       <button
-        class="shrink-0 rounded px-1 text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+        class="shrink-0 rounded-md px-1.5 text-muted hover:bg-raised hover:text-text"
         aria-label="Remove env row {index + 1}"
         onclick={() => {
           rows.splice(index, 1);
@@ -75,12 +75,12 @@
       >
     </div>
     {#if bad(row)}
-      <p class="text-xs text-red-700">{row.key} is not a valid name: {reason}</p>
+      <p class="text-xs text-err">{row.key} is not a valid name: {reason}</p>
     {/if}
   {/each}
   <button
-    class="self-start rounded border border-stone-300 px-1.5 py-0.5 text-xs hover:bg-stone-50"
+    class="self-start rounded-md border border-border-strong bg-raised px-2 py-0.5 text-xs font-medium hover:border-accent"
     onclick={() => rows.push({ key: '', value: '' })}>Add variable</button
   >
-  <p class="text-xs text-stone-500">{field.description}</p>
+  <p class="text-[11px] text-faint">{field.description}</p>
 </div>

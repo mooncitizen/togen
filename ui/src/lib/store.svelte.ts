@@ -4,6 +4,7 @@ import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
 import {
   ApiError,
   generate as generateFiles,
+  getConfig,
   getLayout,
   getProject,
   putLayout,
@@ -12,6 +13,7 @@ import {
 import { defaultProperties } from './catalogue.ts';
 import { autoLayout } from './layout.ts';
 import type {
+  Config,
   Edge,
   Generated,
   Layout,
@@ -48,6 +50,8 @@ const origin: Position = { x: 0, y: 0 };
 // grabbed.
 export class Store {
   project = $state.raw<Project | null>(null);
+  config = $state.raw<Config | null>(null);
+  configError = $state.raw<string | null>(null);
   positions = $state.raw<Record<string, Position>>({});
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
   selectedNodeId = $state.raw<string | null>(null);
@@ -72,6 +76,10 @@ export class Store {
   apiErrors = $state.raw<ValidationError[]>([]);
 
   readonly problems: ValidationError[] = $derived([...this.errors, ...this.apiErrors]);
+
+  // What togen.yml has to say for itself: why it could not be read, or that
+  // the legacy file is still in use.
+  readonly note: string | null = $derived(this.configError ?? this.config?.deprecated ?? null);
 
   readonly canUndo: boolean = $derived(this.undoable.length > 0);
   readonly canRedo: boolean = $derived(this.redoable.length > 0);
@@ -113,6 +121,7 @@ export class Store {
   #coalescing: string | null = null;
 
   async load(): Promise<void> {
+    await this.loadConfig();
     let project: Project;
     try {
       project = await getProject();
@@ -131,6 +140,18 @@ export class Store {
     }
     this.error = null;
     await this.#placeMissing();
+  }
+
+  // togen.yml is read, never written, and a broken one is not a broken
+  // project: the studio runs on the defaults and says why until it is fixed.
+  async loadConfig(): Promise<void> {
+    try {
+      this.config = await getConfig();
+      this.configError = null;
+    } catch (failure) {
+      this.config = null;
+      this.configError = describe(failure);
+    }
   }
 
   // A file event during a save would fetch back the version the save has not
@@ -678,6 +699,13 @@ export function errorLines(error: ApiError): string[] {
     return [error.message];
   }
   return error.errors.map(errorLine);
+}
+
+function describe(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    return errorLines(failure)[0];
+  }
+  return failure instanceof Error ? failure.message : String(failure);
 }
 
 function capped(entries: Entry[]): Entry[] {

@@ -1,14 +1,44 @@
 <script lang="ts">
   import { errorLines, getStore } from '../store.svelte.ts';
+  import { getTheme } from '../theme.svelte.ts';
+  import type { Provider } from '../types.ts';
   import { errorLine } from '../validate.ts';
 
+  type Status = { tone: 'ok' | 'warn' | 'err'; text: string; lines: string[] };
+
+  // The vendors' brand colours, until the provider schemes arrive with the icons.
+  const dots: Record<Provider, string> = { aws: '#ED7100', gcp: '#4285F4', azure: '#0078D4' };
+  const tones = { ok: 'bg-ok', warn: 'bg-warn', err: 'bg-err' };
+
   const store = getStore();
+  const theme = getTheme();
   const project = $derived(store.project);
   const lines = $derived(store.error === null ? [] : errorLines(store.error));
   const problems = $derived(store.problems.map(errorLine));
+  const status = $derived(describe());
   const blocked = $derived(reason());
 
   let open = $state(false);
+
+  // One pill, and the most recent thing wins: a notice answers what the user
+  // just did, a refused save is newer than the checks, and the checks matter
+  // more than what togen.yml has to say.
+  function describe(): Status {
+    if (store.notice !== null) {
+      return { tone: 'warn', text: store.notice, lines: [] };
+    }
+    if (lines.length > 0) {
+      return { tone: 'err', text: lines[0], lines: lines.slice(1) };
+    }
+    if (problems.length > 0) {
+      const count = `${problems.length} ${problems.length === 1 ? 'problem' : 'problems'}`;
+      return { tone: 'err', text: count, lines: problems };
+    }
+    if (store.note !== null) {
+      return { tone: 'warn', text: store.note, lines: [] };
+    }
+    return { tone: 'ok', text: 'No problems', lines: [] };
+  }
 
   function reason(): string {
     if (store.project === null) {
@@ -50,80 +80,164 @@
 
 <svelte:window onkeydown={keydown} />
 
-<header class="relative flex items-baseline gap-3 border-b border-stone-200 bg-white px-4 py-2">
-  <h1 class="text-sm font-semibold">Togen studio</h1>
-  <span class="text-sm text-stone-500">{project?.name ?? 'not loaded'}</span>
-  {#if project}
-    <span class="rounded bg-stone-100 px-1.5 py-0.5 text-xs tracking-wide text-stone-600 uppercase">
-      {project.provider}
-    </span>
-  {/if}
-  <div class="ml-auto flex min-w-0 items-baseline gap-3">
-    {#if store.notice !== null}
-      <p class="truncate text-xs text-amber-700">{store.notice}</p>
-    {/if}
-    {#if problems.length > 0}
-      <button
-        class="shrink-0 rounded border border-red-300 px-1.5 py-0.5 text-xs text-red-700 hover:bg-red-50"
-        aria-expanded={open}
-        onclick={() => (open = !open)}
-        >{problems.length}
-        {problems.length === 1 ? 'problem' : 'problems'}</button
-      >
-    {/if}
-    {#if lines.length > 0}
-      <ul class="min-w-0 text-right text-xs text-red-700">
-        {#each lines as line, index (index)}
-          <li class="truncate">{line}</li>
-        {/each}
-      </ul>
-    {/if}
-    <div class="flex shrink-0 items-baseline gap-1.5">
-      <button
-        class="rounded border border-stone-300 px-1.5 py-0.5 text-xs text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:hover:bg-transparent"
-        disabled={!store.canUndo}
-        onclick={() => void store.undo()}>Undo</button
-      >
-      <button
-        class="rounded border border-stone-300 px-1.5 py-0.5 text-xs text-stone-700 hover:bg-stone-100 disabled:opacity-40 disabled:hover:bg-transparent"
-        disabled={!store.canRedo}
-        onclick={() => void store.redo()}>Redo</button
-      >
-      <button
-        class="rounded bg-stone-900 px-2 py-0.5 text-xs text-white hover:bg-stone-700 disabled:opacity-40 disabled:hover:bg-stone-900"
-        disabled={blocked !== ''}
-        title={blocked === '' ? 'Write the target files' : blocked}
-        onclick={() => void store.generate()}
-        >{store.generating ? 'Generating' : 'Generate'}</button
-      >
-    </div>
+<header
+  class="relative flex h-12 shrink-0 items-center gap-3 border-b border-border bg-panel pr-3 pl-4"
+>
+  <div class="flex items-baseline gap-1.5">
+    <span class="text-sm font-semibold">Togen</span>
+    <span class="text-xs text-muted">studio</span>
   </div>
-  {#if open && problems.length > 0}
+  <span class="h-5 w-px bg-border"></span>
+  {#if project}
+    <div class="flex min-w-0 items-center gap-2">
+      <span class="truncate font-medium">{project.name}</span>
+      <span
+        class="inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border border-border bg-raised px-2 text-[11px] font-semibold tracking-[.04em] uppercase"
+      >
+        <span class="h-2 w-2 rounded-full" style="background: {dots[project.provider]}"></span>
+        {project.provider}
+      </span>
+      <span class="font-mono text-xs text-muted">{project.region}</span>
+      <span class="font-mono text-xs text-muted">{project.environment}</span>
+    </div>
+  {:else}
+    <span class="text-muted">not loaded</span>
+  {/if}
+  <div class="ml-auto flex min-w-0 items-center gap-2">
+    <button
+      class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-transparent text-muted hover:bg-raised hover:text-text disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted"
+      aria-label="Undo"
+      title="Undo"
+      disabled={!store.canUndo}
+      onclick={() => void store.undo()}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+      </svg>
+    </button>
+    <button
+      class="inline-flex h-[30px] w-[30px] items-center justify-center rounded-md border border-transparent text-muted hover:bg-raised hover:text-text disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted"
+      aria-label="Redo"
+      title="Redo"
+      disabled={!store.canRedo}
+      onclick={() => void store.redo()}
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="m15 14 5-5-5-5" /><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+      </svg>
+    </button>
+    {#if status.lines.length > 0}
+      <button
+        class="inline-flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-border bg-raised px-2.5 text-xs hover:border-border-strong"
+        aria-expanded={open}
+        title={status.text}
+        onclick={() => (open = !open)}
+      >
+        <span class="h-[7px] w-[7px] shrink-0 rounded-full {tones[status.tone]}"></span>
+        <span class="truncate">{status.text}</span>
+      </button>
+    {:else}
+      <span
+        class="inline-flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-border bg-raised px-2.5 text-xs"
+        title={status.text}
+      >
+        <span class="h-[7px] w-[7px] shrink-0 rounded-full {tones[status.tone]}"></span>
+        <span class="truncate">{status.text}</span>
+      </span>
+    {/if}
+    <button
+      class="inline-flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md border border-transparent text-muted hover:bg-raised hover:text-text"
+      aria-label={theme.scheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+      title={theme.scheme === 'dark' ? 'Switch to light' : 'Switch to dark'}
+      onclick={() => theme.toggle()}
+    >
+      {#if theme.scheme === 'dark'}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+          />
+        </svg>
+      {:else}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.75"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
+        </svg>
+      {/if}
+    </button>
+    <button
+      class="inline-flex h-[30px] shrink-0 items-center rounded-md border border-border-strong bg-raised px-3 font-medium disabled:opacity-40"
+      disabled
+      title="Export comes later">Export</button
+    >
+    <button
+      class="inline-flex h-[30px] shrink-0 items-center rounded-md border border-accent bg-accent px-3 font-medium text-accent-text hover:opacity-90 disabled:opacity-40 disabled:hover:opacity-40"
+      disabled={blocked !== ''}
+      title={blocked === '' ? 'Write the target files' : blocked}
+      onclick={() => void store.generate()}
+      >{store.generating ? 'Generating' : 'Generate'}</button
+    >
+  </div>
+  {#if open && status.lines.length > 0}
     <ul
-      class="absolute top-full right-0 z-30 max-h-64 w-[46rem] max-w-full overflow-y-auto rounded-b border border-stone-200 bg-white p-2 text-xs text-red-700 shadow-lg"
+      class="absolute top-full right-0 z-30 max-h-64 w-[46rem] max-w-full overflow-y-auto rounded-b-md border border-border bg-panel p-2 text-xs text-err shadow-panel"
       aria-label="Problems"
     >
-      {#each problems as line, index (index)}
+      {#each status.lines as line, index (index)}
         <li class="py-0.5">{line}</li>
       {/each}
     </ul>
   {/if}
   {#if store.generated !== null}
     <section
-      class="absolute top-full right-0 z-40 max-h-64 w-[28rem] max-w-full overflow-y-auto rounded-b border border-stone-200 bg-white p-3 text-xs shadow-lg"
+      class="absolute top-full right-0 z-40 max-h-64 w-[28rem] max-w-full overflow-y-auto rounded-b-md border border-border bg-panel p-3 text-xs shadow-panel"
       aria-label="Generated"
     >
-      <div class="flex items-baseline gap-2">
-        <h2 class="font-medium text-stone-900">Generated</h2>
+      <div class="flex items-center gap-2">
+        <h2 class="font-medium">Generated</h2>
         <button
-          class="ml-auto rounded px-1.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+          class="ml-auto inline-flex h-6 w-6 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-text"
           aria-label="Dismiss"
           onclick={() => store.dismissGenerated()}>×</button
         >
       </div>
       {#each store.generated ?? [] as written (written.dir)}
-        <p class="mt-2 font-mono text-stone-900">{written.dir}</p>
-        <ul class="text-stone-600">
+        <p class="mt-2 font-mono">{written.dir}</p>
+        <ul class="text-muted">
           {#each written.files as file (file)}
             <li class="font-mono">{file}</li>
           {/each}

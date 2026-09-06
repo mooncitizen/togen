@@ -69,7 +69,7 @@ afterEach(() => {
 test('the bar names the project and its provider, and the canvas is on the page', async () => {
   const screen = await show();
 
-  await expect.element(screen.getByText('Togen studio')).toBeInTheDocument();
+  await expect.element(screen.getByText('Togen', { exact: true })).toBeInTheDocument();
   await expect.element(screen.getByText('shop')).toBeInTheDocument();
   await expect.element(screen.getByText('aws')).toBeInTheDocument();
 });

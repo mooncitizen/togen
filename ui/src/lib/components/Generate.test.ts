@@ -33,7 +33,7 @@ function generateReplies(response: () => Response) {
 }
 
 function badged(screen: Screen, id: string): boolean {
-  return screen.container.querySelector(`.svelte-flow__node[data-id="${id}"] .bg-red-600`) !== null;
+  return screen.container.querySelector(`.svelte-flow__node[data-id="${id}"] .bg-err`) !== null;
 }
 
 function dropOn(target: Element, type: string, at: { x: number; y: number }) {

@@ -1,13 +1,206 @@
 @import 'tailwindcss';
 @import '@xyflow/svelte/dist/style.css';
 
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/IBMPlexSans-Regular.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('./fonts/IBMPlexSans-Medium.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url('./fonts/IBMPlexSans-SemiBold.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('./fonts/IBMPlexMono-Regular.otf') format('opentype');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url('./fonts/IBMPlexMono-Medium.otf') format('opentype');
+}
+
+/* The two themes from the component sheet. Dark is the default. */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --togen-canvas: #0f1216;
+  --togen-panel: #151a21;
+  --togen-raised: #1b212a;
+  --togen-border: #262e39;
+  --togen-border-strong: #344052;
+  --togen-text: #e6e9ee;
+  --togen-muted: #8b94a3;
+  --togen-faint: #5c6573;
+  --togen-dot: #242b35;
+  --togen-accent: #35c2b0;
+  --togen-accent-text: #0b1512;
+  --togen-edge: #5c6573;
+  --togen-edge-label: #1b212a;
+  --togen-ok: #4ade80;
+  --togen-warn: #f59e0b;
+  --togen-err: #f87171;
+  --togen-selection: #e6e9ee;
+  --togen-tint-alpha: 13.3%;
+  --togen-border-alpha: 40%;
+  --togen-input: #0f1216;
+  --togen-code: #0b0e12;
+  --togen-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --togen-canvas: #f5f5f4;
+  --togen-panel: #ffffff;
+  --togen-raised: #fafaf9;
+  --togen-border: #e7e5e4;
+  --togen-border-strong: #d6d3d1;
+  --togen-text: #1c1917;
+  --togen-muted: #78716c;
+  --togen-faint: #a8a29e;
+  --togen-dot: #d6d3d1;
+  --togen-accent: #0f8f80;
+  --togen-accent-text: #ffffff;
+  --togen-edge: #a8a29e;
+  --togen-edge-label: #ffffff;
+  --togen-ok: #15803d;
+  --togen-warn: #b45309;
+  --togen-err: #b91c1c;
+  --togen-selection: #1c1917;
+  --togen-tint-alpha: 7.8%;
+  --togen-border-alpha: 50.2%;
+  --togen-input: #ffffff;
+  --togen-code: #f5f5f4;
+  --togen-shadow: 0 12px 40px rgba(28, 25, 23, 0.18);
+}
+
+@theme inline {
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-canvas: var(--togen-canvas);
+  --color-panel: var(--togen-panel);
+  --color-raised: var(--togen-raised);
+  --color-border: var(--togen-border);
+  --color-border-strong: var(--togen-border-strong);
+  --color-text: var(--togen-text);
+  --color-muted: var(--togen-muted);
+  --color-faint: var(--togen-faint);
+  --color-dot: var(--togen-dot);
+  --color-accent: var(--togen-accent);
+  --color-accent-text: var(--togen-accent-text);
+  --color-edge: var(--togen-edge);
+  --color-edge-label: var(--togen-edge-label);
+  --color-ok: var(--togen-ok);
+  --color-warn: var(--togen-warn);
+  --color-err: var(--togen-err);
+  --color-selection: var(--togen-selection);
+  --color-input: var(--togen-input);
+  --color-code: var(--togen-code);
+
+  --shadow-panel: var(--togen-shadow);
+}
+
 html,
 body,
 #app {
   height: 100%;
 }
 
+body {
+  background: var(--togen-canvas);
+  color: var(--togen-text);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+.svelte-flow {
+  --xy-background-color: var(--togen-canvas);
+  --xy-background-pattern-color: var(--togen-dot);
+  --xy-edge-stroke: var(--togen-edge);
+  --xy-edge-stroke-width: 1.25;
+  --xy-edge-stroke-selected: var(--togen-selection);
+  --xy-connectionline-stroke: var(--togen-edge);
+  --xy-connectionline-stroke-width: 1.25;
+  --xy-edge-label-background-color: var(--togen-edge-label);
+  --xy-edge-label-color: var(--togen-muted);
+  --xy-handle-background-color: var(--togen-panel);
+  --xy-handle-border-color: var(--togen-border-strong);
+  --xy-selection-background-color: color-mix(in srgb, var(--togen-accent) 8%, transparent);
+  --xy-selection-border: 1px dotted var(--togen-accent);
+  --xy-controls-button-background-color: var(--togen-panel);
+  --xy-controls-button-background-color-hover: var(--togen-raised);
+  --xy-controls-button-color: var(--togen-muted);
+  --xy-controls-button-color-hover: var(--togen-text);
+  --xy-controls-button-border-color: var(--togen-border);
+  --xy-controls-box-shadow: none;
+  --xy-minimap-background-color: var(--togen-panel);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--togen-canvas) 60%, transparent);
+  --xy-minimap-mask-stroke-color: var(--togen-border-strong);
+  --xy-minimap-node-background-color: var(--togen-border-strong);
+  --xy-minimap-node-stroke-color: transparent;
+}
+
+.svelte-flow__handle {
+  width: 8px;
+  height: 8px;
+}
+
+.svelte-flow__controls {
+  overflow: hidden;
+  border: 1px solid var(--togen-border);
+  border-radius: 8px;
+}
+
+.svelte-flow__controls-button {
+  width: 28px;
+  height: 28px;
+}
+
+.svelte-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.svelte-flow__minimap {
+  overflow: hidden;
+  border: 1px solid var(--togen-border);
+  border-radius: 8px;
+}
+
+.svelte-flow__edge-label {
+  padding: 0 7px;
+  line-height: 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  border: 1px solid var(--togen-border);
+  border-radius: 999px;
+}
+
 .svelte-flow__edge.togen-edge-error .svelte-flow__edge-path {
-  stroke: var(--color-red-600);
+  stroke: var(--togen-err);
   stroke-width: 2;
 }

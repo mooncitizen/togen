@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
-import type { Layout, Project } from './lib/types.ts';
+import type { Config, Layout, Project } from './lib/types.ts';
 
 export type Call = { method: string; path: string; body: unknown; rawBody: string | undefined };
 
@@ -24,14 +24,22 @@ class FakeSocket {
   close() {}
 }
 
+export const defaults: Config = {
+  version: 1,
+  targets: ['hcl'],
+  outDir: 'infra',
+  style: { theme: 'dark' },
+};
+
 export function reset() {
   made = [];
   opened = [];
   refusal = undefined;
   vi.stubGlobal('WebSocket', FakeSocket);
+  window.sessionStorage.clear();
 }
 
-export function serve(project: Project, layout: Layout) {
+export function serve(project: Project, layout: Layout, config: Config = defaults) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string, init?: RequestInit) => {
@@ -54,6 +62,9 @@ export function serve(project: Project, layout: Layout) {
       }
       if (call.path === '/api/layout') {
         return json(layout);
+      }
+      if (call.path === '/api/config') {
+        return json(config);
       }
       return new Response(null, { status: 404 });
     }),

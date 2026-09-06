@@ -11,19 +11,21 @@
   }
 </script>
 
-<aside class="w-56 shrink-0 overflow-y-auto border-r border-stone-200 bg-white p-3">
-  <h2 class="mb-2 text-xs font-semibold tracking-wide text-stone-500 uppercase">Palette</h2>
-  <ul class="flex flex-col gap-1">
+<section class="flex flex-col gap-2 border-t border-border px-2.5 py-3">
+  <h2 class="px-1.5 text-[11px] font-semibold tracking-[.06em] text-muted uppercase">Palette</h2>
+  <ul class="grid grid-cols-2 gap-1.5">
     {#each catalogue as entry (entry.type)}
       <li
-        class="cursor-grab rounded border border-stone-200 px-2 py-1.5 hover:border-stone-400 hover:bg-stone-50 active:cursor-grabbing"
+        class="flex cursor-grab flex-col items-center gap-1.5 rounded-lg border border-border bg-raised px-1.5 pt-2.5 pb-2 hover:border-border-strong active:cursor-grabbing"
         draggable="true"
         data-node-type={entry.type}
+        title={entry.description}
         ondragstart={(event) => start(event, entry.type)}
       >
-        <div class="text-sm font-medium">{entry.label}</div>
-        <div class="text-xs text-stone-500">{entry.description}</div>
+        <span class="h-8 w-8 rounded-lg bg-border-strong" aria-hidden="true"></span>
+        <span class="text-xs">{entry.label}</span>
       </li>
     {/each}
   </ul>
-</aside>
+  <p class="mx-1.5 mt-1 text-[11px] text-faint">Drag a type onto the canvas.</p>
+</section>
