@@ -149,17 +149,21 @@ func price(item Item, snapshot *Snapshot) (Priced, []string, error) {
 		if err != nil {
 			return Priced{}, nil, err
 		}
-		amount := round(l.Quantity * sku.Price)
+		unitPrice, upTo := sku.Price, sku.UpTo
+		if l.PerUnit != 0 {
+			unitPrice, upTo = sku.Price*l.PerUnit, sku.UpTo/l.PerUnit
+		}
+		amount := round(l.Quantity * unitPrice)
 		line := Line{
 			Label:     l.Label,
 			Quantity:  l.Quantity,
 			Unit:      l.Unit,
-			UnitPrice: sku.Price,
+			UnitPrice: unitPrice,
 			Amount:    amount,
 			SKU:       sku.ID,
 		}
-		if sku.UpTo > 0 && l.Quantity > sku.UpTo {
-			line.Note = fmt.Sprintf("past the first tier of %s %s, priced at its rate", grouped(sku.UpTo), l.Unit)
+		if upTo > 0 && l.Quantity > upTo {
+			line.Note = fmt.Sprintf("past the first tier of %s %s, priced at its rate", grouped(upTo), l.Unit)
 		}
 		out.Lines = append(out.Lines, line)
 		out.Subtotal = round(out.Subtotal + amount)

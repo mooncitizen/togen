@@ -1,0 +1,582 @@
+{
+  "skus": [
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/BB55-3E5A-405C",
+      "skuId": "BB55-3E5A-405C",
+      "description": "Standard Storage London",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalStorage",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 23000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/4DBF-185F-A415",
+      "skuId": "4DBF-185F-A415",
+      "description": "Regional Standard Class A Operations",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalOps",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "count",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 5000
+                }
+              }
+            ],
+            "usageUnitDescription": "count",
+            "baseUnit": "count",
+            "baseUnitDescription": "count",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/7870-010B-2763",
+      "skuId": "7870-010B-2763",
+      "description": "Regional Standard Class B Operations",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalOps",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "count",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 400
+                }
+              }
+            ],
+            "usageUnitDescription": "count",
+            "baseUnit": "count",
+            "baseUnitDescription": "count",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/22EB-AAE8-FBCD",
+      "skuId": "22EB-AAE8-FBCD",
+      "description": "Download Worldwide Destinations (excluding Asia & Australia)",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Network",
+        "resourceGroup": "PremiumInternetEgress",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 120000000
+                }
+              },
+              {
+                "startUsageAmount": 1024,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 110000000
+                }
+              },
+              {
+                "startUsageAmount": 10240,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 80000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1073741824
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/CBAE-5A46-5152",
+      "skuId": "CBAE-5A46-5152",
+      "description": "Standard Storage Belgium/London Dual-region",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "MultiRegionalStorage",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west1",
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 36000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "europe-west1",
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/01A8-57BF-A535",
+      "skuId": "01A8-57BF-A535",
+      "description": "Autoclass Standard Storage London",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalStorage",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 23000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/3C81-A91C-A94F",
+      "skuId": "3C81-A91C-A94F",
+      "description": "Nearline Storage London",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalStorage",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 13000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/B7C3-7672-190E",
+      "skuId": "B7C3-7672-190E",
+      "description": "Regional Autoclass Standard Class A Operations",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalOps",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "count",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 5000
+                }
+              }
+            ],
+            "usageUnitDescription": "count",
+            "baseUnit": "count",
+            "baseUnitDescription": "count",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/3DE2-BC9A-2A94",
+      "skuId": "3DE2-BC9A-2A94",
+      "description": "Regional HNS Standard Class A Operations",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalOps",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "count",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 7500
+                }
+              }
+            ],
+            "usageUnitDescription": "count",
+            "baseUnit": "count",
+            "baseUnitDescription": "count",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/9F27-1E3C-8B60",
+      "skuId": "9F27-1E3C-8B60",
+      "description": "Download APAC",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Network",
+        "resourceGroup": "PremiumInternetEgress",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 120000000
+                }
+              },
+              {
+                "startUsageAmount": 1024,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 110000000
+                }
+              },
+              {
+                "startUsageAmount": 10240,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 80000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1073741824
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/95FF-2EF5-5EA1/skus/5A81-6D4F-2C7E",
+      "skuId": "5A81-6D4F-2C7E",
+      "description": "Standard Storage Belgium",
+      "category": {
+        "serviceDisplayName": "Cloud Storage",
+        "resourceFamily": "Storage",
+        "resourceGroup": "RegionalStorage",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 20000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west1"
+        ]
+      }
+    }
+  ],
+  "nextPageToken": ""
+}

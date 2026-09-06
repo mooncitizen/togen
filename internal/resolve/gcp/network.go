@@ -19,8 +19,9 @@ type Network struct {
 }
 
 const (
-	networkLabel     = "network"
-	connectorNameMax = 25
+	networkLabel          = "network"
+	connectorNameMax      = 25
+	connectorMinInstances = 2
 )
 
 func ensureNetwork(ctx *resolve.Context) *Network {
@@ -67,7 +68,7 @@ func createNetwork(ctx *resolve.Context) *Network {
 			ir.A("network", ir.R(vpcID, ir.Field("name"))),
 			ir.A("region", ir.Str(ctx.Project.Region)),
 			ir.A("ip_cidr_range", ir.Str("10.8.0.0/28")),
-			ir.A("min_instances", ir.Num(2)),
+			ir.A("min_instances", ir.Num(connectorMinInstances)),
 			ir.A("max_instances", ir.Num(3)),
 		},
 	})

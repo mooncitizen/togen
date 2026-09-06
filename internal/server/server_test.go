@@ -1163,6 +1163,34 @@ func TestGetCostPricesTheUsageBlock(t *testing.T) {
 	}
 }
 
+// No gcp snapshot is bundled until whoever holds a billing API key runs the refresh, so a gcp
+// project comes back priced at nothing with every node listed as not priced.
+func TestGetCostSaysNoPricesAreBundledForGcp(t *testing.T) {
+	dir, front, _ := harness(t)
+	project := exampleProject()
+	project["provider"] = "gcp"
+	project["region"] = "europe-west2"
+	writeDoc(t, workspace.ProjectPath(dir), project)
+
+	code, raw := send(t, front, http.MethodGet, "/api/cost", nil)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	var doc cost.Document
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse %s: %v", raw, err)
+	}
+	if doc.Provider != ir.ProviderGCP || doc.Region != "europe-west2" || doc.Total != 0 || doc.SnapshotDate != "" {
+		t.Errorf("document = %+v", doc)
+	}
+	if doc.Note != "no gcp prices are bundled yet" {
+		t.Errorf("note = %q", doc.Note)
+	}
+	if len(doc.Items) != 0 || len(doc.NotPriced) == 0 {
+		t.Errorf("items = %+v, not priced = %+v", doc.Items, doc.NotPriced)
+	}
+}
+
 func TestGetCostAndConfigReportABadUsageEntry(t *testing.T) {
 	dir, front, _ := harness(t)
 	writeConfig(t, dir, "usage:\n  api:\n    requests: 500/min\n    natGb: 5\n  worker:\n    invocations: 1/min\n")

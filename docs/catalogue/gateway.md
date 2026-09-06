@@ -34,6 +34,7 @@ There is no single gateway URL. Two routed targets are two entry points, `api_or
 
 The path and methods are not enforced. Cloud Run does not route by path, so the target receives every request to its URL and a route on `/orders` means the target handles `/orders` itself. Two edges claiming the same method and path on one gateway are still refused, as on AWS, because the sketch says two things answer one route.
 
+Cost: `togen cost` prices nothing for a gateway on GCP, because the resolver creates nothing for one (ADR 0010): every request lands on the routed target's own meters. The item carries the summary `no resources, requests are billed on the routed targets`, no lines and nothing under not priced, and a gateway takes no usage keys on GCP. The matcher is `internal/resolve/gcp/cost.go`.
 ## Azure
 
 No resources (ADR 0010). API Management takes three hours to create even on the Consumption tier, so the gateway is the routed targets' own public hostnames, and a gateway node on its own produces nothing at all.

@@ -51,7 +51,7 @@ There is no port to open and no role to grant. Memorystore has no users and no I
 
 The generated code does not enable APIs. The GCP project needs the Memorystore for Redis, Service Networking and Serverless VPC Access APIs enabled before the first apply.
 
-Cost: `togen cost` does not price GCP yet, so a cache is listed under `not priced`.
+Cost: `togen cost` prices a cache on one Memorystore meter, `Redis Capacity <tier> <band>`, at the size's memory in GB times 730 hours. Google prices a GB-hour by the tier (Basic or Standard) and the capacity band the instance falls in (M1 to 4 GB, M2 to 10, M3 to 35, M4 to 100, M5 above), so small and medium are both Basic M1 and large is Standard M2, whose rate already covers the replica. A cache takes no usage keys. The first node that needs the VPC also brings the access connector's instance hours under `network`. The matcher is `internal/resolve/gcp/cost.go`, beside the size table.
 
 ## Azure
 

@@ -1,0 +1,205 @@
+{
+  "skus": [
+    {
+      "name": "services/A1E8-BE35-7EBC/skus/027D-B6C7-CCA2",
+      "skuId": "027D-B6C7-CCA2",
+      "description": "Message Delivery Basic",
+      "category": {
+        "serviceDisplayName": "Cloud Pub/Sub",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "MessageDelivery",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "TiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 0.009765625,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "40",
+                  "nanos": 0
+                }
+              }
+            ],
+            "usageUnitDescription": "tebibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1099511627776
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/A1E8-BE35-7EBC/skus/FCD2-1531-9A6F",
+      "skuId": "FCD2-1531-9A6F",
+      "description": "Message Delivery to BigQuery",
+      "category": {
+        "serviceDisplayName": "Cloud Pub/Sub",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "MessageDelivery",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "TiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "50",
+                  "nanos": 0
+                }
+              }
+            ],
+            "usageUnitDescription": "tebibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1099511627776
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/A1E8-BE35-7EBC/skus/3EAB-48F3-A0D5",
+      "skuId": "3EAB-48F3-A0D5",
+      "description": "Subscriptions message backlog",
+      "category": {
+        "serviceDisplayName": "Cloud Pub/Sub",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "Storage",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 270000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/A1E8-BE35-7EBC/skus/40F6-ACB3-8C8D",
+      "skuId": "40F6-ACB3-8C8D",
+      "description": "Message Transform Data Processing",
+      "category": {
+        "serviceDisplayName": "Cloud Pub/Sub",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "MessageDelivery",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "TiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "10",
+                  "nanos": 0
+                }
+              }
+            ],
+            "usageUnitDescription": "tebibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1099511627776
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    }
+  ],
+  "nextPageToken": ""
+}
