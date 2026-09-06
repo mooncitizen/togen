@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -60,10 +62,44 @@ func sqsRequests(id, region, queueType string, price float64) cost.SKU {
 	return sku
 }
 
+func fargate(id, region, usage string, price float64) cost.SKU {
+	return cost.SKU{ID: id, Service: "AmazonECS", Unit: "hours", Price: price, Attributes: map[string]string{
+		"productFamily": "Compute", "usagetype": usage, "termType": "OnDemand", "regionCode": region,
+	}}
+}
+
+func loadBalancer(id, region, family, usage, unit string, price float64) cost.SKU {
+	return cost.SKU{ID: id, Service: "AWSELB", Unit: unit, Price: price, Attributes: map[string]string{
+		"productFamily": family, "usagetype": usage, "termType": "OnDemand", "regionCode": region,
+	}}
+}
+
+func cacheNode(id, region, instance, engine, usage string, price float64) cost.SKU {
+	return cost.SKU{ID: id, Service: "AmazonElastiCache", Unit: "Hrs", Price: price, Attributes: map[string]string{
+		"productFamily": "Cache Instance", "instanceType": instance, "cacheEngine": engine, "usagetype": usage,
+		"termType": "OnDemand", "regionCode": region,
+	}}
+}
+
+func s3Storage(id, region, volume, usage string, price float64) cost.SKU {
+	return cost.SKU{ID: id, Service: "AmazonS3", Unit: "GB-Mo", Price: price, Attributes: map[string]string{
+		"productFamily": "Storage", "storageClass": "General Purpose", "volumeType": volume, "usagetype": usage,
+		"termType": "OnDemand", "regionCode": region,
+	}}
+}
+
+func s3Requests(id, region, group, usage string, price float64) cost.SKU {
+	return cost.SKU{ID: id, Service: "AmazonS3", Unit: "Requests", Price: price, Attributes: map[string]string{
+		"productFamily": "API Request", "group": group, "usagetype": usage, "termType": "OnDemand", "regionCode": region,
+	}}
+}
+
 // Two regions, both engines, every size, with the neighbours a loose filter would catch:
 // reserved terms, gp3 and SSD-labelled storage, the regional NAT variant and its data charge,
-// the arm64, edge and storage meters of Lambda, the REST API and fair queue meters, and the
-// free tier rows that belong to no region.
+// the arm64, edge and storage meters of Lambda, the REST API and fair queue meters, the free
+// tier rows that belong to no region, ARM and Windows Fargate, the trust store and network
+// load balancer hours and the capacity units, other cache engines and extended support node
+// hours, and the S3 annotation meters.
 func priceFixture() *cost.Snapshot {
 	reserved := rdsInstance("rds-micro-pg-single-euw2-reserved", "eu-west-2", "db.t4g.micro", "PostgreSQL", "Single-AZ", 0.011)
 	reserved.Attributes["termType"] = "Reserved"
@@ -72,11 +108,15 @@ func priceFixture() *cost.Snapshot {
 		Date:     "2026-09-05",
 		Currency: "USD",
 		Versions: map[string]map[string]string{
-			"AmazonRDS":        {"eu-west-2": "v1", "us-east-1": "v1"},
-			"AmazonEC2":        {"eu-west-2": "v1", "us-east-1": "v1"},
-			"AWSLambda":        {"eu-west-2": "v1", "us-east-1": "v1"},
-			"AmazonApiGateway": {"eu-west-2": "v1", "us-east-1": "v1"},
-			"AWSQueueService":  {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AmazonRDS":         {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AmazonEC2":         {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AmazonECS":         {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AWSELB":            {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AmazonElastiCache": {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AmazonS3":          {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AWSLambda":         {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AmazonApiGateway":  {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AWSQueueService":   {"eu-west-2": "v1", "us-east-1": "v1"},
 		},
 		SKUs: []cost.SKU{
 			lambda("lambda-request-euw2", "eu-west-2", "AWS-Lambda-Requests", "EUW2-Request", 0.0000002, 0),
@@ -117,11 +157,40 @@ func priceFixture() *cost.Snapshot {
 			natGateway("nat-euw2", "eu-west-2", "EUW2-NatGateway-Hours", 0.05),
 			natGateway("nat-regional-euw2", "eu-west-2", "EUW2-RegionalNatGateway-Hours", 0.05),
 			natGateway("nat-bytes-euw2", "eu-west-2", "EUW2-NatGateway-Bytes", 0.05),
+			fargate("fargate-vcpu-euw2", "eu-west-2", "EUW2-Fargate-vCPU-Hours:perCPU", 0.04656),
+			fargate("fargate-gb-euw2", "eu-west-2", "EUW2-Fargate-GB-Hours", 0.00511),
+			fargate("fargate-arm-vcpu-euw2", "eu-west-2", "EUW2-Fargate-ARM-vCPU-Hours:perCPU", 0.03725),
+			fargate("fargate-arm-gb-euw2", "eu-west-2", "EUW2-Fargate-ARM-GB-Hours", 0.00409),
+			fargate("fargate-windows-vcpu-euw2", "eu-west-2", "EUW2-Fargate-Windows-vCPU-Hours:perCPU", 0.053544),
+			loadBalancer("alb-euw2", "eu-west-2", "Load Balancer-Application", "EUW2-LoadBalancerUsage", "Hrs", 0.02646),
+			loadBalancer("alb-trust-store-euw2", "eu-west-2", "Load Balancer-Application", "EUW2-TS-LoadBalancerUsage", "Hrs", 0.0059),
+			loadBalancer("alb-outposts-euw2", "eu-west-2", "Load Balancer-Application", "EUW2-Outposts-LoadBalancerUsage", "Hrs", 0.02646),
+			loadBalancer("alb-lcu-euw2", "eu-west-2", "Load Balancer-Application", "EUW2-LCUUsage", "LCU-Hrs", 0.0084),
+			loadBalancer("nlb-euw2", "eu-west-2", "Load Balancer-Network", "EUW2-LoadBalancerUsage", "Hrs", 0.02646),
+			cacheNode("cache-micro-redis-euw2", "eu-west-2", "cache.t4g.micro", "Redis", "EUW2-NodeUsage:cache.t4g.micro", 0.018),
+			cacheNode("cache-micro-valkey-euw2", "eu-west-2", "cache.t4g.micro", "Valkey", "EUW2-NodeUsage:cache.t4g.micro", 0.0144),
+			cacheNode("cache-micro-redis-support-euw2", "eu-west-2", "cache.t4g.micro", "Redis", "EUW2-ExtendedSupportYr3-NodeUsage:cache.t4g.micro", 0.029),
+			cacheNode("cache-medium-redis-euw2", "eu-west-2", "cache.t4g.medium", "Redis", "EUW2-NodeUsage:cache.t4g.medium", 0.072),
+			cacheNode("cache-large-redis-euw2", "eu-west-2", "cache.r7g.large", "Redis", "EUW2-NodeUsage:cache.r7g.large", 0.256),
+			cacheNode("cache-large-memcached-euw2", "eu-west-2", "cache.r7g.large", "Memcached", "EUW2-NodeUsage:cache.r7g.large", 0.256),
+			s3Storage("s3-standard-euw2", "eu-west-2", "Standard", "EUW2-TimedStorage-ByteHrs", 0.024),
+			s3Storage("s3-annotations-euw2", "eu-west-2", "Annotations", "EUW2-Annotation-TimedStorage-ByteHrs", 0.024),
+			s3Requests("s3-put-euw2", "eu-west-2", "S3-API-Tier1", "EUW2-Requests-Tier1", 0.0000053),
+			s3Requests("s3-get-euw2", "eu-west-2", "S3-API-Tier2", "EUW2-Requests-Tier2", 0.00000042),
+			s3Requests("s3-put-annotation-euw2", "eu-west-2", "S3-API-Tier1", "EUW2-Requests-Annotation-Tier1", 0.0000053),
 
 			rdsInstance("rds-micro-pg-single-use1", "us-east-1", "db.t4g.micro", "PostgreSQL", "Single-AZ", 0.016),
 			rdsStorage("rds-gp2-pg-single-use1", "us-east-1", "General Purpose", "PostgreSQL", "Single-AZ", 0.115),
 			natGateway("nat-use1", "us-east-1", "NatGateway-Hours", 0.045),
 			natGateway("nat-regional-use1", "us-east-1", "RegionalNatGateway-Hours", 0.045),
+			fargate("fargate-vcpu-use1", "us-east-1", "USE1-Fargate-vCPU-Hours:perCPU", 0.04048),
+			fargate("fargate-gb-use1", "us-east-1", "USE1-Fargate-GB-Hours", 0.004445),
+			loadBalancer("alb-use1", "us-east-1", "Load Balancer-Application", "LoadBalancerUsage", "Hrs", 0.0225),
+			loadBalancer("alb-trust-store-use1", "us-east-1", "Load Balancer-Application", "TS-LoadBalancerUsage", "Hrs", 0.005),
+			cacheNode("cache-micro-redis-use1", "us-east-1", "cache.t4g.micro", "Redis", "NodeUsage:cache.t4g.micro", 0.016),
+			s3Storage("s3-standard-use1", "us-east-1", "Standard", "TimedStorage-ByteHrs", 0.023),
+			s3Requests("s3-put-use1", "us-east-1", "S3-API-Tier1", "Requests-Tier1", 0.000005),
+			s3Requests("s3-get-use1", "us-east-1", "S3-API-Tier2", "Requests-Tier2", 0.0000004),
 		},
 	}
 }
@@ -133,7 +202,12 @@ func databaseNode(t *testing.T, p ir.DatabaseProps) ir.Node {
 
 func estimate(t *testing.T, region string, nodes []ir.Node) cost.Document {
 	t.Helper()
-	p := newProject(t, nodes, nil)
+	return estimateGraph(t, region, nodes, nil)
+}
+
+func estimateGraph(t *testing.T, region string, nodes []ir.Node, edges []ir.Edge) cost.Document {
+	t.Helper()
+	p := newProject(t, nodes, edges)
 	p.Region = region
 	doc, err := cost.Estimate(p, Cost(), priceFixture(), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
 	if err != nil {
@@ -422,19 +496,315 @@ func TestNeedsNetworkAgreesWithTheResolver(t *testing.T) {
 	}
 }
 
+func TestServiceCostPricesTheTasksAndThePublicLoadBalancer(t *testing.T) {
+	doc := estimate(t, "eu-west-2", []ir.Node{serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Public: true})})
+	want := cost.Priced{
+		Name: "web", Kind: "service", Summary: "0.25 vCPU, 0.5 GB, 1 task, public",
+		Lines: []cost.Line{
+			{Label: "vcpu", Quantity: 182.5, Unit: "vCPU-h", UnitPrice: 0.04656, Amount: 8.50, SKU: "fargate-vcpu-euw2"},
+			{Label: "memory", Quantity: 365, Unit: "GB-h", UnitPrice: 0.00511, Amount: 1.87, SKU: "fargate-gb-euw2"},
+			{Label: "load balancer", Quantity: 730, Unit: "h", UnitPrice: 0.02646, Amount: 19.32, SKU: "alb-euw2"},
+		},
+		Subtotal: 29.69,
+	}
+	if diff := cmp.Diff(want, doc.Items[0]); diff != "" {
+		t.Errorf("service (-want +got):\n%s", diff)
+	}
+	wantOmitted := []cost.Omission{
+		{Name: "web", Kind: "service", Reason: "load balancer capacity units"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+	}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+	if doc.Total != 66.19 {
+		t.Errorf("total = %v", doc.Total)
+	}
+}
+
+func TestServiceCostScalesWithTheSizeAndReplicas(t *testing.T) {
+	for _, c := range []struct {
+		size         ir.Size
+		replicas     int
+		summary      string
+		vcpu, memory float64
+		subtotal     float64
+	}{
+		{ir.SizeSmall, 3, "0.25 vCPU, 0.5 GB, 3 tasks, private", 547.5, 1095, 31.09},
+		{ir.SizeMedium, 2, "1 vCPU, 2 GB, 2 tasks, private", 1460, 2920, 82.90},
+		{ir.SizeLarge, 1, "2 vCPU, 4 GB, 1 task, private", 1460, 2920, 82.90},
+		{ir.SizeMedium, 0, "1 vCPU, 2 GB, 0 tasks, private", 0, 0, 0},
+	} {
+		t.Run(c.summary, func(t *testing.T) {
+			// Written out by hand because omitempty would drop a replica count of zero.
+			raw := json.RawMessage(fmt.Sprintf(`{"image":"nginx:1.27","size":"%s","minReplicas":%d}`, c.size, c.replicas))
+			node := ir.Node{ID: "s1", Type: ir.NodeService, Name: "web", Properties: raw}
+			doc := estimate(t, "eu-west-2", []ir.Node{node})
+			svc := doc.Items[0]
+			if svc.Summary != c.summary || len(svc.Lines) != 2 || svc.Subtotal != c.subtotal {
+				t.Errorf("service = %+v", svc)
+			}
+			if svc.Lines[0].Quantity != c.vcpu || svc.Lines[1].Quantity != c.memory {
+				t.Errorf("quantities = %v vCPU-h, %v GB-h, want %v, %v", svc.Lines[0].Quantity, svc.Lines[1].Quantity, c.vcpu, c.memory)
+			}
+			if len(doc.NotPriced) != 1 || doc.NotPriced[0].Name != "network" {
+				t.Errorf("not priced = %+v", doc.NotPriced)
+			}
+		})
+	}
+}
+
+func TestPrivateServiceGetsALoadBalancerOnlyWhenAGatewayRoutesToIt(t *testing.T) {
+	api := ir.Node{ID: "g1", Type: ir.NodeGateway, Name: "api"}
+	admin := serviceNode(t, "s2", "admin", ir.ServiceProps{Image: "ghcr.io/example/admin:1"})
+	route := func(id, from string) ir.Edge {
+		return ir.Edge{ID: id, From: from, To: "s2", Relation: ir.RelRoutes, Properties: ir.EdgeProperties{Path: "/admin"}}
+	}
+
+	doc := estimateGraph(t, "eu-west-2", []ir.Node{api, admin}, nil)
+	if len(doc.Items) != 3 || doc.Items[1].Name != "admin" || doc.Items[2].Name != "network" || doc.Total != 46.87 {
+		t.Errorf("items = %+v, total = %v", doc.Items, doc.Total)
+	}
+
+	doc = estimateGraph(t, "eu-west-2", []ir.Node{api, admin}, []ir.Edge{route("e1", "g1")})
+	want := cost.Priced{
+		Name: "admin", Kind: "implicit ALB", Summary: "internal load balancer, routed from api",
+		Lines:    []cost.Line{{Label: "load balancer", Quantity: 730, Unit: "h", UnitPrice: 0.02646, Amount: 19.32, SKU: "alb-euw2"}},
+		Subtotal: 19.32,
+	}
+	if len(doc.Items) != 4 || doc.Items[3].Name != "network" {
+		t.Fatalf("items = %+v", doc.Items)
+	}
+	if diff := cmp.Diff(want, doc.Items[2]); diff != "" {
+		t.Errorf("load balancer (-want +got):\n%s", diff)
+	}
+	wantOmitted := []cost.Omission{
+		{Name: "api", Kind: "gateway", Reason: "requests"},
+		{Name: "api", Kind: "gateway", Reason: "data transfer"},
+		{Name: "admin", Kind: "implicit ALB", Reason: "load balancer capacity units"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+	}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+	if doc.Total != 66.19 {
+		t.Errorf("total = %v", doc.Total)
+	}
+
+	// One load balancer however many gateways route to the service.
+	admin2 := ir.Node{ID: "g2", Type: ir.NodeGateway, Name: "admin-api"}
+	doc = estimateGraph(t, "eu-west-2", []ir.Node{api, admin2, admin}, []ir.Edge{route("e1", "g1"), route("e2", "g2")})
+	if len(doc.Items) != 5 || doc.Total != 66.19 {
+		t.Errorf("items = %+v, total = %v", doc.Items, doc.Total)
+	}
+}
+
+func TestLoadBalancerCostAgreesWithTheResolver(t *testing.T) {
+	api := ir.Node{ID: "g1", Type: ir.NodeGateway, Name: "api"}
+	web := serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Public: true})
+	admin := serviceNode(t, "s2", "admin", ir.ServiceProps{Image: "ghcr.io/example/admin:1"})
+	routes := func(id, to string) ir.Edge {
+		return ir.Edge{ID: id, From: "g1", To: to, Relation: ir.RelRoutes, Properties: ir.EdgeProperties{Path: "/" + to}}
+	}
+	for _, c := range []struct {
+		name  string
+		nodes []ir.Node
+		edges []ir.Edge
+	}{
+		{"public service", []ir.Node{web}, nil},
+		{"private service", []ir.Node{admin}, nil},
+		{"routed public service", []ir.Node{api, web}, []ir.Edge{routes("e1", "s1")}},
+		{"routed private service", []ir.Node{api, admin}, []ir.Edge{routes("e1", "s2")}},
+		{"both routed", []ir.Node{api, web, admin}, []ir.Edge{routes("e1", "s1"), routes("e2", "s2")}},
+		{"private service called by another", []ir.Node{web, admin}, []ir.Edge{{ID: "e1", From: "s1", To: "s2", Relation: ir.RelCalls}}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			p := newProject(t, c.nodes, c.edges)
+			graph, err := resolve.Run(p, New())
+			if err != nil {
+				t.Fatal(err)
+			}
+			resolved := map[string]bool{}
+			for _, r := range graph.Resources {
+				if r.Type == "aws_lb" {
+					internal, _ := r.Args.Get("internal")
+					resolved[r.SourceLabel] = internal == ir.Bool(true)
+				}
+			}
+			priced := map[string]bool{}
+			for _, item := range estimateGraph(t, "eu-west-2", c.nodes, c.edges).Items {
+				for _, l := range item.Lines {
+					if l.Label == "load balancer" {
+						priced[item.Name] = item.Kind == "implicit ALB"
+					}
+				}
+			}
+			if diff := cmp.Diff(resolved, priced); diff != "" {
+				t.Errorf("load balancers by service, internal or not (-resolver +matcher):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestCacheCostPricesTheNodeHours(t *testing.T) {
+	for _, c := range []struct {
+		size    ir.Size
+		summary string
+		sku     string
+		price   float64
+		amount  float64
+	}{
+		{ir.SizeSmall, "cache.t4g.micro, redis 7.1, 1 node", "cache-micro-redis-euw2", 0.018, 13.14},
+		{ir.SizeMedium, "cache.t4g.medium, redis 7.1, 1 node", "cache-medium-redis-euw2", 0.072, 52.56},
+		{ir.SizeLarge, "cache.r7g.large, redis 7.1, 1 node", "cache-large-redis-euw2", 0.256, 186.88},
+	} {
+		t.Run(string(c.size), func(t *testing.T) {
+			node := ir.Node{ID: "c1", Type: ir.NodeCache, Name: "sessions", Properties: props(t, ir.CacheProps{Size: c.size})}
+			doc := estimate(t, "eu-west-2", []ir.Node{node})
+			want := cost.Priced{
+				Name: "sessions", Kind: "cache", Summary: c.summary,
+				Lines:    []cost.Line{{Label: "node", Quantity: 730, Unit: "h", UnitPrice: c.price, Amount: c.amount, SKU: c.sku}},
+				Subtotal: c.amount,
+			}
+			if diff := cmp.Diff(want, doc.Items[0]); diff != "" {
+				t.Errorf("cache (-want +got):\n%s", diff)
+			}
+			if len(doc.NotPriced) != 1 || doc.NotPriced[0].Name != "network" {
+				t.Errorf("not priced = %+v", doc.NotPriced)
+			}
+		})
+	}
+}
+
+func TestBucketCostIsPricedAtRestOnTheStandardMeters(t *testing.T) {
+	uploads := ir.Node{ID: "b1", Type: ir.NodeBucket, Name: "uploads"}
+	doc := estimate(t, "eu-west-2", []ir.Node{
+		uploads,
+		{ID: "b2", Type: ir.NodeBucket, Name: "assets", Properties: json.RawMessage(`{"versioning":false,"public":true}`)},
+	})
+	want := []cost.Priced{
+		{Name: "uploads", Kind: "bucket", Summary: "standard storage, versioned, private", Note: "priced at rest, usage not set", Lines: []cost.Line{}},
+		{Name: "assets", Kind: "bucket", Summary: "standard storage, unversioned, public", Note: "priced at rest, usage not set", Lines: []cost.Line{}},
+	}
+	if diff := cmp.Diff(want, doc.Items); diff != "" {
+		t.Errorf("buckets (-want +got):\n%s", diff)
+	}
+	wantOmitted := []cost.Omission{
+		{Name: "uploads", Kind: "bucket", Reason: "storage"},
+		{Name: "uploads", Kind: "bucket", Reason: "requests"},
+		{Name: "uploads", Kind: "bucket", Reason: "egress"},
+		{Name: "assets", Kind: "bucket", Reason: "storage"},
+		{Name: "assets", Kind: "bucket", Reason: "requests"},
+		{Name: "assets", Kind: "bucket", Reason: "egress"},
+	}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+	if doc.Total != 0 {
+		t.Errorf("total = %v", doc.Total)
+	}
+
+	if diff := cmp.Diff([]string{"s3-standard-euw2", "s3-put-euw2", "s3-get-euw2"}, usageSKUs(t, uploads, "eu-west-2")); diff != "" {
+		t.Errorf("eu-west-2 meters (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"s3-standard-use1", "s3-put-use1", "s3-get-use1"}, usageSKUs(t, uploads, "us-east-1")); diff != "" {
+		t.Errorf("us-east-1 meters (-want +got):\n%s", diff)
+	}
+}
+
+func TestServiceAndCacheCostFollowTheProjectRegion(t *testing.T) {
+	doc := estimate(t, "us-east-1", []ir.Node{
+		serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Public: true}),
+		{ID: "c1", Type: ir.NodeCache, Name: "sessions"},
+	})
+	web := doc.Items[0]
+	if web.Lines[0].SKU != "fargate-vcpu-use1" || web.Lines[0].Amount != 7.39 {
+		t.Errorf("vcpu = %+v", web.Lines[0])
+	}
+	if web.Lines[1].SKU != "fargate-gb-use1" || web.Lines[1].Amount != 1.62 {
+		t.Errorf("memory = %+v", web.Lines[1])
+	}
+	if web.Lines[2].SKU != "alb-use1" || web.Lines[2].Amount != 16.43 {
+		t.Errorf("load balancer = %+v", web.Lines[2])
+	}
+	if got := doc.Items[1].Lines[0]; got.SKU != "cache-micro-redis-use1" || got.Amount != 11.68 {
+		t.Errorf("cache = %+v", got)
+	}
+}
+
+func TestRegionalUsageTypesNeedARegionShapedPrefix(t *testing.T) {
+	matches := cost.Lookup{Filters: []cost.Filter{regional("LoadBalancerUsage")}}.Predicate()
+	for usage, want := range map[string]bool{
+		"EUW2-LoadBalancerUsage":          true,
+		"USE1-LoadBalancerUsage":          true,
+		"EU-LoadBalancerUsage":            true,
+		"LoadBalancerUsage":               true,
+		"TS-LoadBalancerUsage":            false,
+		"EUW2-TS-LoadBalancerUsage":       false,
+		"Outposts-LoadBalancerUsage":      false,
+		"EUW2-Outposts-LoadBalancerUsage": false,
+	} {
+		if got := matches(map[string]string{"usagetype": usage}); got != want {
+			t.Errorf("%s matches = %v, want %v", usage, got, want)
+		}
+	}
+}
+
+func TestCacheNodeTypeFollowsTheRegionWithTheResolver(t *testing.T) {
+	for region, want := range map[string]string{"eu-west-2": "cache.t4g.micro", "me-south-1": "cache.t3.micro", "me-central-1": "cache.t3.micro"} {
+		t.Run(region, func(t *testing.T) {
+			p := newProject(t, []ir.Node{{ID: "c1", Type: ir.NodeCache, Name: "sessions"}}, nil)
+			p.Region = region
+			graph, err := resolve.Run(p, New())
+			if err != nil {
+				t.Fatal(err)
+			}
+			resolved := ""
+			for _, r := range graph.Resources {
+				if r.Type == "aws_elasticache_replication_group" {
+					nodeType, _ := r.Args.Get("node_type")
+					resolved = string(nodeType.(ir.String))
+				}
+			}
+			item, _, err := Cost().Node(p.Nodes[0], region)
+			if err != nil {
+				t.Fatal(err)
+			}
+			priced := ""
+			for _, f := range item.Lookups[0].Filters {
+				if f.Attribute == "instanceType" {
+					priced = f.Value
+				}
+			}
+			if resolved != want || priced != want {
+				t.Errorf("resolver = %q, matcher = %q, want %q", resolved, priced, want)
+			}
+		})
+	}
+}
+
 func TestCatalogueCoversEverySizeEngineAndDeployment(t *testing.T) {
 	lookups, err := Cost().Catalogue("eu-west-2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	distinct := map[string]bool{}
+	unsized := map[string]bool{}
 	for _, l := range lookups {
 		distinct[l.Describe()] = true
+		if l.Quantity == 0 {
+			unsized[l.Describe()] = true
+		}
 	}
-	// 3 sizes x 2 engines x 2 deployments of instance, 2 x 2 of storage, the nat gateway, the
-	// function's requests and duration, the gateway's requests, standard and FIFO requests.
-	if len(distinct) != 12+4+1+2+1+2 {
-		t.Errorf("distinct lookups = %d, want 22", len(distinct))
+	// 3 sizes x 2 engines x 2 deployments of instance, 2 x 2 of storage, the nat gateway,
+	// Fargate vcpu and memory, the load balancer, 3 cache node types, and the usage meters: the
+	// function's requests and duration, the gateway's requests, standard and FIFO requests, and
+	// the bucket's storage, put and get requests.
+	if len(distinct) != 12+4+1+2+1+3+2+1+2+3 {
+		t.Errorf("distinct lookups = %d, want 31", len(distinct))
+	}
+	if len(unsized) != 2+1+2+3 {
+		t.Errorf("usage meters with no quantity = %d, want 8", len(unsized))
 	}
 }
 

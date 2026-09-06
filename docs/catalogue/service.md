@@ -37,6 +37,8 @@ A public service is called by that same private name. Sending internal traffic o
 
 A `calls` edge to a function grants `lambda:InvokeFunction` on the target and injects `<TARGET>_FUNCTION_NAME`. Nothing is opened on the network, because Lambda is invoked over the AWS API.
 
+Cost: `togen cost` prices a service on the Fargate meters from the bundled ECS list prices: vCPU-hours and GB-hours for the size's cpu and memory pair, times `minReplicas`, over a 730 hour month, since the service sits at `minReplicas` until autoscaling arrives. The task definition sets no `runtime_platform`, so the tasks run on x86 and those are the rates used, not the cheaper ARM ones. A public service adds 730 hours of its application load balancer to the same block. A private service that a gateway routes to gets the same load balancer, but the node alone cannot tell, so its hours appear as a separate `implicit ALB` block named after the service, beside the network. A private service nobody routes to has no load balancer line, which is the point of not giving it one. Load balancer capacity units, which is where traffic is charged, are named as not priced. The first node that needs the VPC also brings the NAT gateway's hourly charge under `network`. The matcher is `internal/resolve/aws/cost.go`, beside the size table, so a change to the pairs and its price consequence are one diff.
+
 ## GCP
 
 Not implemented yet. Planned: `google_cloud_run_v2_service` with a service account, and for a public service a `google_cloud_run_v2_service_iam_member` granting `roles/run.invoker` to `allUsers` rather than a load balancer.

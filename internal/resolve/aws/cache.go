@@ -7,10 +7,16 @@ import (
 	"github.com/mooncitizen/togen/internal/resolve"
 )
 
-const cachePort = 6379
+const (
+	cachePort          = 6379
+	cacheEngine        = "redis"
+	cacheEngineVersion = "7.1"
+	cacheNodes         = 1
+)
 
 func resolveCache(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 	p := resolve.Props[ir.CacheProps](ctx, node)
+	nodeType, _ := cacheNodeType(ctx.Project.Region, p.Size)
 	local := ctx.Local(node.Name)
 	network := ensureNetwork(ctx)
 
@@ -45,10 +51,10 @@ func resolveCache(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 		Args: ir.Attrs{
 			ir.A("replication_group_id", ir.Str(ctx.Named(node.Name))),
 			ir.A("description", ir.Str(node.Name+" cache")),
-			ir.A("engine", ir.Str("redis")),
-			ir.A("engine_version", ir.Str("7.1")),
-			ir.A("node_type", ir.Str(cacheSizes[p.Size])),
-			ir.A("num_cache_clusters", ir.Num(1)),
+			ir.A("engine", ir.Str(cacheEngine)),
+			ir.A("engine_version", ir.Str(cacheEngineVersion)),
+			ir.A("node_type", ir.Str(nodeType)),
+			ir.A("num_cache_clusters", ir.Num(cacheNodes)),
 			ir.A("port", ir.Num(cachePort)),
 			ir.A("subnet_group_name", ir.R(ir.ID{Type: subnetGroup.Type, Name: subnetGroup.Name}, ir.Field("name"))),
 			ir.A("security_group_ids", ir.L(ir.R(sgID, ir.Field("id")))),

@@ -3,6 +3,8 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 
 	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
@@ -11,7 +13,8 @@ import (
 const (
 	hoursPerMonth = 730
 	// Pay-per-use types cost nothing until they are used, and the usage block is not here yet.
-	atRest = "priced at rest, usage not set"
+	atRest  = "priced at rest, usage not set"
+	lcuNote = "load balancer capacity units"
 )
 
 var engineNames = map[ir.Engine]string{
@@ -29,6 +32,12 @@ func (costMatchers) Node(n ir.Node, region string) (cost.Item, bool, error) {
 	switch n.Type {
 	case ir.NodeDatabase:
 		item, err = databaseCost(n, region)
+	case ir.NodeService:
+		item, err = serviceCost(n, region)
+	case ir.NodeCache:
+		item, err = cacheCost(n, region)
+	case ir.NodeBucket:
+		item, err = bucketCost(n, region)
 	case ir.NodeFunction:
 		item, err = functionCost(n, region)
 	case ir.NodeGateway:
@@ -42,10 +51,11 @@ func (costMatchers) Node(n ir.Node, region string) (cost.Item, bool, error) {
 }
 
 func (costMatchers) Implicit(p *ir.Project) []cost.Item {
-	if !needsNetwork(p) {
-		return nil
+	out := routedLoadBalancers(p)
+	if needsNetwork(p) {
+		out = append(out, networkCost(p.Region))
 	}
-	return []cost.Item{networkCost(p.Region)}
+	return out
 }
 
 // Every shape of node the matchers tell apart, so the refresh checks each meter they can name.
@@ -67,9 +77,18 @@ func (m costMatchers) Catalogue(region string) ([]cost.Lookup, error) {
 				}
 			}
 		}
+		if err := add(ir.NodeService, ir.ServiceProps{Size: size, MinReplicas: 1, Public: true}); err != nil {
+			return nil, err
+		}
+		if err := add(ir.NodeCache, ir.CacheProps{Size: size}); err != nil {
+			return nil, err
+		}
 		if err := add(ir.NodeFunction, ir.FunctionProps{Runtime: ir.RuntimeNode, Size: size}); err != nil {
 			return nil, err
 		}
+	}
+	if err := add(ir.NodeBucket, ir.BucketProps{}); err != nil {
+		return nil, err
 	}
 	if err := add(ir.NodeGateway, ir.GatewayProps{}); err != nil {
 		return nil, err
@@ -150,6 +169,186 @@ func databaseCost(n ir.Node, region string) (cost.Item, error) {
 			},
 		},
 		Unpriced: []string{fmt.Sprintf("backups beyond %d GB", p.StorageGB)},
+	}, nil
+}
+
+// The task definition sets no runtime platform, so the tasks run on x86 and the ARM meters
+// must not match. A public service also pays for its load balancer's hours.
+func serviceCost(n ir.Node, region string) (cost.Item, error) {
+	p, err := ir.NodeProps[ir.ServiceProps](n)
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
+	}
+	size, ok := fargateSizes[p.Size]
+	if !ok {
+		return cost.Item{}, fmt.Errorf("service '%s' has an unknown size '%s'", n.Name, p.Size)
+	}
+	tasks := float64(p.MinReplicas)
+	reach := "private"
+	if p.Public {
+		reach = "public"
+	}
+	item := cost.Item{
+		Name: n.Name,
+		Kind: string(n.Type),
+		Summary: fmt.Sprintf("%s vCPU, %s GB, %s, %s",
+			number(size.vCPU()), number(size.memoryGB()), count(p.MinReplicas, "task"), reach),
+		Lookups: []cost.Lookup{
+			{
+				Label:   "vcpu",
+				Service: "AmazonECS",
+				Filters: onDemand(region,
+					cost.Filter{Attribute: "productFamily", Value: "Compute"},
+					regional(`Fargate-vCPU-Hours:perCPU`),
+				),
+				Quantity: size.vCPU() * tasks * hoursPerMonth,
+				Unit:     "vCPU-h",
+			},
+			{
+				Label:   "memory",
+				Service: "AmazonECS",
+				Filters: onDemand(region,
+					cost.Filter{Attribute: "productFamily", Value: "Compute"},
+					regional(`Fargate-GB-Hours`),
+				),
+				Quantity: size.memoryGB() * tasks * hoursPerMonth,
+				Unit:     "GB-h",
+			},
+		},
+	}
+	if p.Public {
+		item.Lookups = append(item.Lookups, loadBalancerLookup(region))
+		item.Unpriced = []string{lcuNote}
+	}
+	return item, nil
+}
+
+// A private service gets an internal load balancer only when a gateway routes to it, which
+// the node alone cannot tell, so those are priced here: one per service however many routes.
+func routedLoadBalancers(p *ir.Project) []cost.Item {
+	nodes := make(map[string]ir.Node, len(p.Nodes))
+	for _, n := range p.Nodes {
+		nodes[n.ID] = n
+	}
+	var out []cost.Item
+	seen := map[string]bool{}
+	for _, e := range p.Edges {
+		from, to := nodes[e.From], nodes[e.To]
+		if e.Relation != ir.RelRoutes || from.Type != ir.NodeGateway || to.Type != ir.NodeService || seen[to.ID] {
+			continue
+		}
+		props, err := ir.NodeProps[ir.ServiceProps](to)
+		if err != nil || props.Public {
+			continue
+		}
+		seen[to.ID] = true
+		out = append(out, cost.Item{
+			Name:     to.Name,
+			Kind:     "implicit ALB",
+			Summary:  "internal load balancer, routed from " + from.Name,
+			Lookups:  []cost.Lookup{loadBalancerLookup(p.Region)},
+			Unpriced: []string{lcuNote},
+		})
+	}
+	return out
+}
+
+func loadBalancerLookup(region string) cost.Lookup {
+	return cost.Lookup{
+		Label:   "load balancer",
+		Service: "AWSELB",
+		Filters: onDemand(region,
+			cost.Filter{Attribute: "productFamily", Value: "Load Balancer-Application"},
+			regional(`LoadBalancerUsage`),
+		),
+		Quantity: hoursPerMonth,
+		Unit:     "h",
+	}
+}
+
+// The extended support rows share the instance type and engine, so the usage type has to say
+// plain node hours.
+func cacheCost(n ir.Node, region string) (cost.Item, error) {
+	p, err := ir.NodeProps[ir.CacheProps](n)
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
+	}
+	instance, ok := cacheNodeType(region, p.Size)
+	if !ok {
+		return cost.Item{}, fmt.Errorf("cache '%s' has an unknown size '%s'", n.Name, p.Size)
+	}
+	return cost.Item{
+		Name:    n.Name,
+		Kind:    string(n.Type),
+		Summary: fmt.Sprintf("%s, %s %s, %s", instance, cacheEngine, cacheEngineVersion, count(cacheNodes, "node")),
+		Lookups: []cost.Lookup{{
+			Label:   "node",
+			Service: "AmazonElastiCache",
+			Filters: onDemand(region,
+				cost.Filter{Attribute: "productFamily", Value: "Cache Instance"},
+				cost.Filter{Attribute: "instanceType", Value: instance},
+				cost.Filter{Attribute: "cacheEngine", Value: "Redis"},
+				regional(`NodeUsage:`+regexp.QuoteMeta(instance)),
+			),
+			Quantity: cacheNodes * hoursPerMonth,
+			Unit:     "h",
+		}},
+	}, nil
+}
+
+// The annotation rows share S3's storage class and request groups, so the usage types say
+// which is meant.
+func bucketCost(n ir.Node, region string) (cost.Item, error) {
+	p, err := ir.NodeProps[ir.BucketProps](n)
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
+	}
+	versioning, access := "unversioned", "private"
+	if p.Versioning {
+		versioning = "versioned"
+	}
+	if p.Public {
+		access = "public"
+	}
+	return cost.Item{
+		Name:    n.Name,
+		Kind:    string(n.Type),
+		Summary: fmt.Sprintf("standard storage, %s, %s", versioning, access),
+		Note:    atRest,
+		Usage: []cost.Lookup{
+			{
+				Label:   "storage",
+				Service: "AmazonS3",
+				Filters: onDemand(region,
+					cost.Filter{Attribute: "productFamily", Value: "Storage"},
+					cost.Filter{Attribute: "storageClass", Value: "General Purpose"},
+					cost.Filter{Attribute: "volumeType", Value: "Standard"},
+					regional(`TimedStorage-ByteHrs`),
+				),
+				Unit: "GB",
+			},
+			{
+				Label:   "put requests",
+				Service: "AmazonS3",
+				Filters: onDemand(region,
+					cost.Filter{Attribute: "productFamily", Value: "API Request"},
+					cost.Filter{Attribute: "group", Value: "S3-API-Tier1"},
+					regional(`Requests-Tier1`),
+				),
+				Unit: "requests",
+			},
+			{
+				Label:   "get requests",
+				Service: "AmazonS3",
+				Filters: onDemand(region,
+					cost.Filter{Attribute: "productFamily", Value: "API Request"},
+					cost.Filter{Attribute: "group", Value: "S3-API-Tier2"},
+					regional(`Requests-Tier2`),
+				),
+				Unit: "requests",
+			},
+		},
+		Unpriced: []string{"storage", "requests", "egress"},
 	}, nil
 }
 
@@ -269,4 +468,27 @@ func queueCost(n ir.Node, region string) (cost.Item, error) {
 		}},
 		Unpriced: []string{"messages"},
 	}, nil
+}
+
+func onDemand(region string, filters ...cost.Filter) []cost.Filter {
+	return append(filters,
+		cost.Filter{Attribute: "termType", Value: "OnDemand"},
+		cost.Filter{Attribute: "regionCode", Value: region},
+	)
+}
+
+// Usage types carry a region prefix such as EUW2- in every file but us-east-1's, with
+// eu-west-1 keeping the old EU-. The prefix has to look like one: TS-LoadBalancerUsage is the
+// trust store hour, not a region.
+func regional(usage string) cost.Filter {
+	return cost.Filter{Attribute: "usagetype", Value: `(EU-|[A-Z]+\d-)?` + usage, Pattern: true}
+}
+
+func number(v float64) string { return strconv.FormatFloat(v, 'f', -1, 64) }
+
+func count(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }

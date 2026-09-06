@@ -23,43 +23,55 @@ Configuration is `togen.yml` at the root of the project, next to `togen/`. It ho
 
 `togen/views.json` names the views of a project: each has an id, a name and the node ids it shows, or `"*"` for all of them, and every project has `overview`. A project without the file has the overview alone, and neither `togen validate` nor `togen generate` reads it. `togen/layout.json` is version 2, with the positions and viewport of each view under `views` by view id; a version 1 file is read as the overview and written back as version 2 on the studio's next save. The API serves them at `/api/views`. In the studio the rail lists the views with how many nodes each shows; click one to open it, the plus button to add one, and the pencil to edit it in place of the inspector: rename it, tick the nodes it shows (grouped by type, with the rest dimmed on the canvas while you choose), or delete it, except the overview, which always shows everything. The canvas names the open view and counts its nodes, draws an edge only when both ends are in the view, and saves positions and the viewport per view, placing a node that has none by auto-layout. Undo and redo cover creating, renaming, deleting and changing the membership of a view.
 
-`togen cost` prints a monthly estimate of the project from a snapshot of list prices bundled in the binary, so it works offline like everything else. Databases and the implicit network are priced on their hours and storage. Functions, gateways and queues cost nothing at rest, so each shows a zero subtotal with a line saying so and its usage meters listed under `not priced`, until a `usage` block sets them. Every other node is listed under `not priced` rather than silently counted as free, and the last line says which snapshot the prices came from. `--json` prints the same as a document. For `examples/aws-basic`:
+`togen cost` prints a monthly estimate of the project from a snapshot of list prices bundled in the binary, so it works offline like everything else. Databases, services (Fargate tasks, and the load balancer of a public or routed one) and caches are priced on their fixed meters, and the implicit network brings the NAT gateway. Functions, gateways, queues and buckets cost nothing at rest, so each shows a zero subtotal with a line saying so and its usage meters listed under `not priced`, until a `usage` block sets them. A node type with no matcher yet is listed under `not priced` rather than silently counted as free, and the last line says which snapshot the prices came from. `--json` prints the same as a document. For `examples/aws-basic`:
 
 ```
 api        gateway       HTTP API
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
 orders     function      node, 512 MB, x86_64
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
 orders-db  database      db.t4g.micro, postgres 17, single-AZ, 20 GB
-  instance     730 h   x  0.0180 USD    13.14
-  storage gp2   20 GB  x  0.1330 USD     2.66
-                                        15.80
+  instance         730 h       x  0.0180 USD    13.14
+  storage gp2       20 GB      x  0.1330 USD     2.66
+                                                15.80
+web        service       0.25 vCPU, 0.5 GB, 1 task, public
+  vcpu           182.5 vCPU-h  x  0.0466 USD     8.50
+  memory           365 GB-h    x  0.0051 USD     1.87
+  load balancer    730 h       x  0.0265 USD    19.32
+                                                29.69
 jobs       queue         standard
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
 worker     function      node, 512 MB, x86_64
   priced at rest, usage not set
-                                         0.00
+                                                 0.00
+uploads    bucket        standard storage, versioned, private
+  priced at rest, usage not set
+                                                 0.00
+sessions   cache         cache.t4g.micro, redis 7.1, 1 node
+  node             730 h       x  0.0180 USD    13.14
+                                                13.14
 network    implicit VPC
-  nat gateway  730 h   x  0.0500 USD    36.50
-                                        36.50
+  nat gateway      730 h       x  0.0500 USD    36.50
+                                                36.50
 not priced
-  web        service       no aws prices for this node type yet
-  uploads    bucket        no aws prices for this node type yet
-  sessions   cache         no aws prices for this node type yet
   api        gateway       requests
   api        gateway       data transfer
   orders     function      requests
   orders     function      duration
   orders-db  database      backups beyond 20 GB
+  web        service       load balancer capacity units
   jobs       queue         messages
   worker     function      requests
   worker     function      duration
+  uploads    bucket        storage
+  uploads    bucket        requests
+  uploads    bucket        egress
   network    implicit VPC  nat gateway data processed
 
-total  52.30 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote
+total  95.13 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote
 ```
 
 `examples/aws-full` is the larger sketch: every node type, every relation and every property this milestone supports, all in one project. It is what `just acceptance` generates and validates alongside `aws-basic`, so a change that breaks a pairing shows up there rather than in someone's real project. It deploys a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches, wired together with routes, calls, reads, writes, publishes and consumes.

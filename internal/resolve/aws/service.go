@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/mooncitizen/togen/internal/ir"
@@ -85,8 +86,8 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 			ir.A("family", ir.Str(ctx.Named(node.Name))),
 			ir.A("requires_compatibilities", ir.L(ir.Str("FARGATE"))),
 			ir.A("network_mode", ir.Str("awsvpc")),
-			ir.A("cpu", ir.Str(size.CPU)),
-			ir.A("memory", ir.Str(size.Memory)),
+			ir.A("cpu", ir.Str(strconv.Itoa(size.CPU))),
+			ir.A("memory", ir.Str(strconv.Itoa(size.Memory))),
 			ir.A("execution_role_arn", ir.R(executionID, ir.Field("arn"))),
 			ir.A("task_role_arn", ir.R(taskRoleID, ir.Field("arn"))),
 		},
