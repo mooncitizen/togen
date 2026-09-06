@@ -41,7 +41,7 @@ The generated code does not enable APIs. The GCP project needs Cloud Functions, 
 
 ### Edges
 
-A `routes` edge from the gateway opens the function to the internet and outputs its URL, described under [gateway](gateway.md). A `reads` or `writes` edge to a database sets the connection details on the function and puts it on the connector, described under [database](database.md). A `calls` edge in either direction grants `roles/run.invoker` on the target's Cloud Run service to the caller's account and sets `<TARGET>_URL`, described under [service](service.md). Other edges are not supported by the GCP resolver yet.
+A `routes` edge from the gateway opens the function to the internet and outputs its URL, described under [gateway](gateway.md). A `reads` or `writes` edge to a database sets the connection details on the function and puts it on the connector, described under [database](database.md). A `calls` edge in either direction grants `roles/run.invoker` on the target's Cloud Run service to the caller's account and sets `<TARGET>_URL`, described under [service](service.md). A `publishes` or `consumes` edge grants the topic role or creates the Eventarc trigger, described under [queue](queue.md); a `reads` or `writes` edge to a bucket grants the object role, described under [bucket](bucket.md); either edge to a cache sets the host and port and puts the function on the connector, described under [cache](cache.md).
 
 ## Azure
 

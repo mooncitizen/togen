@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "name": "shop",
+  "provider": "gcp",
+  "region": "europe-west2",
+  "environment": "full",
+  "nodes": [
+    { "id": "gateway-1", "type": "gateway", "name": "api" },
+    {
+      "id": "function-1",
+      "type": "function",
+      "name": "orders",
+      "properties": { "runtime": "node", "size": "medium", "timeoutSeconds": 60, "env": { "LOG_LEVEL": "info" } }
+    },
+    {
+      "id": "function-2",
+      "type": "function",
+      "name": "worker",
+      "properties": { "runtime": "python", "handler": "app.handle", "size": "large", "timeoutSeconds": 120 }
+    },
+    {
+      "id": "function-3",
+      "type": "function",
+      "name": "mailer",
+      "properties": { "runtime": "go", "size": "small" }
+    },
+    {
+      "id": "service-1",
+      "type": "service",
+      "name": "web",
+      "properties": {
+        "image": "nginx:1.27",
+        "port": 80,
+        "size": "medium",
+        "minReplicas": 2,
+        "maxReplicas": 4,
+        "public": true,
+        "env": { "SITE_NAME": "shop" }
+      }
+    },
+    {
+      "id": "service-2",
+      "type": "service",
+      "name": "admin",
+      "properties": { "image": "ghcr.io/example/admin:1", "port": 8080, "size": "small", "public": true }
+    },
+    {
+      "id": "database-1",
+      "type": "database",
+      "name": "orders-db",
+      "properties": { "engine": "postgres", "version": "16", "size": "medium", "storageGb": 50, "highAvailability": true }
+    },
+    {
+      "id": "database-2",
+      "type": "database",
+      "name": "reports-db",
+      "properties": { "engine": "mysql", "version": "8.0", "size": "small" }
+    },
+    { "id": "queue-1", "type": "queue", "name": "jobs" },
+    {
+      "id": "queue-2",
+      "type": "queue",
+      "name": "events",
+      "properties": { "fifo": true, "deadLetter": false, "retentionDays": 14 }
+    },
+    { "id": "bucket-1", "type": "bucket", "name": "uploads" },
+    {
+      "id": "bucket-2",
+      "type": "bucket",
+      "name": "assets",
+      "properties": { "versioning": false, "public": true }
+    },
+    {
+      "id": "cache-1",
+      "type": "cache",
+      "name": "sessions",
+      "properties": { "size": "small" }
+    },
+    {
+      "id": "cache-2",
+      "type": "cache",
+      "name": "rate-limits",
+      "properties": { "size": "large" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "gateway-1",
+      "to": "function-1",
+      "relation": "routes",
+      "properties": { "path": "/orders", "methods": ["GET", "POST"] }
+    },
+    {
+      "id": "edge-2",
+      "from": "gateway-1",
+      "to": "service-1",
+      "relation": "routes",
+      "properties": { "path": "/", "methods": ["ANY"] }
+    },
+    {
+      "id": "edge-3",
+      "from": "gateway-1",
+      "to": "service-2",
+      "relation": "routes",
+      "properties": { "path": "/admin", "methods": ["GET"] }
+    },
+    { "id": "edge-4", "from": "function-1", "to": "database-1", "relation": "reads" },
+    { "id": "edge-5", "from": "function-1", "to": "database-1", "relation": "writes" },
+    { "id": "edge-6", "from": "function-2", "to": "database-1", "relation": "reads" },
+    { "id": "edge-7", "from": "service-2", "to": "database-2", "relation": "reads" },
+    { "id": "edge-8", "from": "service-2", "to": "database-2", "relation": "writes" },
+    { "id": "edge-9", "from": "service-1", "to": "cache-1", "relation": "reads" },
+    { "id": "edge-10", "from": "function-1", "to": "cache-2", "relation": "writes" },
+    { "id": "edge-11", "from": "function-2", "to": "cache-2", "relation": "reads" },
+    { "id": "edge-12", "from": "function-1", "to": "queue-1", "relation": "publishes" },
+    { "id": "edge-13", "from": "function-2", "to": "queue-1", "relation": "consumes" },
+    { "id": "edge-14", "from": "service-1", "to": "queue-2", "relation": "publishes" },
+    { "id": "edge-15", "from": "service-2", "to": "queue-2", "relation": "consumes" },
+    { "id": "edge-16", "from": "function-1", "to": "bucket-1", "relation": "writes" },
+    { "id": "edge-17", "from": "function-2", "to": "bucket-1", "relation": "reads" },
+    { "id": "edge-18", "from": "service-1", "to": "bucket-2", "relation": "reads" },
+    { "id": "edge-19", "from": "service-2", "to": "bucket-2", "relation": "writes" },
+    { "id": "edge-20", "from": "service-1", "to": "function-1", "relation": "calls" },
+    { "id": "edge-21", "from": "function-2", "to": "service-1", "relation": "calls" },
+    { "id": "edge-22", "from": "function-1", "to": "function-3", "relation": "calls" },
+    { "id": "edge-23", "from": "service-1", "to": "service-2", "relation": "calls" },
+    { "id": "edge-24", "from": "function-2", "to": "function-3", "relation": "calls" }
+  ]
+}
