@@ -198,6 +198,26 @@ func TestValidateReportsANodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	}
 }
 
+func TestValidateReportsAzureNodesTheResolverDoesNotSupportYet(t *testing.T) {
+	cwd := t.TempDir()
+	writeProject(t, cwd, map[string]any{
+		"version":     1,
+		"name":        "shop",
+		"provider":    "azure",
+		"region":      "uksouth",
+		"environment": "dev",
+		"nodes":       []any{map[string]any{"id": "q1", "type": "queue", "name": "jobs"}},
+		"edges":       []any{},
+	})
+	result := Validate(cwd)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	if len(result.Lines) != 1 || !strings.Contains(result.Lines[0], "node q1") || !strings.Contains(result.Lines[0], "not supported by the azure resolver yet") {
+		t.Fatalf("lines = %v", result.Lines)
+	}
+}
+
 func legacyConfig(t *testing.T, cwd string) {
 	t.Helper()
 	if err := os.Remove(workspace.ConfigPath(cwd)); err != nil {
