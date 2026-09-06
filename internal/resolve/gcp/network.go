@@ -14,6 +14,8 @@ type Network struct {
 	Subnet     ir.ID
 	Connector  ir.ID
 	Connection ir.ID
+	Router     ir.ID
+	NAT        ir.ID
 }
 
 const (
@@ -52,6 +54,7 @@ func createNetwork(ctx *resolve.Context) *Network {
 			ir.A("network", vpcRef),
 			ir.A("region", ir.Str(ctx.Project.Region)),
 			ir.A("ip_cidr_range", ir.Str("10.0.0.0/24")),
+			ir.A("private_ip_google_access", ir.Bool(true)),
 		},
 	})
 
@@ -99,6 +102,40 @@ func createNetwork(ctx *resolve.Context) *Network {
 		Connector:  ir.ID{Type: connector.Type, Name: connector.Name},
 		Connection: ir.ID{Type: connection.Type, Name: connection.Name},
 	}
+}
+
+// A caller that sends all its egress through the connector loses the internet unless the
+// network translates for it, so the router and NAT appear with the first such caller.
+func ensureNAT(ctx *resolve.Context) *Network {
+	n := ensureNetwork(ctx)
+	if n.NAT != (ir.ID{}) {
+		return n
+	}
+	router := ctx.Add(ir.Resource{
+		Type:        "google_compute_router",
+		Name:        "main",
+		SourceLabel: networkLabel,
+		Args: ir.Attrs{
+			ir.A("name", ir.Str(ctx.Named("router"))),
+			ir.A("network", ir.R(n.VPC, ir.Field("id"))),
+			ir.A("region", ir.Str(ctx.Project.Region)),
+		},
+	})
+	n.Router = ir.ID{Type: router.Type, Name: router.Name}
+	nat := ctx.Add(ir.Resource{
+		Type:        "google_compute_router_nat",
+		Name:        "main",
+		SourceLabel: networkLabel,
+		Args: ir.Attrs{
+			ir.A("name", ir.Str(ctx.Named("nat"))),
+			ir.A("router", ir.R(n.Router, ir.Field("name"))),
+			ir.A("region", ir.Str(ctx.Project.Region)),
+			ir.A("nat_ip_allocate_option", ir.Str("AUTO_ONLY")),
+			ir.A("source_subnetwork_ip_ranges_to_nat", ir.Str("ALL_SUBNETWORKS_ALL_IP_RANGES")),
+		},
+	})
+	n.NAT = ir.ID{Type: nat.Type, Name: nat.Name}
+	return n
 }
 
 // A long project and environment give way to the suffix, so the name still says what it is.

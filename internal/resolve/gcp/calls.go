@@ -47,6 +47,14 @@ func resolveCalls(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) 
 		})
 	}
 	from.SetEnv(strings.ToUpper(ctx.Local(to.Node.Name))+"_URL", cloudRunURL(ctx, to.Node))
+	if isPrivateService(ctx, to.Node) {
+		from.NeedsAllEgress = true
+	}
+}
+
+// A function's Cloud Run service allows all ingress, so only a service can be private.
+func isPrivateService(ctx *resolve.Context, node ir.Node) bool {
+	return node.Type == ir.NodeService && !resolve.Props[ir.ServiceProps](ctx, node).Public
 }
 
 // The target's uri attribute would make the caller depend on the target, and two services
