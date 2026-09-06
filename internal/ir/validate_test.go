@@ -303,6 +303,9 @@ func TestValidateProjectAcceptsASupportedEngineVersion(t *testing.T) {
 }
 
 func TestValidateProjectSkipsTheEngineCheckForAProviderWithNoTable(t *testing.T) {
+	table := Engines[ProviderAzure]
+	delete(Engines, ProviderAzure)
+	t.Cleanup(func() { Engines[ProviderAzure] = table })
 	doc := baseDoc()
 	doc["provider"] = "azure"
 	doc["region"] = "uksouth"

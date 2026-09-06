@@ -141,6 +141,77 @@ func TestResolveProducesAValidGraphForAGatewayAndAFunction(t *testing.T) {
 	}
 }
 
+func TestResolveProducesAValidGraphForAFunctionReadingADatabase(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		{ID: "n2", Type: ir.NodeFunction, Name: "orders"},
+		{ID: "n3", Type: ir.NodeDatabase, Name: "main-db"},
+	})
+	p.Edges = []ir.Edge{
+		{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes},
+		{ID: "e2", From: "n2", To: "n3", Relation: ir.RelReads},
+	}
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Errorf("graph is not valid:\n%s", errs.Error())
+	}
+	var providers []string
+	for _, prov := range g.Providers {
+		providers = append(providers, prov.Name)
+	}
+	if diff := cmp.Diff([]string{"azurerm", "random"}, providers); diff != "" {
+		t.Errorf("providers (-want +got):\n%s", diff)
+	}
+	var types []string
+	for _, r := range g.Resources {
+		types = append(types, r.Type)
+	}
+	want := []string{
+		"azurerm_resource_group",
+		"azurerm_service_plan",
+		"azurerm_storage_account",
+		"azurerm_linux_function_app",
+		"azurerm_virtual_network",
+		"azurerm_subnet",
+		"azurerm_subnet",
+		"random_password",
+		"azurerm_private_dns_zone",
+		"azurerm_private_dns_zone_virtual_network_link",
+		"azurerm_postgresql_flexible_server",
+		"azurerm_postgresql_flexible_server_database",
+	}
+	if diff := cmp.Diff(want, types); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	var outputs []string
+	for _, o := range g.Outputs {
+		outputs = append(outputs, o.Name)
+	}
+	if diff := cmp.Diff([]string{"main_db_fqdn", "api_orders_url"}, outputs); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	main := unaligned(files["main.tf"])
+	for _, want := range []string{
+		`MAIN_DB_HOST = azurerm_postgresql_flexible_server.main_db.fqdn`,
+		`MAIN_DB_PASSWORD = random_password.main_db.result`,
+		`depends_on = [azurerm_private_dns_zone_virtual_network_link.main_db]`,
+	} {
+		if !strings.Contains(main, want) {
+			t.Errorf("main.tf lacks %s:\n%s", want, files["main.tf"])
+		}
+	}
+	if !strings.Contains(string(files["providers.tf"]), `source  = "hashicorp/random"`) {
+		t.Errorf("providers.tf:\n%s", files["providers.tf"])
+	}
+}
+
 func TestResolveRejectsOtherProviders(t *testing.T) {
 	p := newProject(t, nil)
 	p.Provider = ir.ProviderAWS
@@ -152,7 +223,7 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 
 func TestResolveRefusesTheNodeTypesWithoutAResolverYet(t *testing.T) {
 	for _, typ := range ir.NodeTypes {
-		if typ == ir.NodeFunction || typ == ir.NodeGateway {
+		if typ == ir.NodeFunction || typ == ir.NodeGateway || typ == ir.NodeDatabase {
 			continue
 		}
 		ctx := newContext(t, nil)
@@ -186,7 +257,7 @@ func TestResolveReportsEveryNodeInFileOrder(t *testing.T) {
 
 func TestResolveRefusesTheRelationsWithoutAResolverYet(t *testing.T) {
 	for _, rel := range ir.Relations {
-		if rel == ir.RelRoutes {
+		if rel == ir.RelRoutes || rel == ir.RelReads || rel == ir.RelWrites {
 			continue
 		}
 		ctx := newContext(t, nil)

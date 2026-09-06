@@ -14,6 +14,10 @@ var Engines = map[CloudProvider]map[Engine]EngineInfo{
 		EnginePostgres: {Port: 5432, Versions: []string{"17", "16", "15"}},
 		EngineMySQL:    {Port: 3306, Versions: []string{"8.4", "8.0"}},
 	},
+	ProviderAzure: {
+		EnginePostgres: {Port: 5432, Versions: []string{"17", "16", "15"}},
+		EngineMySQL:    {Port: 3306, Versions: []string{"8.0.21", "5.7"}},
+	},
 }
 
 func DefaultEngineVersion(p CloudProvider, e Engine) (string, bool) {

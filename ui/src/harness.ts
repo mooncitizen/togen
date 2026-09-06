@@ -64,7 +64,7 @@ export const shopDir: Workspace = { dir: '/home/paul/code/shop', name: 'shop' };
 export const bundled: Example[] = [
   { id: 'aws-basic', description: 'One of every node type, wired up with the defaults' },
   { id: 'aws-full', description: 'Every node type, relation and property this milestone supports' },
-  { id: 'azure-basic', description: 'A gateway routing to a function, on Azure' },
+  { id: 'azure-basic', description: 'A gateway routing to a function that reads a database, on Azure' },
 ];
 
 export function reset() {

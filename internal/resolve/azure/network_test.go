@@ -96,12 +96,13 @@ func TestNetworkCreatesAVirtualNetworkInTheResourceGroup(t *testing.T) {
 
 func TestNetworkDelegatesEachSubnetToItsService(t *testing.T) {
 	ctx := newContext(t, nil)
-	ensureNetwork(ctx)
+	ensureNetwork(ctx).mysqlSubnet(ctx)
 
 	vnetName := ir.R(ir.ID{Type: "azurerm_virtual_network", Name: "main"}, ir.Field("name"))
 	for _, tc := range []struct{ subnet, prefix, service string }{
 		{"apps", "10.0.0.0/23", "Microsoft.App/environments"},
 		{"postgres", "10.0.2.0/24", "Microsoft.DBforPostgreSQL/flexibleServers"},
+		{"mysql", "10.0.3.0/24", "Microsoft.DBforMySQL/flexibleServers"},
 	} {
 		r, ok := ctx.Resource(ir.ID{Type: "azurerm_subnet", Name: tc.subnet})
 		if !ok {
@@ -141,6 +142,27 @@ func TestNetworkIsCreatedOnceForTwoNodesThatNeedIt(t *testing.T) {
 	}
 	if got := countOfType(ctx, "azurerm_subnet"); got != 2 {
 		t.Errorf("subnets = %d", got)
+	}
+}
+
+func TestNetworkMakesTheMySQLSubnetOnceAndOnlyWhenAsked(t *testing.T) {
+	ctx := newContext(t, nil)
+	net := ensureNetwork(ctx)
+	if net.MySQLSubnet != (ir.ID{}) || countOfType(ctx, "azurerm_subnet") != 2 {
+		t.Fatalf("the network came with a mysql subnet: %v, %d subnets", net.MySQLSubnet, countOfType(ctx, "azurerm_subnet"))
+	}
+	want := ir.ID{Type: "azurerm_subnet", Name: "mysql"}
+	if got := net.mysqlSubnet(ctx); got != want {
+		t.Errorf("mysqlSubnet = %v", got)
+	}
+	if got := net.mysqlSubnet(ctx); got != want {
+		t.Errorf("second mysqlSubnet = %v", got)
+	}
+	if got := countOfType(ctx, "azurerm_subnet"); got != 3 {
+		t.Errorf("subnets = %d", got)
+	}
+	if net.MySQLSubnet != want {
+		t.Errorf("MySQLSubnet = %v", net.MySQLSubnet)
 	}
 }
 

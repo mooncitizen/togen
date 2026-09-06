@@ -16,6 +16,23 @@
       ]
     }
   },
+  "azure": {
+    "mysql": {
+      "port": 3306,
+      "versions": [
+        "8.0.21",
+        "5.7"
+      ]
+    },
+    "postgres": {
+      "port": 5432,
+      "versions": [
+        "17",
+        "16",
+        "15"
+      ]
+    }
+  },
   "gcp": {
     "mysql": {
       "port": 3306,
