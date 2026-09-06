@@ -51,6 +51,8 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 		return resolveFunction(ctx, n), true
 	case ir.NodeDatabase:
 		return resolveDatabase(ctx, n), true
+	case ir.NodeService:
+		return resolveService(ctx, n), true
 	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,
@@ -63,6 +65,8 @@ func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.H
 	switch e.Relation {
 	case ir.RelRoutes:
 		resolveRoutes(ctx, e, from, to)
+	case ir.RelCalls:
+		resolveCalls(ctx, e, from, to)
 	case ir.RelReads, ir.RelWrites:
 		resolveDataAccess(ctx, e, from, to)
 	default:

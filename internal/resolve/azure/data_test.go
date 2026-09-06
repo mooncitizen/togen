@@ -63,20 +63,24 @@ func TestReadsAndWritesSetTheConnectionOnce(t *testing.T) {
 	}
 }
 
-func TestDataAccessFromAServiceWiresItTheSameWay(t *testing.T) {
-	ctx := newContext(t, []ir.Node{serviceNode("n4", "web"), databaseNode(t, "n3", "main-db", smallPostgres)})
-	svc := &resolve.Handle{Node: ctx.Project.Nodes[0], Exports: resolve.ServiceExports{}}
+func TestDataAccessFromAServiceSetsTheConnectionAsContainerEnv(t *testing.T) {
+	ctx := newContext(t, []ir.Node{serviceNodeWith(t, "n4", "web", defaultService), databaseNode(t, "n3", "main-db", smallPostgres)})
+	svc := resolveService(ctx, ctx.Project.Nodes[0])
 	db := resolveDatabase(ctx, ctx.Project.Nodes[1])
 	resolveDataAccess(ctx, ir.Edge{ID: "e1", From: "n4", To: "n3", Relation: ir.RelWrites}, svc, db)
+	svc.Finalise()
 
 	if len(ctx.Errors) != 0 {
 		t.Fatalf("errors = %v", ctx.Errors)
 	}
-	if diff := cmp.Diff(connectionSettings, svc.Env); diff != "" {
-		t.Errorf("env (-want +got):\n%s", diff)
+	if diff := cmp.Diff(connectionSettings, containerEnvOf(t, ctx, appID)); diff != "" {
+		t.Errorf("container env (-want +got):\n%s", diff)
 	}
 	if !svc.NeedsNetwork {
 		t.Error("the service was not asked to join the network")
+	}
+	if got := countOfType(ctx, "azurerm_virtual_network"); got != 1 {
+		t.Errorf("virtual networks = %d", got)
 	}
 }
 

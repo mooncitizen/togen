@@ -58,4 +58,4 @@ The consumption plan does not join the virtual network, so a function never asks
 
 ### Edges
 
-A `routes` edge from a gateway makes the app's default hostname the gateway URL for this function and records the routes as an app setting, described under [gateway](gateway.md). A `reads` or `writes` edge to a database sets the connection as app settings, described under [database](database.md), though the consumption plan cannot join the network the server answers on. Other edges are not implemented yet.
+A `routes` edge from a gateway makes the app's default hostname the gateway URL for this function and records the routes as an app setting, described under [gateway](gateway.md). A `reads` or `writes` edge to a database sets the connection as app settings, described under [database](database.md), though the consumption plan cannot join the network the server answers on. A `calls` edge to a function or a service sets `<TARGET>_URL` as an app setting, `https://` plus the target's hostname, described under [service](service.md); a private service's internal hostname is out of the consumption plan's reach for the same reason. Other edges are not implemented yet.

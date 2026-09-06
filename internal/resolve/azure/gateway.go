@@ -17,8 +17,17 @@ func resolveRoutes(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle)
 	if _, ok := from.Exports.(resolve.GatewayExports); !ok {
 		ctx.Fail(fmt.Sprintf("edge '%s' routes from a %s, which has no gateway exports", edge.ID, from.Node.Type))
 	}
-	target, ok := to.Exports.(resolve.FunctionExports)
-	if !ok {
+	var url ir.Value
+	switch target := to.Exports.(type) {
+	case resolve.FunctionExports:
+		url = target.URL
+	case resolve.ServiceExports:
+		// The gateway is nothing but the target's own ingress, so a routed service is
+		// external whatever public says.
+		target.Public = true
+		to.Exports = target
+		url = target.URL
+	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
 			Message: fmt.Sprintf("routes to a %s are not supported by the azure resolver yet", to.Node.Type),
@@ -39,11 +48,11 @@ func resolveRoutes(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle)
 		keys = append(keys, fmt.Sprintf("%s %s", method, edge.Properties.Path))
 	}
 	recordRoutes(ctx, from, to, keys)
-	addURLOutput(ctx, from, to, target.URL)
+	addURLOutput(ctx, from, to, url)
 }
 
-// The function's own HTTP triggers do the routing, so the paths and methods go in as an app
-// setting the code can read, accumulated across the edges from one gateway.
+// Nothing in front of the target routes by path, so the paths and methods go in as a setting
+// the code can read, accumulated across the edges from one gateway.
 func recordRoutes(ctx *resolve.Context, from, to *resolve.Handle, keys []string) {
 	if len(keys) == 0 {
 		return
