@@ -80,6 +80,8 @@ total  95.13 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a q
 
 `examples/azure-basic` is the first Azure sketch: a gateway routing to a function that reads a database, publishes to a queue and writes to a bucket, which becomes a resource group, a Linux Function App on a consumption plan with its storage account, a virtual network with a Postgres flexible server on a delegated subnet behind a private DNS zone, an administrator password from the `random` provider, a Service Bus namespace with a queue the app is a Data Sender on, a second storage account with a private container the app is a Blob Data Contributor on, and outputs carrying the app's URL, the server's FQDN, the namespace and the container's account. `just acceptance` validates it with the `azurerm` and `random` providers alongside the AWS examples, and it grows as the Azure resolver does.
 
+`examples/azure-full` is `aws-full` on Azure: the same fourteen nodes and twenty-four edges, with the three differences the Azure resolver asks for. The MySQL version is `8.0.21`, the one Azure Database for MySQL offers, the `fifo` queue moves the Service Bus namespace to the Standard tier, since Basic has no sessions, and the mailer calls the admin service rather than the worker, because a `calls` URL on Azure is a Terraform reference to the target and the AWS loop of calls would be a cycle. `just acceptance` generates and validates it with the other four, and `togen cost` runs on it with every node under `not priced` until the Azure matchers land.
+
 ## Develop
 
 - `just check` runs `gofmt`, `go vet` and the unit tests. No Node needed.

@@ -2,7 +2,7 @@
 
 One file per node type. Each says what the node means, what each provider's resolver emits for it, and why the opinions are what they are. When a resolver changes what it emits, the file changes in the same commit.
 
-A provider section that has not been implemented for a node type says so rather than guessing. Every AWS and GCP section is implemented; the Azure sections say which parts are.
+AWS, GCP and Azure each cover every node type. Where a section records a limit, it is one the provider imposes and the resolver refuses or works round rather than guesses at.
 
 [styles.md](styles.md) is the one file that is not a node type: the colour, icon and shape each provider draws every type with, and which icon set the ids come from.
 
