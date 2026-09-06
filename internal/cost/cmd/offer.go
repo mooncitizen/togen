@@ -25,6 +25,8 @@ var columns = map[string]string{
 	"databaseEngine":   "Database Engine",
 	"deploymentOption": "Deployment Option",
 	"volumeType":       "Volume Type",
+	"group":            "Group",
+	"queueType":        "Queue Type",
 }
 
 func fetchOffer(ctx context.Context, client *http.Client, url string, lookups []cost.Lookup) outcome {
@@ -112,6 +114,11 @@ func scanOffer(r io.Reader, lookups []cost.Lookup) ([][]cost.SKU, error) {
 		}
 		predicates[i] = l.Predicate()
 	}
+	// A file with tiers says where each row's tier starts, and the predicates keep the first.
+	if i, ok := at["StartingRange"]; ok {
+		attributes[cost.StartingRange] = i
+	}
+	endingRange, tiered := at["EndingRange"]
 
 	matched := make([][]cost.SKU, len(lookups))
 	row := make(map[string]string, len(attributes))
@@ -137,6 +144,12 @@ func scanOffer(r io.Reader, lookups []cost.Lookup) ([][]cost.SKU, error) {
 			if err != nil {
 				return nil, err
 			}
+			if tiered && record[endingRange] != "Inf" {
+				sku.UpTo, err = strconv.ParseFloat(record[endingRange], 64)
+				if err != nil {
+					return nil, fmt.Errorf("sku %s: ending range %q: %w", sku.ID, record[endingRange], err)
+				}
+			}
 			matched[i] = append(matched[i], sku)
 		}
 	}
@@ -153,7 +166,7 @@ func skuFrom(record []string, fixed map[string]int, service string, attributes m
 	}
 	kept := make(map[string]string, len(attributes))
 	for attribute, value := range attributes {
-		if value != "" {
+		if value != "" && attribute != cost.StartingRange {
 			kept[attribute] = value
 		}
 	}

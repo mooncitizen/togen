@@ -8,7 +8,11 @@ import (
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
-const hoursPerMonth = 730
+const (
+	hoursPerMonth = 730
+	// Pay-per-use types cost nothing until they are used, and the usage block is not here yet.
+	atRest = "priced at rest, usage not set"
+)
 
 var engineNames = map[ir.Engine]string{
 	ir.EnginePostgres: "PostgreSQL",
@@ -20,10 +24,20 @@ type costMatchers struct{}
 func Cost() cost.Matchers { return costMatchers{} }
 
 func (costMatchers) Node(n ir.Node, region string) (cost.Item, bool, error) {
-	if n.Type != ir.NodeDatabase {
+	var item cost.Item
+	var err error
+	switch n.Type {
+	case ir.NodeDatabase:
+		item, err = databaseCost(n, region)
+	case ir.NodeFunction:
+		item, err = functionCost(n, region)
+	case ir.NodeGateway:
+		item = gatewayCost(n, region)
+	case ir.NodeQueue:
+		item, err = queueCost(n, region)
+	default:
 		return cost.Item{}, false, nil
 	}
-	item, err := databaseCost(n, region)
 	return item, true, err
 }
 
@@ -34,24 +48,52 @@ func (costMatchers) Implicit(p *ir.Project) []cost.Item {
 	return []cost.Item{networkCost(p.Region)}
 }
 
-func (costMatchers) Catalogue(region string) ([]cost.Lookup, error) {
-	var out []cost.Lookup
+// Every shape of node the matchers tell apart, so the refresh checks each meter they can name.
+func (m costMatchers) Catalogue(region string) ([]cost.Lookup, error) {
+	var nodes []ir.Node
+	add := func(t ir.NodeType, props any) error {
+		raw, err := json.Marshal(props)
+		if err != nil {
+			return err
+		}
+		nodes = append(nodes, ir.Node{ID: "catalogue", Type: t, Name: "catalogue", Properties: raw})
+		return nil
+	}
 	for _, size := range ir.Sizes {
 		for _, engine := range ir.EngineTypes {
 			for _, ha := range []bool{false, true} {
-				props, err := json.Marshal(ir.DatabaseProps{Engine: engine, Size: size, StorageGB: 20, HighAvailability: ha})
-				if err != nil {
+				if err := add(ir.NodeDatabase, ir.DatabaseProps{Engine: engine, Size: size, StorageGB: 20, HighAvailability: ha}); err != nil {
 					return nil, err
 				}
-				item, err := databaseCost(ir.Node{ID: "catalogue", Type: ir.NodeDatabase, Name: "catalogue", Properties: props}, region)
-				if err != nil {
-					return nil, err
-				}
-				out = append(out, item.Lookups...)
 			}
 		}
+		if err := add(ir.NodeFunction, ir.FunctionProps{Runtime: ir.RuntimeNode, Size: size}); err != nil {
+			return nil, err
+		}
 	}
-	return append(out, networkCost(region).Lookups...), nil
+	if err := add(ir.NodeGateway, ir.GatewayProps{}); err != nil {
+		return nil, err
+	}
+	for _, fifo := range []bool{false, true} {
+		if err := add(ir.NodeQueue, ir.QueueProps{FIFO: fifo}); err != nil {
+			return nil, err
+		}
+	}
+
+	items := []cost.Item{networkCost(region)}
+	for _, n := range nodes {
+		item, _, err := m.Node(n, region)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	var out []cost.Lookup
+	for _, item := range items {
+		out = append(out, item.Lookups...)
+		out = append(out, item.Usage...)
+	}
+	return out, nil
 }
 
 func databaseCost(n ir.Node, region string) (cost.Item, error) {
@@ -131,4 +173,100 @@ func networkCost(region string) cost.Item {
 		}},
 		Unpriced: []string{"nat gateway data processed"},
 	}
+}
+
+// The function runs on x86_64, Lambda's default when architectures is not set, so the arm64
+// meters (a fifth cheaper) are not the ones to price.
+func functionCost(n ir.Node, region string) (cost.Item, error) {
+	p, err := ir.NodeProps[ir.FunctionProps](n)
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
+	}
+	memory, ok := lambdaMemory[p.Size]
+	if !ok {
+		return cost.Item{}, fmt.Errorf("function '%s' has an unknown size '%s'", n.Name, p.Size)
+	}
+	common := []cost.Filter{
+		{Attribute: "productFamily", Value: "Serverless"},
+		{Attribute: "termType", Value: "OnDemand"},
+		{Attribute: "regionCode", Value: region},
+	}
+	return cost.Item{
+		Name:    n.Name,
+		Kind:    string(n.Type),
+		Summary: fmt.Sprintf("%s, %d MB, x86_64", p.Runtime, int(memory)),
+		Note:    atRest,
+		Usage: []cost.Lookup{
+			{
+				Label:   "requests",
+				Service: "AWSLambda",
+				Filters: append([]cost.Filter{
+					{Attribute: "group", Value: "AWS-Lambda-Requests"},
+					{Attribute: "usagetype", Value: `(\w+-)?Request`, Pattern: true},
+				}, common...),
+				Unit: "requests",
+			},
+			{
+				Label:   "duration",
+				Service: "AWSLambda",
+				Filters: append([]cost.Filter{
+					{Attribute: "group", Value: "AWS-Lambda-Duration"},
+					{Attribute: "usagetype", Value: `(\w+-)?Lambda-GB-Second`, Pattern: true},
+				}, common...),
+				Unit: "GB-s",
+			},
+		},
+		Unpriced: []string{"requests", "duration"},
+	}, nil
+}
+
+// The resolver makes an HTTP API, whose request meter is a third of the REST API's.
+func gatewayCost(n ir.Node, region string) cost.Item {
+	return cost.Item{
+		Name:    n.Name,
+		Kind:    string(n.Type),
+		Summary: "HTTP API",
+		Note:    atRest,
+		Usage: []cost.Lookup{{
+			Label:   "requests",
+			Service: "AmazonApiGateway",
+			Filters: []cost.Filter{
+				{Attribute: "productFamily", Value: "API Calls"},
+				{Attribute: "usagetype", Value: `(\w+-)?ApiGatewayHttpRequest`, Pattern: true},
+				{Attribute: "termType", Value: "OnDemand"},
+				{Attribute: "regionCode", Value: region},
+			},
+			Unit: "requests",
+		}},
+		Unpriced: []string{"requests", "data transfer"},
+	}
+}
+
+func queueCost(n ir.Node, region string) (cost.Item, error) {
+	p, err := ir.NodeProps[ir.QueueProps](n)
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
+	}
+	queueType, shown := "Standard", "standard"
+	if p.FIFO {
+		queueType, shown = "FIFO (first-in, first-out)", "FIFO"
+	}
+	return cost.Item{
+		Name:    n.Name,
+		Kind:    string(n.Type),
+		Summary: shown,
+		Note:    atRest,
+		Usage: []cost.Lookup{{
+			Label:   "requests",
+			Service: "AWSQueueService",
+			Filters: []cost.Filter{
+				{Attribute: "productFamily", Value: "API Request"},
+				{Attribute: "queueType", Value: queueType},
+				{Attribute: "termType", Value: "OnDemand"},
+				{Attribute: "regionCode", Value: region},
+			},
+			Unit: "requests",
+		}},
+		Unpriced: []string{"messages"},
+	}, nil
 }

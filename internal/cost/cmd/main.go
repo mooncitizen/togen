@@ -273,8 +273,8 @@ func compare(live cost.Snapshot) error {
 		switch {
 		case !ok:
 			changes = append(changes, "new: "+describe(sku))
-		case old.Price != sku.Price || old.Unit != sku.Unit:
-			changes = append(changes, fmt.Sprintf("changed: %s, was %g %s", describe(sku), old.Price, old.Unit))
+		case old.Price != sku.Price || old.Unit != sku.Unit || old.UpTo != sku.UpTo:
+			changes = append(changes, fmt.Sprintf("changed: %s, was %s", describe(sku), rate(old)))
 		}
 	}
 	for _, sku := range committed.SKUs {
@@ -307,7 +307,14 @@ func describe(sku cost.SKU) string {
 		}
 	}
 	slices.Sort(traits)
-	return fmt.Sprintf("%s %s in %s (%s) %g %s", sku.Service, sku.ID, sku.Attributes["regionCode"], strings.Join(traits, ", "), sku.Price, sku.Unit)
+	return fmt.Sprintf("%s %s in %s (%s) %s", sku.Service, sku.ID, sku.Attributes["regionCode"], strings.Join(traits, ", "), rate(sku))
+}
+
+func rate(sku cost.SKU) string {
+	if sku.UpTo > 0 {
+		return fmt.Sprintf("%g %s up to %.0f", sku.Price, sku.Unit, sku.UpTo)
+	}
+	return fmt.Sprintf("%g %s", sku.Price, sku.Unit)
 }
 
 func size(bytes int64) string {

@@ -38,6 +38,8 @@ type SKU struct {
 	Attributes map[string]string `json:"attributes"`
 	Unit       string            `json:"unit"`
 	Price      float64           `json:"price"`
+	// Where the first tier of a tiered meter ends; zero when the rate holds for any quantity.
+	UpTo float64 `json:"upTo,omitempty"`
 }
 
 func Load(raw []byte) (*Snapshot, error) {

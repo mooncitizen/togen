@@ -39,6 +39,15 @@ func (l Lookup) Describe() string {
 	return strings.Join(parts, ", ")
 }
 
+// An offer file prices a tiered meter as one row per tier, each with a starting range. A lookup
+// picks the first tier, whose rate is what a usage figure is charged at until it outgrows it.
+const StartingRange = "startingRange"
+
+func firstTier(attributes map[string]string) bool {
+	start, tiered := attributes[StartingRange]
+	return !tiered || start == "0"
+}
+
 // Predicate compiles the filters once so a caller can test many attribute sets cheaply.
 func (l Lookup) Predicate() func(attributes map[string]string) bool {
 	type test struct {
@@ -54,6 +63,9 @@ func (l Lookup) Predicate() func(attributes map[string]string) bool {
 		}
 	}
 	return func(attributes map[string]string) bool {
+		if !firstTier(attributes) {
+			return false
+		}
 		for _, t := range tests {
 			value := attributes[t.attribute]
 			if t.pattern != nil {

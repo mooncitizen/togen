@@ -32,6 +32,8 @@ From a function, `consumes` also creates `aws_lambda_event_source_mapping.<funct
 
 From a service, `consumes` sets `<NAME>_URL` on the task and leaves it to poll for itself. No mapping, and no change to the visibility timeout, because nothing knows how long the service takes over a message.
 
+Cost: `togen cost` prices a queue at rest. SQS charges per request and nothing for a queue that sits there, so the node has a zero subtotal with the line `priced at rest, usage not set` under it, and `messages` is listed under not priced until the `usage` block in `togen.yml` sets it. The request meter is in the bundled snapshot ready for that: the `API Request` family of the `AWSQueueService` offer file for the `Standard` queue type, or `FIFO (first-in, first-out)` when `fifo` is set, on demand, in the project's region; FIFO is a quarter dearer. It is tiered and the snapshot holds the first tier's rate with the point where it ends. A message costs at least three requests (send, receive, delete), a Lambda consumer polling an empty queue costs requests too, and the dead letter queue is billed on the same meter. The matcher is `internal/resolve/aws/cost.go`.
+
 ## GCP
 
 Not implemented yet. Planned: `google_pubsub_topic` with a `google_pubsub_subscription` per consumer, a dead letter topic on the subscription's `dead_letter_policy`, and the ordering key rather than a separate FIFO queue type.

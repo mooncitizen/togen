@@ -92,6 +92,22 @@ func TestAPatternFilterMatchesTheWholeAttribute(t *testing.T) {
 	}
 }
 
+func TestALookupPicksTheFirstTierOfATieredMeter(t *testing.T) {
+	matches := lookup("db", "eu-west-2").Predicate()
+	row := map[string]string{"kind": "db", "regionCode": "eu-west-2"}
+	if !matches(row) {
+		t.Error("a row with no tiers does not match")
+	}
+	row[StartingRange] = "0"
+	if !matches(row) {
+		t.Error("the first tier does not match")
+	}
+	row[StartingRange] = "6000000000"
+	if matches(row) {
+		t.Error("a later tier matches")
+	}
+}
+
 func TestFindStaysWithinTheService(t *testing.T) {
 	sku, err := fixture().Find(lookup("db", "eu-west-2"))
 	if err != nil {
