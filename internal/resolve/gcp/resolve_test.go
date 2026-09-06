@@ -1,8 +1,6 @@
 package gcp
 
 import (
-	"encoding/json"
-	"fmt"
 	"maps"
 	"os"
 	"os/exec"
@@ -49,35 +47,19 @@ func terraformFmt(t *testing.T, files map[string][]byte) {
 	}
 }
 
-func TestResolveRefusesTheNodeTypesItDoesNotSupportYetAndSkipsTheirEdges(t *testing.T) {
-	p := newProject(t, nil, nil)
-	for i, typ := range ir.NodeTypes {
-		n := ir.Node{ID: fmt.Sprintf("n%d", i+1), Type: typ, Name: string(typ)}
-		if typ == ir.NodeService {
-			n.Properties = json.RawMessage(`{"image":"nginx:1.27","port":80}`)
-		}
-		p.Nodes = append(p.Nodes, n)
+// Every node type resolves now, so the report is reached with one that does not exist, which
+// is where a new type will land before it has a resolver.
+func TestResolveReportsANodeTypeItDoesNotSupport(t *testing.T) {
+	ctx, _ := newContext(t, nil, nil)
+	handle, ok := New().ResolveNode(ctx, ir.Node{ID: "n9", Type: "cdn", Name: "edge"})
+	if ok || handle != nil {
+		t.Fatalf("ResolveNode = %v, %v", handle, ok)
 	}
-	p.Edges = []ir.Edge{
-		{ID: "e1", From: "n4", To: "n2", Relation: ir.RelRoutes, Properties: ir.EdgeProperties{Path: "/functions"}},
-		{ID: "e2", From: "n4", To: "n1", Relation: ir.RelRoutes, Properties: ir.EdgeProperties{Path: "/services"}},
-		{ID: "e3", From: "n2", To: "n3", Relation: ir.RelReads},
-		{ID: "e4", From: "n1", To: "n6", Relation: ir.RelReads},
-	}
-
-	errs := runErrors(t, p)
-	var want ir.Errors
-	for _, n := range p.Nodes {
-		switch n.Type {
-		case ir.NodeFunction, ir.NodeGateway, ir.NodeDatabase, ir.NodeService, ir.NodeQueue, ir.NodeBucket:
-			continue
-		}
-		want = append(want, ir.ValidationError{
-			NodeID:  n.ID,
-			Message: "node type '" + string(n.Type) + "' is not supported by the gcp resolver yet",
-		})
-	}
-	if diff := cmp.Diff(want, errs); diff != "" {
+	want := ir.Errors{{
+		NodeID:  "n9",
+		Message: "node type 'cdn' is not supported by the gcp resolver yet",
+	}}
+	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }
@@ -419,6 +401,70 @@ func TestResolveProducesAValidGraphForAPublicBucketReadAndWrittenByAFunction(t *
 		`role   = "roles/storage.objectUser"`,
 		`member = "allUsers"`,
 		`UPLOADS_BUCKET = google_storage_bucket.uploads.name`,
+	} {
+		if !strings.Contains(main, want) {
+			t.Errorf("main.tf lacks %q", want)
+		}
+	}
+	terraformFmt(t, files)
+}
+
+func TestResolveProducesAValidGraphForAServiceAndAFunctionSharingACache(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		functionNode(t, "n2", "orders", defaultFunction),
+		cacheNode(t, "n8", "sessions", ir.CacheProps{Size: ir.SizeLarge}),
+	}, []ir.Edge{
+		{ID: "e1", From: "n4", To: "n8", Relation: ir.RelReads},
+		{ID: "e2", From: "n4", To: "n8", Relation: ir.RelWrites},
+		{ID: "e3", From: "n2", To: "n8", Relation: ir.RelReads},
+	})
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Fatalf("graph is not valid:\n%s", errs.Error())
+	}
+
+	var types []string
+	for _, r := range g.Resources {
+		types = append(types, r.Type)
+	}
+	wantTypes := []string{
+		"google_service_account",
+		"google_cloud_run_v2_service",
+		"google_storage_bucket",
+		"google_service_account",
+		"google_storage_bucket_object",
+		"google_cloudfunctions2_function",
+		"google_compute_network",
+		"google_compute_subnetwork",
+		"google_vpc_access_connector",
+		"google_compute_global_address",
+		"google_service_networking_connection",
+		"google_redis_instance",
+	}
+	if diff := cmp.Diff(wantTypes, types); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"sessions_host"}, outputNames(g.Outputs)); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	main := string(files["main.tf"])
+	for _, want := range []string{
+		`tier                    = "STANDARD_HA"`,
+		`memory_size_gb          = 5`,
+		`connect_mode            = "PRIVATE_SERVICE_ACCESS"`,
+		`authorized_network      = google_compute_network.main.id`,
+		`depends_on = [google_service_networking_connection.main]`,
+		`SESSIONS_HOST = google_redis_instance.sessions.host`,
+		`value = google_redis_instance.sessions.host`,
 	} {
 		if !strings.Contains(main, want) {
 			t.Errorf("main.tf lacks %q", want)

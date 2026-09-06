@@ -41,6 +41,7 @@ func (provider) NameLimits() []resolve.NameLimit {
 		{Type: "google_cloudfunctions2_function", Arg: "name", Max: functionNameMax},
 		{Type: "google_service_account", Arg: "account_id", Max: accountIDMax},
 		{Type: "google_vpc_access_connector", Arg: "name", Max: connectorNameMax},
+		{Type: "google_redis_instance", Arg: "name", Max: cacheNameMax},
 	}
 }
 
@@ -58,6 +59,8 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 		return resolveQueue(ctx, n), true
 	case ir.NodeBucket:
 		return resolveBucket(ctx, n), true
+	case ir.NodeCache:
+		return resolveCache(ctx, n), true
 	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,

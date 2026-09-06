@@ -221,6 +221,7 @@ func TestProviderBlock(t *testing.T) {
 		{Type: "google_cloudfunctions2_function", Arg: "name", Max: 63},
 		{Type: "google_service_account", Arg: "account_id", Max: 30},
 		{Type: "google_vpc_access_connector", Arg: "name", Max: 25},
+		{Type: "google_redis_instance", Arg: "name", Max: 40},
 	}
 	if diff := cmp.Diff(wantLimits, New().NameLimits()); diff != "" {
 		t.Errorf("name limits (-want +got):\n%s", diff)
