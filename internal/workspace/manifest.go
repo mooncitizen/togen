@@ -19,9 +19,9 @@ var terraformNames = map[string]bool{
 	".terraform.tfstate.lock.info": true,
 }
 
-func isTerraformFile(name string) bool {
-	return terraformNames[name] || strings.HasSuffix(name, ".tfvars")
-}
+func isTfvars(name string) bool { return strings.HasSuffix(name, ".tfvars") }
+
+func isTerraformFile(name string) bool { return terraformNames[name] || isTfvars(name) }
 
 func isIgnored(name string) bool { return name == manifestName || isTerraformFile(name) }
 
@@ -37,7 +37,7 @@ func listFiles(dir, base string) ([]string, error) {
 	}
 	var out []string
 	for _, entry := range entries {
-		if dir == base && isIgnored(entry.Name()) {
+		if isTfvars(entry.Name()) || dir == base && isIgnored(entry.Name()) {
 			continue
 		}
 		full := filepath.Join(dir, entry.Name())
@@ -105,24 +105,35 @@ func recoverOld(old, dir string) error {
 	if !Exists(dir) {
 		return os.Rename(old, dir)
 	}
-	if err := moveTerraformFiles(old, dir); err != nil {
+	if err := moveTerraformFiles(old, dir, true); err != nil {
 		return err
 	}
 	return os.RemoveAll(old)
 }
 
-func moveTerraformFiles(from, to string) error {
+// The named working files only mean something at the top of the output
+// directory; a tfvars file is kept wherever it sits.
+func moveTerraformFiles(from, to string, top bool) error {
 	entries, err := os.ReadDir(from)
 	if err != nil {
 		return err
 	}
 	for _, entry := range entries {
 		name := entry.Name()
-		if !isTerraformFile(name) || Exists(filepath.Join(to, name)) {
-			continue
-		}
-		if err := os.Rename(filepath.Join(from, name), filepath.Join(to, name)); err != nil {
-			return err
+		src, dst := filepath.Join(from, name), filepath.Join(to, name)
+		keep := isTfvars(name) || top && terraformNames[name]
+		switch {
+		case keep && !Exists(dst):
+			if err := os.MkdirAll(to, 0o755); err != nil {
+				return err
+			}
+			if err := os.Rename(src, dst); err != nil {
+				return err
+			}
+		case !keep && entry.IsDir():
+			if err := moveTerraformFiles(src, dst, false); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -173,7 +184,7 @@ func writeOutputs(dir string, files map[string][]byte) error {
 	if !hadOld {
 		return nil
 	}
-	if err := moveTerraformFiles(old, dir); err != nil {
+	if err := moveTerraformFiles(old, dir, true); err != nil {
 		return err
 	}
 	return os.RemoveAll(old)
