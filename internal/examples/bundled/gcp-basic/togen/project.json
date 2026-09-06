@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "shop",
+  "provider": "gcp",
+  "region": "europe-west2",
+  "environment": "dev",
+  "nodes": [
+    { "id": "gateway-1", "type": "gateway", "name": "api" },
+    {
+      "id": "function-1",
+      "type": "function",
+      "name": "orders",
+      "properties": { "runtime": "node", "handler": "index.handler", "env": { "LOG_LEVEL": "info" } }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-1",
+      "from": "gateway-1",
+      "to": "function-1",
+      "relation": "routes",
+      "properties": { "path": "/orders", "methods": ["GET", "POST"] }
+    }
+  ]
+}

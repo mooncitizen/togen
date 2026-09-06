@@ -383,7 +383,7 @@ func TestGenerateReportsUnsupportedTarget(t *testing.T) {
 	}
 }
 
-func TestGenerateReportsEveryNodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
+func TestGenerateReportsTheNodesTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	cwd := generateCwd(t)
 	project := exampleProject()
 	project["provider"] = "gcp"
@@ -394,11 +394,7 @@ func TestGenerateReportsEveryNodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
-	want := []string{
-		"project (node n1): node type 'gateway' is not supported by the gcp resolver yet",
-		"project (node n2): node type 'function' is not supported by the gcp resolver yet",
-		"project (node n3): node type 'database' is not supported by the gcp resolver yet",
-	}
+	want := []string{"project (node n3): node type 'database' is not supported by the gcp resolver yet"}
 	if diff := cmp.Diff(want, result.Lines); diff != "" {
 		t.Errorf("lines (-want +got):\n%s", diff)
 	}

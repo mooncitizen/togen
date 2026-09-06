@@ -26,7 +26,13 @@ Cost: `togen cost` prices a gateway at rest. An HTTP API has no hourly charge, s
 
 ## GCP
 
-Not implemented yet. The real API Gateway product is beta and needs an OpenAPI document, so the plan is to expose the Cloud Run URL directly with a public invoker binding.
+Nothing. A gateway node creates no resources. Cloud Run serves each function on its own HTTPS URL, and the real API Gateway product is beta and wants a hand-written OpenAPI document, so the entry point is the target's URL (ADR 0010).
+
+A `routes` edge to a function adds a `google_cloud_run_v2_service_iam_member` granting `roles/run.invoker` to `allUsers` on the function's Cloud Run service, and an output `<gateway>_<function>_url` carrying that service's URL. The binding goes on the Cloud Run service rather than the function because a 2nd gen function answers HTTP through Cloud Run, which checks `run.invoker`; `roles/cloudfunctions.invoker` through `google_cloudfunctions2_function_iam_member` would leave the URL closed. Several routes to one function share one binding and one output.
+
+There is no single gateway URL. Two routed functions are two entry points, `api_orders_url` and `api_users_url`, and a caller has to know which to use. A route to a service will work the same way with the service's URL once the resolver supports services.
+
+The path and methods are not enforced. Cloud Run does not route by path, so the function receives every request to its URL and a route on `/orders` means the function handles `/orders` itself. Two edges claiming the same method and path on one gateway are still refused, as on AWS, because the sketch says two things answer one route.
 
 ## Azure
 

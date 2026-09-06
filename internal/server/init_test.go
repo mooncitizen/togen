@@ -161,11 +161,11 @@ func TestPostInitLeavesAnExistingConfigAlone(t *testing.T) {
 
 func TestPostInitRefusesAnUnknownExample(t *testing.T) {
 	dir, front, _ := emptyHarness(t)
-	code, raw := send(t, front, http.MethodPost, "/api/project/init", []byte(`{"example":"gcp-basic"}`))
+	code, raw := send(t, front, http.MethodPost, "/api/project/init", []byte(`{"example":"nope"}`))
 	if code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, body = %s", code, raw)
 	}
-	if diff := cmp.Diff([]string{"example: unknown example 'gcp-basic'"}, errorLines(t, raw)); diff != "" {
+	if diff := cmp.Diff([]string{"example: unknown example 'nope'"}, errorLines(t, raw)); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 	if workspace.Exists(workspace.TogenDir(dir)) {
