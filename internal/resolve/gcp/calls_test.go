@@ -1,10 +1,12 @@
 package gcp
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/mooncitizen/togen/internal/emit/hcl"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
 )
@@ -15,6 +17,10 @@ func callEdges(from, to string, count int) []ir.Edge {
 		edges[i] = ir.Edge{ID: "e" + string(rune('1'+i)), From: from, To: to, Relation: ir.RelCalls}
 	}
 	return edges
+}
+
+func runURL(name string) ir.Value {
+	return ir.C(ir.Str("https://shop-dev-"+name+"-"), ir.D(projectID, ir.Field("number")), ir.Str(".europe-west2.run.app"))
 }
 
 func invokerBinding(name, location ir.Value, account ir.ID) ir.Attrs {
@@ -44,7 +50,7 @@ func TestCallsToAServiceGrantsTheFunctionsAccountInvokerAndInjectsTheURL(t *test
 	if diff := cmp.Diff(want, binding.Args); diff != "" {
 		t.Errorf("binding args (-want +got):\n%s", diff)
 	}
-	wantEnv := ir.Attrs{ir.A("WEB_URL", ir.R(svcID, ir.Field("uri")))}
+	wantEnv := ir.Attrs{ir.A("WEB_URL", runURL("web"))}
 	if diff := cmp.Diff(wantEnv, caller.Env); diff != "" {
 		t.Errorf("env (-want +got):\n%s", diff)
 	}
@@ -54,6 +60,10 @@ func TestCallsToAServiceGrantsTheFunctionsAccountInvokerAndInjectsTheURL(t *test
 	}
 	if caller.NeedsNetwork || countOfType(ctx, "google_compute_network") != 0 {
 		t.Error("calling a service pulled the caller onto the connector")
+	}
+	wantData := []ir.DataSource{{Type: "google_project", Name: "current", SourceLabel: "project"}}
+	if diff := cmp.Diff(wantData, ctx.DataSources()); diff != "" {
+		t.Errorf("data sources (-want +got):\n%s", diff)
 	}
 	if len(ctx.Errors) != 0 {
 		t.Errorf("errors = %v", ctx.Errors)
@@ -78,7 +88,7 @@ func TestCallsToAFunctionGrantsInvokerOnItsCloudRunService(t *testing.T) {
 	if diff := cmp.Diff(want, binding.Args); diff != "" {
 		t.Errorf("binding args (-want +got):\n%s", diff)
 	}
-	wantEnv := ir.Attrs{ir.A("HANDLER_URL", ir.R(fnID, ir.Field("service_config"), ir.Index(0), ir.Field("uri")))}
+	wantEnv := ir.Attrs{ir.A("HANDLER_URL", runURL("handler"))}
 	if diff := cmp.Diff(wantEnv, web.Env); diff != "" {
 		t.Errorf("env (-want +got):\n%s", diff)
 	}
@@ -112,7 +122,7 @@ func TestCallsBetweenTwoServicesAndBetweenTwoFunctionsWireTheSameWay(t *testing.
 	if diff := cmp.Diff(want, binding.Args); diff != "" {
 		t.Errorf("service to service binding (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff(ir.Attrs{ir.A("WEB_URL", ir.R(svcID, ir.Field("uri")))}, admin.Env); diff != "" {
+	if diff := cmp.Diff(ir.Attrs{ir.A("WEB_URL", runURL("web"))}, admin.Env); diff != "" {
 		t.Errorf("admin env (-want +got):\n%s", diff)
 	}
 
@@ -122,7 +132,7 @@ func TestCallsBetweenTwoServicesAndBetweenTwoFunctionsWireTheSameWay(t *testing.
 	if diff := cmp.Diff(want, binding.Args); diff != "" {
 		t.Errorf("function to function binding (-want +got):\n%s", diff)
 	}
-	wantEnv := ir.Attrs{ir.A("MAILER_URL", ir.R(mailerID, ir.Field("service_config"), ir.Index(0), ir.Field("uri")))}
+	wantEnv := ir.Attrs{ir.A("MAILER_URL", runURL("mailer"))}
 	if diff := cmp.Diff(wantEnv, handler.Env); diff != "" {
 		t.Errorf("handler env (-want +got):\n%s", diff)
 	}
@@ -190,4 +200,41 @@ func TestResolveRunsACallFromAServiceToAFunction(t *testing.T) {
 	if diff := cmp.Diff([]string{"handler_from_web"}, names); diff != "" {
 		t.Errorf("bindings (-want +got):\n%s", diff)
 	}
+}
+
+func TestResolveRunsServicesThatCallEachOther(t *testing.T) {
+	g, err := resolve.Run(newProject(t, []ir.Node{
+		serviceNode(t, "n4", "web", defaultService),
+		serviceNode(t, "n5", "admin", defaultService),
+	}, []ir.Edge{
+		{ID: "e1", From: "n4", To: "n5", Relation: ir.RelCalls},
+		{ID: "e2", From: "n5", To: "n4", Relation: ir.RelCalls},
+	}), New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Fatalf("graph is not valid:\n%s", errs.Error())
+	}
+	if diff := cmp.Diff([]string{"google_project"}, dataTypes(g.Data)); diff != "" {
+		t.Errorf("data sources (-want +got):\n%s", diff)
+	}
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	main := string(files["main.tf"])
+	for _, want := range []string{
+		`data "google_project" "current"`,
+		`value = "https://shop-dev-admin-${data.google_project.current.number}.europe-west2.run.app"`,
+		`value = "https://shop-dev-web-${data.google_project.current.number}.europe-west2.run.app"`,
+	} {
+		if !strings.Contains(main, want) {
+			t.Errorf("main.tf lacks %q", want)
+		}
+	}
+	if strings.Contains(main, ".uri") {
+		t.Error("main.tf still reads a URL off a Cloud Run resource")
+	}
+	terraformFmt(t, files)
 }
