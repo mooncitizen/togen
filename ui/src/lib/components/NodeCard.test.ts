@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { defaults, reset, serve, show, socket } from '../../harness.ts';
-import type { Config, Layout, Project } from '../types.ts';
+import { defaults, overviewLayout, reset, serve, show, socket } from '../../harness.ts';
+import type { Config, Project } from '../types.ts';
 
 const shop: Project = {
   version: 1,
@@ -18,16 +18,12 @@ const shop: Project = {
   edges: [{ id: 'edge-1', from: 'gateway-1', to: 'function-1', relation: 'routes' }],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: {
+const placed = overviewLayout({
     'gateway-1': { x: 20, y: 20 },
     'function-1': { x: 260, y: 20 },
     'database-1': { x: 500, y: 20 },
     'database-2': { x: 500, y: 140 },
-  },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+  });
 
 const styled: Config = {
   ...defaults,
@@ -139,7 +135,7 @@ test('style.nodes restyles one node and style.kinds the rest of its type', async
 test('the badge counts the problems on the node and the selected card gets the ring', async () => {
   serve(
     { ...shop, nodes: [...shop.nodes, { id: 'gateway-2', type: 'gateway', name: 'admin' }] },
-    { ...placed, nodes: { ...placed.nodes, 'gateway-2': { x: 20, y: 200 } } },
+    overviewLayout({ ...placed.views.overview.nodes, 'gateway-2': { x: 20, y: 200 } }),
   );
   const screen = await show();
 

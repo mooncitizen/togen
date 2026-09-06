@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { reset, serve, show } from '../../harness.ts';
-import type { Layout, Project, Provider } from '../types.ts';
+import { overviewLayout, reset, serve, show } from '../../harness.ts';
+import type { Project, Provider } from '../types.ts';
 
 const shop: Project = {
   version: 1,
@@ -13,11 +13,7 @@ const shop: Project = {
   edges: [],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: { 'gateway-1': { x: 20, y: 20 } },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({ 'gateway-1': { x: 20, y: 20 } });
 
 const regions: Record<Provider, string> = { aws: 'eu-west-2', gcp: 'europe-west2', azure: 'uksouth' };
 
