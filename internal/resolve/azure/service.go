@@ -33,9 +33,10 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 	appID := ir.ID{Type: app.Type, Name: app.Name}
 
 	exports := resolve.ServiceExports{
-		Port:   ir.Num(float64(p.Port)),
-		Public: p.Public,
-		URL:    ir.C(ir.Str("https://"), ir.R(appID, ir.Field("ingress"), ir.Index(0), ir.Field("fqdn"))),
+		Port:        ir.Num(float64(p.Port)),
+		Public:      p.Public,
+		URL:         ir.C(ir.Str("https://"), ir.R(appID, ir.Field("ingress"), ir.Index(0), ir.Field("fqdn"))),
+		PrincipalID: ir.R(appID, ir.Field("identity"), ir.Index(0), ir.Field("principal_id")),
 	}
 	if p.Public {
 		ctx.AddOutput(ir.Output{

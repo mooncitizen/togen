@@ -22,19 +22,24 @@ type GatewayExports struct{ APIID, ExecutionARN, URL ir.Value }
 type CloudRunExports struct{ Service, Location, URL, ServiceAccount ir.Value }
 
 // ServiceExports carries a nil URL when the service is not reachable from the internet, and a
-// nil ListenerARN until something puts a load balancer in front of it.
+// nil ListenerARN until something puts a load balancer in front of it. PrincipalID is Azure,
+// the container app's managed identity that edges grant to.
 type ServiceExports struct {
 	Port        ir.Value
 	Public      bool
 	URL         ir.Value
 	ListenerARN ir.Value
+	PrincipalID ir.Value
 }
 
-// ARN and URL are AWS. ID is the GCP topic, and DeadLetter its dead letter topic when the node
-// asks for one, so a consumer's subscription can point at it.
+// ARN and URL are AWS. ID is the GCP topic and DeadLetter its dead letter topic when the node
+// asks for one. Scope and Namespace are Azure: the queue id role assignments are scoped to,
+// and the fully qualified namespace a client connects to.
 type QueueExports struct {
-	ARN, URL, Name, ID, DeadLetter ir.Value
-	FIFO                           bool
+	ARN, URL, Name   ir.Value
+	ID, DeadLetter   ir.Value
+	Scope, Namespace ir.Value
+	FIFO             bool
 }
 
 type BucketExports struct{ ARN, Name ir.Value }

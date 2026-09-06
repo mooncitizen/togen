@@ -167,7 +167,7 @@ func TestServiceEmitsAContainerAppInAnEnvironmentOnTheAppsSubnet(t *testing.T) {
 		t.Errorf("a private service has variables %+v or outputs %+v", ctx.Variables, ctx.Outputs)
 	}
 
-	wantExports := resolve.ServiceExports{Port: ir.Num(8080), URL: webURL}
+	wantExports := resolve.ServiceExports{Port: ir.Num(8080), URL: webURL, PrincipalID: webPrincipal}
 	if diff := cmp.Diff(wantExports, handle.Exports); diff != "" {
 		t.Errorf("exports (-want +got):\n%s", diff)
 	}
@@ -209,7 +209,7 @@ func TestServiceIngressIsExternalOnlyWhenPublic(t *testing.T) {
 	if diff := cmp.Diff(ingressBlock(true, 8080)[0], appIngress(t, ctx, appID)); diff != "" {
 		t.Errorf("ingress (-want +got):\n%s", diff)
 	}
-	wantExports := resolve.ServiceExports{Port: ir.Num(8080), Public: true, URL: webURL}
+	wantExports := resolve.ServiceExports{Port: ir.Num(8080), Public: true, URL: webURL, PrincipalID: webPrincipal}
 	if diff := cmp.Diff(wantExports, handle.Exports); diff != "" {
 		t.Errorf("exports (-want +got):\n%s", diff)
 	}
