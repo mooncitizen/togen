@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	kebabPattern    = `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+	kebabPattern    = ir.KebabPattern
 	envKeyPattern   = `^[A-Z][A-Z0-9_]*$`
 	iconPathPattern = `^\.\.?/.+$`
 )
@@ -231,6 +231,14 @@ func Relations() map[string]any {
 	return map[string]any{"relations": rel}
 }
 
+func Regions() map[string]any {
+	out := make(map[string]any, len(ir.Providers))
+	for _, p := range ir.Providers {
+		out[string(p)] = ir.Regions[p]
+	}
+	return out
+}
+
 func Engines() map[string]any {
 	out := map[string]any{}
 	for _, p := range ir.Providers {
@@ -266,6 +274,7 @@ func Write(dir string) error {
 		{"relations.json", Relations()},
 		{"engines.json", Engines()},
 		{"styles.json", Styles()},
+		{"regions.json", Regions()},
 	}
 	for _, f := range files {
 		b, err := json.MarshalIndent(f.doc, "", "  ")

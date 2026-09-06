@@ -79,7 +79,16 @@ func harness(t *testing.T) (string, *httptest.Server, *Server) {
 	writeDoc(t, workspace.ProjectPath(dir), exampleProject())
 	writeDoc(t, workspace.LayoutPath(dir), overviewLayout(map[string]any{}, map[string]any{"x": 0, "y": 0, "zoom": 1}))
 	writeConfig(t, dir, "version: 1\ntargets: [hcl]\noutDir: infra\n")
+	return serve(t, dir)
+}
 
+func emptyHarness(t *testing.T) (string, *httptest.Server, *Server) {
+	t.Helper()
+	return serve(t, t.TempDir())
+}
+
+func serve(t *testing.T, dir string) (string, *httptest.Server, *Server) {
+	t.Helper()
 	studio, err := New(Options{Dir: dir})
 	if err != nil {
 		t.Fatal(err)

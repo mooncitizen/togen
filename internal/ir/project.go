@@ -39,6 +39,9 @@ const (
 
 var Providers = []CloudProvider{ProviderAWS, ProviderGCP, ProviderAzure}
 
+// Names, environments and region ids: lowercase words joined by single hyphens.
+const KebabPattern = `^[a-z][a-z0-9]*(-[a-z0-9]+)*$`
+
 type Size string
 
 const (

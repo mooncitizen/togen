@@ -198,12 +198,35 @@ func TestInitRefusesAnExistingTogenDirectory(t *testing.T) {
 	}
 }
 
+func TestInitLeavesAnExistingConfigAlone(t *testing.T) {
+	cwd := t.TempDir()
+	writeFileText(t, workspace.ConfigPath(cwd), "version: 1\ntargets: [hcl]\noutDir: build\n")
+
+	result := Init(cwd, "", "shop", false)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	want := []string{
+		"created togen/project.json and togen/layout.json",
+		"togen.yml already exists and was left as it is",
+	}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
+	}
+	if got := readFileText(t, workspace.ConfigPath(cwd)); got != "version: 1\ntargets: [hcl]\noutDir: build\n" {
+		t.Errorf("togen.yml was rewritten:\n%s", got)
+	}
+	if !workspace.Exists(workspace.ProjectPath(cwd)) {
+		t.Error("togen/project.json was not written")
+	}
+}
+
 func TestInitRejectsAnUnknownProvider(t *testing.T) {
 	result := Init(t.TempDir(), "oracle", "", false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
-	want := "unknown provider 'oracle'. Use one of aws, gcp, azure."
+	want := "provider: unknown provider 'oracle', use one of aws, gcp, azure"
 	if result.Lines[0] != want {
 		t.Errorf("line = %q, want %q", result.Lines[0], want)
 	}

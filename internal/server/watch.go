@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/fsnotify/fsnotify"
 
 	"github.com/mooncitizen/togen/internal/workspace"
 )
@@ -29,6 +30,15 @@ func (s *Server) watch() {
 		case event, ok := <-s.watcher.Events:
 			if !ok {
 				return
+			}
+			if event.Has(fsnotify.Create) && event.Name == workspace.TogenDir(s.dir) {
+				// A project appeared, from the API or a togen init in another
+				// terminal. Its files may already be there, so they are checked too.
+				_ = s.watcher.Add(event.Name)
+				pending[workspace.ProjectPath(s.dir)] = "project-changed"
+				pending[workspace.LayoutPath(s.dir)] = "layout-changed"
+				settled = time.After(debounce)
+				continue
 			}
 			path, name, ok := s.eventFor(event.Name)
 			if !ok {

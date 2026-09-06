@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -43,8 +44,13 @@ func New(opts Options) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	// togen.yml sits at the root, the project files a directory down.
-	for _, dir := range []string{workspace.TogenDir(opts.Dir), opts.Dir} {
+	// togen.yml sits at the root, the project files a directory down. A directory
+	// with no project yet has no togen/; the watcher picks it up when init creates it.
+	dirs := []string{opts.Dir}
+	if workspace.Exists(workspace.TogenDir(opts.Dir)) {
+		dirs = append(dirs, workspace.TogenDir(opts.Dir))
+	}
+	for _, dir := range dirs {
 		if err := watcher.Add(dir); err != nil {
 			_ = watcher.Close()
 			return nil, err
@@ -92,6 +98,8 @@ func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/project", s.getProject)
 	mux.HandleFunc("PUT /api/project", s.putProject)
+	mux.HandleFunc("POST /api/project/init", s.postInit)
+	mux.HandleFunc("GET /api/examples", s.getExamples)
 	mux.HandleFunc("GET /api/layout", s.getLayout)
 	mux.HandleFunc("PUT /api/layout", s.putLayout)
 	mux.HandleFunc("GET /api/views", s.getViews)
@@ -123,6 +131,14 @@ func (s *Server) serveUI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.files.ServeHTTP(w, r)
+}
+
+func (s *Server) created(written []string, files map[string][]byte) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, name := range written {
+		s.hashes[filepath.Join(s.dir, filepath.FromSlash(name))] = sha256.Sum256(files[name])
+	}
 }
 
 func (s *Server) save(path string, raw []byte) error {
