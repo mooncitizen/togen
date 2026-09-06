@@ -327,7 +327,7 @@ func TestCheckConfigRefusesAUsageKeyOnTheWrongType(t *testing.T) {
 		{Path: "usage.orders-db.storageGb", Message: "a database takes no usage keys"},
 		{Path: "usage.sessions.requests", Message: "a cache takes no usage keys"},
 		{Path: "usage.uploads.messages", Message: "a bucket takes storageGb, egressGb, requests only"},
-		{Path: "usage.web.natGb", Message: "a service takes egressGb only"},
+		{Path: "usage.web.natGb", Message: "a service takes egressGb, requests only"},
 	}
 	if diff := cmp.Diff(want, CheckConfig(config, project)); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)

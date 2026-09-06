@@ -8,8 +8,12 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [aws, azure]
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v16
       - uses: DeterminateSystems/magic-nix-cache-action@v9
-      - run: nix develop -c just refresh-prices --check
+      - run: nix develop -c just refresh-prices --provider ${{ matrix.provider }} --check

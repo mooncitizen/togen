@@ -224,6 +224,10 @@ func serviceCost(n ir.Node, region string, u cost.NodeUsage) (cost.Item, error) 
 		item.Lookups = append(item.Lookups, loadBalancerLookup(region))
 		item.Usage = append(item.Usage, capacityUnitsLookup(region, u.EgressGb))
 	}
+	// Fargate bills the task, not the request, so a requests key says nothing here.
+	if u.Requests != "" {
+		item.Unpriced = append(item.Unpriced, "requests, which Fargate does not bill for")
+	}
 	return item, nil
 }
 

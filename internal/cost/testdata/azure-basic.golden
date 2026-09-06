@@ -1,0 +1,29 @@
+api        gateway   no resource, routes go to the targets' own URLs
+                                       0.00
+orders     function  node, consumption plan, 512 MB
+  priced on defaults, no usage set
+                                       0.00
+orders-db  database  B_Standard_B1ms, postgres 17, single zone, 32 GB
+  compute  730 h   x  0.0190 USD    13.87
+  storage   32 GB  x  0.1330 USD     4.26
+                                      18.13
+jobs       queue     standard, Basic namespace
+  priced on defaults, no usage set
+                                       0.00
+uploads    bucket    hot block blob, LRS, versioned, private
+  priced on defaults, no usage set
+                                       0.00
+sessions   cache     Basic C0, redis 6, 1 node
+  node     730 h   x  0.0280 USD    20.44
+                                      20.44
+not priced
+  orders     function  executions
+  orders     function  duration
+  orders-db  database  backups beyond 32 GB
+  jobs       queue     operations (3 per message)
+  uploads    bucket    storage
+  uploads    bucket    put requests (1 in 10)
+  uploads    bucket    get requests (9 in 10)
+  uploads    bucket    egress
+
+total  38.57 USD/month  uksouth, list prices from 2026-09-06, estimate not a quote

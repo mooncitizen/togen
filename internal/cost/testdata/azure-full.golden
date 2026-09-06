@@ -1,0 +1,75 @@
+api          gateway             no resource, routes go to the targets' own URLs
+                                                0.00
+orders       function            node, consumption plan, 1024 MB
+  priced on defaults, no usage set
+                                                0.00
+worker       function            python, consumption plan, 1536 MB
+  priced on defaults, no usage set
+                                                0.00
+mailer       function            go, consumption plan, 512 MB
+  priced on defaults, no usage set
+                                                0.00
+web          service             0.5 vCPU, 1 GiB, 2 replicas, public
+  priced on defaults, no usage set
+  vcpu           730 vCPU-h   x  0.1224 USD    89.35
+  memory        1460 GiB-h    x  0.0144 USD    21.02
+                                              110.37
+admin        service             0.25 vCPU, 0.5 GiB, 1 replica, private
+  priced on defaults, no usage set
+  vcpu         182.5 vCPU-h   x  0.1224 USD    22.34
+  memory         365 GiB-h    x  0.0144 USD     5.26
+                                               27.60
+orders-db    database            GP_Standard_D2ds_v4, postgres 16, zone redundant, 64 GB
+  compute       2920 vCore-h  x  0.1030 USD   300.76
+  storage        128 GB       x  0.1330 USD    17.02
+                                              317.78
+reports-db   database            B_Standard_B1ms, mysql 8.0.21, single zone, 20 GB
+  compute        730 h        x  0.0190 USD    13.87
+  storage         20 GB       x  0.1330 USD     2.66
+                                               16.53
+jobs         queue               standard, Basic namespace
+  priced on defaults, no usage set
+                                                0.00
+events       queue               FIFO (sessions), Standard namespace
+  priced on defaults, no usage set
+                                                0.00
+uploads      bucket              hot block blob, LRS, versioned, private
+  priced on defaults, no usage set
+                                                0.00
+assets       bucket              hot block blob, LRS, unversioned, public
+  priced on defaults, no usage set
+                                                0.00
+sessions     cache               Basic C0, redis 6, 1 node
+  node           730 h        x  0.0280 USD    20.44
+                                               20.44
+rate-limits  cache               Standard C3, redis 6, 2 nodes
+  node          1460 h        x  0.2810 USD   410.26
+                                              410.26
+bus          implicit namespace  Service Bus Standard, shared by the queues
+  base charge    730 h        x  0.0134 USD     9.81
+                                                9.81
+not priced
+  orders       function            executions
+  orders       function            duration
+  worker       function            executions
+  worker       function            duration
+  mailer       function            executions
+  mailer       function            duration
+  web          service             requests
+  web          service             egress
+  admin        service             requests
+  admin        service             egress
+  orders-db    database            backups beyond 64 GB
+  reports-db   database            backups beyond 20 GB
+  jobs         queue               operations (3 per message)
+  events       queue               operations (3 per message)
+  uploads      bucket              storage
+  uploads      bucket              put requests (1 in 10)
+  uploads      bucket              get requests (9 in 10)
+  uploads      bucket              egress
+  assets       bucket              storage
+  assets       bucket              put requests (1 in 10)
+  assets       bucket              get requests (9 in 10)
+  assets       bucket              egress
+
+total  912.79 USD/month  uksouth, list prices from 2026-09-06, estimate not a quote

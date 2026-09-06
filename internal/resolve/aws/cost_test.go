@@ -1012,3 +1012,15 @@ func TestAnUnreadableRateIsAnError(t *testing.T) {
 		t.Errorf("error = %v", err)
 	}
 }
+
+func TestServiceSaysRequestsAreNotPricedOnFargate(t *testing.T) {
+	node := serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Size: ir.SizeSmall, MinReplicas: ir.Ptr(1)})
+	item, _, err := Cost().Node(node, "eu-west-2", cost.NodeUsage{Requests: "1M/month"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"requests, which Fargate does not bill for"}
+	if diff := cmp.Diff(want, item.Unpriced); diff != "" {
+		t.Errorf("unpriced (-want +got):\n%s", diff)
+	}
+}
