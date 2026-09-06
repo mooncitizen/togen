@@ -23,6 +23,8 @@ func resolveDataAccess(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Han
 		connectDatabase(ctx, from, to, target)
 	case resolve.BucketExports:
 		grantBucket(ctx, edge, from, to, caller, target)
+	case resolve.CacheExports:
+		connectCache(ctx, from, to, target)
 	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  edge.ID,
@@ -44,6 +46,18 @@ func connectDatabase(ctx *resolve.Context, from, to *resolve.Handle, target reso
 	from.SetEnv(prefix+"_NAME", target.Name)
 	from.SetEnv(prefix+"_USER", target.User)
 	from.SetEnv(prefix+"_PASSWORD", target.Password)
+	from.NeedsNetwork = true
+}
+
+// Memorystore has no users and no port to open either: the VPC is the whole boundary.
+func connectCache(ctx *resolve.Context, from, to *resolve.Handle, target resolve.CacheExports) {
+	port, ok := target.Port.(ir.Number)
+	if !ok {
+		ctx.Fail(fmt.Sprintf("cache '%s' exports a port that is not a number", to.Node.Name))
+	}
+	prefix := strings.ToUpper(ctx.Local(to.Node.Name))
+	from.SetEnv(prefix+"_HOST", target.Host)
+	from.SetEnv(prefix+"_PORT", ir.Str(strconv.FormatFloat(float64(port), 'f', -1, 64)))
 	from.NeedsNetwork = true
 }
 

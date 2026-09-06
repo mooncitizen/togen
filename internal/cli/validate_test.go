@@ -177,27 +177,6 @@ func TestValidateReportsResolverErrorsAgainstTheNode(t *testing.T) {
 	}
 }
 
-func TestValidateReportsANodeTheGCPResolverDoesNotSupportYet(t *testing.T) {
-	cwd := t.TempDir()
-	writeProject(t, cwd, map[string]any{
-		"version":     1,
-		"name":        "shop",
-		"provider":    "gcp",
-		"region":      "europe-west2",
-		"environment": "dev",
-		"nodes":       []any{map[string]any{"id": "c1", "type": "cache", "name": "sessions"}},
-		"edges":       []any{},
-	})
-	result := Validate(cwd)
-	if result.Code != 1 {
-		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
-	}
-	want := []string{"project (node c1): node type 'cache' is not supported by the gcp resolver yet"}
-	if diff := cmp.Diff(want, result.Lines); diff != "" {
-		t.Errorf("lines (-want +got):\n%s", diff)
-	}
-}
-
 func TestValidateAcceptsAnAzureProjectWithACache(t *testing.T) {
 	cwd := t.TempDir()
 	writeProject(t, cwd, map[string]any{

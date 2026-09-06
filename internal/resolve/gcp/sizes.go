@@ -23,3 +23,15 @@ var serviceSizes = map[ir.Size]serviceSize{
 	ir.SizeMedium: {CPU: "1", Memory: "1Gi"},
 	ir.SizeLarge:  {CPU: "2", Memory: "2Gi"},
 }
+
+// Standard tier starts at 5 GB, so large cannot be a 4 GB instance with a replica.
+type cacheSize struct {
+	Tier     string
+	MemoryGB int
+}
+
+var cacheSizes = map[ir.Size]cacheSize{
+	ir.SizeSmall:  {Tier: "BASIC", MemoryGB: 1},
+	ir.SizeMedium: {Tier: "BASIC", MemoryGB: 2},
+	ir.SizeLarge:  {Tier: "STANDARD_HA", MemoryGB: 5},
+}

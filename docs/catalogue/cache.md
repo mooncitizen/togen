@@ -34,7 +34,24 @@ Cost: `togen cost` prices a cache as one meter from the bundled ElastiCache list
 
 ## GCP
 
-Not implemented yet. Planned: `google_redis_instance` with `connect_mode` `PRIVATE_SERVICE_ACCESS` over the service networking connection the database already needs, sized by `memory_size_gb` rather than by node type.
+- `google_redis_instance` named `<project>-<environment>-<name>` in the project's region, Memorystore for Redis on `REDIS_7_2`. It sits on private service access: `connect_mode` is `PRIVATE_SERVICE_ACCESS`, `authorized_network` is the implicit VPC, and the instance carries an explicit `depends_on` on the service networking connection, because Terraform cannot see from its arguments that the peering has to exist first. The first node that needs the private network creates the VPC, its subnet, the VPC access connector, the reserved range and the peering, and a database and a cache in one project share them.
+- `transit_encryption_mode` is `DISABLED`. The callers are inside the VPC, and Memorystore's TLS is not the ElastiCache kind: the instance signs with its own server CA, which a client has to fetch from the instance and trust before it can connect. Nothing in the generated code can hand that certificate to a function or a service, so turning it on would produce a cache nobody can reach. Plain `redis://` works here, unlike on AWS.
+- No auth string. Memorystore can require one, but it is a secret that has to be read from the instance and given to the caller, and the VPC is already the boundary: only a node on the connector can reach the address at all.
+- Output `<name>_host`, the private address.
+
+`name` is capped at 40 characters, as on AWS. The resolver reports a name that overruns it against the node rather than letting the API reject the apply.
+
+Sizes: small `BASIC` 1 GB, medium `BASIC` 2 GB, large `STANDARD_HA` 5 GB. Basic is one node with no replica, the same shape as the single-node AWS group. Standard adds a replica in another zone and fails over on its own, and 5 GB is the smallest instance Memorystore allows on it, so large is where the cache starts surviving a zone rather than merely being bigger.
+
+### Edges
+
+`reads` and `writes` do the same thing, as on AWS. Either one sets `<NAME>_HOST` and `<NAME>_PORT` (always 6379) on the caller, where `<NAME>` is the cache's name upper-snake-cased, and puts the caller on the VPC access connector: a function gets `vpc_connector` on its service config, a service gets `vpc_access` on its template, both with egress limited to private ranges. Both edges between the same pair produce one pair of env vars.
+
+There is no port to open and no role to grant. Memorystore has no users and no IAM on the data path, so access is the network and nothing else.
+
+The generated code does not enable APIs. The GCP project needs the Memorystore for Redis, Service Networking and Serverless VPC Access APIs enabled before the first apply.
+
+Cost: `togen cost` does not price GCP yet, so a cache is listed under `not priced`.
 
 ## Azure
 
