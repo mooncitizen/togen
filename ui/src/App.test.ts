@@ -4,6 +4,7 @@ import {
   calls,
   gets,
   invalid,
+  overviewLayout,
   puts,
   refuse,
   reset,
@@ -32,13 +33,13 @@ const shop: Project = {
   ],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: { 'gateway-1': { x: 0, y: 0 }, 'function-1': { x: 300, y: 0 }, 'database-1': { x: 600, y: 0 } },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({
+  'gateway-1': { x: 0, y: 0 },
+  'function-1': { x: 300, y: 0 },
+  'database-1': { x: 600, y: 0 },
+});
 
-const unplaced: Layout = { version: 1, nodes: {}, viewport: { x: 0, y: 0, zoom: 1 } };
+const unplaced = overviewLayout({});
 
 function dropOn(target: Element, type: string, at: { x: number; y: number }) {
   const transfer = new DataTransfer();
@@ -109,8 +110,8 @@ test('dropping a type on the canvas adds a named node and saves the project and 
 
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
   const layout = puts('/api/layout')[0].body as Layout;
-  expect(layout.nodes['database-2']).toBeDefined();
-  expect(Number.isFinite(layout.nodes['database-2'].x)).toBe(true);
+  expect(layout.views.overview.nodes['database-2']).toBeDefined();
+  expect(Number.isFinite(layout.views.overview.nodes['database-2'].x)).toBe(true);
 
   await expect.element(screen.getByText('database-2')).toBeInTheDocument();
 });
@@ -157,27 +158,27 @@ test('a project with no layout is laid out left to right and saved', async () =>
 
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
   const layout = puts('/api/layout')[0].body as Layout;
-  expect(Object.keys(layout.nodes).sort()).toEqual(['database-1', 'function-1', 'gateway-1']);
-  expect(layout.nodes['gateway-1'].x).toBeLessThan(layout.nodes['function-1'].x);
-  expect(layout.nodes['function-1'].x).toBeLessThan(layout.nodes['database-1'].x);
+  expect(Object.keys(layout.views.overview.nodes).sort()).toEqual(['database-1', 'function-1', 'gateway-1']);
+  expect(layout.views.overview.nodes['gateway-1'].x).toBeLessThan(layout.views.overview.nodes['function-1'].x);
+  expect(layout.views.overview.nodes['function-1'].x).toBeLessThan(layout.views.overview.nodes['database-1'].x);
 });
 
 test('an existing position survives the auto layout', async () => {
-  serve(shop, { ...unplaced, nodes: { 'gateway-1': { x: -50, y: -50 } } });
+  serve(shop, overviewLayout({ 'gateway-1': { x: -50, y: -50 } }));
   const store = new Store();
   await store.load();
 
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
   const layout = puts('/api/layout')[0].body as Layout;
-  expect(layout.nodes['gateway-1']).toEqual({ x: -50, y: -50 });
-  expect(layout.nodes['database-1']).toBeDefined();
+  expect(layout.views.overview.nodes['gateway-1']).toEqual({ x: -50, y: -50 });
+  expect(layout.views.overview.nodes['database-1']).toBeDefined();
 });
 
 test('a broken layout fetch surfaces the error and leaves positions alone, until a reload succeeds', async () => {
   const store = new Store();
   await store.load();
   const loaded = store.positions;
-  expect(loaded['gateway-1']).toEqual(placed.nodes['gateway-1']);
+  expect(loaded['gateway-1']).toEqual(placed.views.overview.nodes['gateway-1']);
 
   let failNext = true;
   refuse((call) => {
@@ -197,7 +198,7 @@ test('a broken layout fetch surfaces the error and leaves positions alone, until
   store.reload();
 
   await vi.waitFor(() => expect(store.error).toBeNull());
-  expect(store.positions).toEqual(placed.nodes);
+  expect(store.positions).toEqual(placed.views.overview.nodes);
 });
 
 test('moving a node saves the layout once after the debounce', async () => {
@@ -211,7 +212,8 @@ test('moving a node saves the layout once after the debounce', async () => {
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
   await settle();
   expect(puts('/api/layout')).toHaveLength(1);
-  expect((puts('/api/layout')[0].body as Layout).nodes['function-1']).toEqual({ x: 130, y: 250 });
+  const layout = puts('/api/layout')[0].body as Layout;
+  expect(layout.views.overview.nodes['function-1']).toEqual({ x: 130, y: 250 });
 });
 
 test('a multi-node drag saves every dragged node, once, after the debounce', async () => {
@@ -228,8 +230,8 @@ test('a multi-node drag saves every dragged node, once, after the debounce', asy
   await settle();
   expect(puts('/api/layout')).toHaveLength(1);
   const layout = puts('/api/layout')[0].body as Layout;
-  expect(layout.nodes['function-1']).toEqual({ x: 120, y: 241 });
-  expect(layout.nodes['database-1']).toEqual({ x: 620, y: 240 });
+  expect(layout.views.overview.nodes['function-1']).toEqual({ x: 120, y: 241 });
+  expect(layout.views.overview.nodes['database-1']).toEqual({ x: 620, y: 240 });
 });
 
 test('a viewport change is saved', async () => {
@@ -239,7 +241,23 @@ test('a viewport change is saved', async () => {
   store.setViewport({ x: -40, y: 25, zoom: 1.5 });
 
   await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
-  expect((puts('/api/layout')[0].body as Layout).viewport).toEqual({ x: -40, y: 25, zoom: 1.5 });
+  const layout = puts('/api/layout')[0].body as Layout;
+  expect(layout.views.overview.viewport).toEqual({ x: -40, y: 25, zoom: 1.5 });
+});
+
+test('saving the layout keeps the entries of other views', async () => {
+  const orders = { nodes: { 'function-1': { x: 1, y: 2 } }, viewport: { x: 0, y: 0, zoom: 2 } };
+  serve(shop, { ...placed, views: { ...placed.views, orders } });
+  const store = new Store();
+  await store.load();
+
+  store.moveNode('function-1', { x: 10, y: 20 });
+
+  await vi.waitFor(() => expect(puts('/api/layout')).toHaveLength(1));
+  const layout = puts('/api/layout')[0].body as Layout;
+  expect(layout.version).toBe(2);
+  expect(layout.views.orders).toEqual(orders);
+  expect(layout.views.overview.nodes['function-1']).toEqual({ x: 10, y: 20 });
 });
 
 // Svelte Flow hides a node it has not measured yet, and a hidden node cannot be

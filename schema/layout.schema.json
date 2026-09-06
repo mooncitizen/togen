@@ -1,0 +1,121 @@
+{
+  "$id": "https://togen.dev/schema/layout.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "nodes": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "description": "Canvas x of the node's top left corner",
+            "type": "number"
+          },
+          "y": {
+            "description": "Canvas y of the node's top left corner",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "type": "object"
+      },
+      "description": "Version 1 only: positions of the one drawing",
+      "type": "object"
+    },
+    "version": {
+      "description": "File format version",
+      "minimum": 1,
+      "type": "integer"
+    },
+    "viewport": {
+      "additionalProperties": false,
+      "description": "Version 1 only: the window onto the one drawing",
+      "properties": {
+        "x": {
+          "description": "Canvas x at the left edge of the window",
+          "type": "number"
+        },
+        "y": {
+          "description": "Canvas y at the top edge of the window",
+          "type": "number"
+        },
+        "zoom": {
+          "description": "Scale, 1 being actual size",
+          "exclusiveMinimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "zoom"
+      ],
+      "type": "object"
+    },
+    "views": {
+      "additionalProperties": {
+        "additionalProperties": false,
+        "properties": {
+          "nodes": {
+            "additionalProperties": {
+              "additionalProperties": false,
+              "properties": {
+                "x": {
+                  "description": "Canvas x of the node's top left corner",
+                  "type": "number"
+                },
+                "y": {
+                  "description": "Canvas y of the node's top left corner",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "x",
+                "y"
+              ],
+              "type": "object"
+            },
+            "description": "Where each node sits, by id",
+            "type": "object"
+          },
+          "viewport": {
+            "additionalProperties": false,
+            "description": "Pan and zoom of the canvas",
+            "properties": {
+              "x": {
+                "description": "Canvas x at the left edge of the window",
+                "type": "number"
+              },
+              "y": {
+                "description": "Canvas y at the top edge of the window",
+                "type": "number"
+              },
+              "zoom": {
+                "description": "Scale, 1 being actual size",
+                "exclusiveMinimum": 0,
+                "type": "number"
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "zoom"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "description": "Version 2: a layout per view, by view id",
+      "type": "object"
+    }
+  },
+  "required": [
+    "version"
+  ],
+  "title": "Togen layout",
+  "type": "object"
+}

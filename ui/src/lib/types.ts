@@ -33,10 +33,11 @@ export type Position = { x: number; y: number };
 
 export type Viewport = { x: number; y: number; zoom: number };
 
+export type ViewLayout = { nodes: Record<string, Position>; viewport: Viewport };
+
 export type Layout = {
   version: number;
-  nodes: Record<string, Position>;
-  viewport: Viewport;
+  views: Record<string, ViewLayout>;
 };
 
 export type Generated = {

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
@@ -31,6 +30,8 @@ var Themes = []string{DefaultTheme, "light", "system"}
 //
 //go:embed togen.schema.json
 var configSchemaJSON []byte
+
+var configSchema = &compiledSchema{url: configSchemaURL, raw: configSchemaJSON}
 
 type Config struct {
 	Version int      `json:"version" yaml:"version" jsonschema:"minimum=1,description=File format version"`
@@ -94,7 +95,7 @@ func loadYAMLConfig(cwd string) (Config, error) {
 		return Config{}, &Error{fmt.Sprintf("%s: %s", shown, err)}
 	}
 	if config.Version > ir.Version {
-		return Config{}, &Error{versionMessage(shown, config.Version)}
+		return Config{}, &Error{versionMessage(shown, config.Version, ir.Version)}
 	}
 	if config.Style == nil {
 		config.Style = &Style{}
@@ -120,7 +121,7 @@ func loadLegacyConfig(cwd string) (Config, error) {
 		return Config{}, &Error{fmt.Sprintf("%s: %s", shown, err)}
 	}
 	if config.Version > ir.Version {
-		return Config{}, &Error{versionMessage(shown, config.Version)}
+		return Config{}, &Error{versionMessage(shown, config.Version, ir.Version)}
 	}
 	if len(config.Targets) == 0 {
 		return Config{}, &Error{fmt.Sprintf("%s has no targets", shown)}
@@ -128,68 +129,30 @@ func loadLegacyConfig(cwd string) (Config, error) {
 	return config, nil
 }
 
-func versionMessage(shown string, version int) string {
-	return fmt.Sprintf("%s is version %d but this Togen only understands up to %d", shown, version, ir.Version)
+func versionMessage(shown string, version, newest int) string {
+	return fmt.Sprintf("%s is version %d but this Togen only understands up to %d", shown, version, newest)
 }
 
 func validateConfig(fields map[string]any) ir.Errors {
-	sch, err := configSchema()
-	if err != nil {
-		return ir.Errors{{Message: err.Error()}}
-	}
 	instance, err := jsonValue(fields)
 	if err != nil {
 		return ir.Errors{{Message: err.Error()}}
 	}
-	err = sch.Validate(instance)
-	if err == nil {
-		return nil
-	}
-	var invalid *jsonschema.ValidationError
-	if !errors.As(err, &invalid) {
-		return ir.Errors{{Message: err.Error()}}
-	}
-	errs := ir.SchemaErrors(invalid, instance)
+	errs := configSchema.check(instance, ConfigName)
 	for i := range errs {
 		errs[i] = configError(errs[i])
 	}
 	return errs
 }
 
-// A whole-document error has no path, and the display default for an empty one
-// is the project. An icon is an anyOf of the bundled ids and a path, and the
-// schema's word for failing both says nothing a person can act on.
+// An icon is an anyOf of the bundled ids and a path, and the schema's word for
+// failing both says nothing a person can act on.
 func configError(err ir.ValidationError) ir.ValidationError {
 	parts := strings.Split(err.Path, ".")
-	switch {
-	case err.Path == "":
-		err.Path = ConfigName
-	case len(parts) == 4 && parts[0] == "style" && parts[3] == "icon":
+	if len(parts) == 4 && parts[0] == "style" && parts[3] == "icon" {
 		err.Message = iconMessage
 	}
 	return err
-}
-
-var (
-	configOnce      sync.Once
-	compiledConfig  *jsonschema.Schema
-	configSchemaErr error
-)
-
-func configSchema() (*jsonschema.Schema, error) {
-	configOnce.Do(func() {
-		var doc any
-		doc, configSchemaErr = jsonschema.UnmarshalJSON(bytes.NewReader(configSchemaJSON))
-		if configSchemaErr != nil {
-			return
-		}
-		c := jsonschema.NewCompiler()
-		if configSchemaErr = c.AddResource(configSchemaURL, doc); configSchemaErr != nil {
-			return
-		}
-		compiledConfig, configSchemaErr = c.Compile(configSchemaURL)
-	})
-	return compiledConfig, configSchemaErr
 }
 
 // The validator wants what a JSON decode produces, and YAML hands back ints and

@@ -19,18 +19,6 @@ var regions = map[ir.CloudProvider]string{
 	ir.ProviderAzure: "uksouth",
 }
 
-type layout struct {
-	Version  int            `json:"version"`
-	Nodes    map[string]any `json:"nodes"`
-	Viewport viewport       `json:"viewport"`
-}
-
-type viewport struct {
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
-	Zoom float64 `json:"zoom"`
-}
-
 func Init(cwd, provider, name string, migrate bool) Result {
 	if migrate {
 		return migrateConfig(cwd)
@@ -76,17 +64,11 @@ func Init(cwd, provider, name string, migrate bool) Result {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Result{Code: 1, Lines: []string{err.Error()}}
 	}
-	written := []struct {
-		path  string
-		value any
-	}{
-		{workspace.ProjectPath(cwd), project},
-		{workspace.LayoutPath(cwd), layout{Version: 1, Nodes: map[string]any{}, Viewport: viewport{Zoom: 1}}},
+	if err := workspace.WriteJSONFile(workspace.ProjectPath(cwd), project); err != nil {
+		return Result{Code: 1, Lines: []string{err.Error()}}
 	}
-	for _, w := range written {
-		if err := workspace.WriteJSONFile(w.path, w.value); err != nil {
-			return Result{Code: 1, Lines: []string{err.Error()}}
-		}
+	if err := workspace.WriteLayout(cwd, workspace.DefaultLayout()); err != nil {
+		return Result{Code: 1, Lines: []string{err.Error()}}
 	}
 	defaults := workspace.DefaultConfig()
 	if err := workspace.WriteRaw(workspace.ConfigPath(cwd), configFile(defaults.Targets, defaults.OutDir)); err != nil {

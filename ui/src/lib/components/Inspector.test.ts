@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { invalid, puts, refuse, reset, serve, settle, show } from '../../harness.ts';
+import { invalid, overviewLayout, puts, refuse, reset, serve, settle, show } from '../../harness.ts';
 import type { Call } from '../../harness.ts';
-import type { Layout, Node, Project } from '../types.ts';
+import type { Node, Project } from '../types.ts';
 
 const shop: Project = {
   version: 1,
@@ -33,20 +33,16 @@ const shop: Project = {
   edges: [],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: {
-    'gateway-1': { x: 0, y: 0 },
-    'function-1': { x: 200, y: 0 },
-    'database-1': { x: 400, y: 0 },
-    'service-1': { x: 0, y: 150 },
-    'queue-1': { x: 200, y: 150 },
-    'bucket-1': { x: 400, y: 150 },
-    'cache-1': { x: 0, y: 300 },
-    'database-2': { x: 200, y: 300 },
-  },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({
+  'gateway-1': { x: 0, y: 0 },
+  'function-1': { x: 200, y: 0 },
+  'database-1': { x: 400, y: 0 },
+  'service-1': { x: 0, y: 150 },
+  'queue-1': { x: 200, y: 150 },
+  'bucket-1': { x: 400, y: 150 },
+  'cache-1': { x: 0, y: 300 },
+  'database-2': { x: 200, y: 300 },
+});
 
 type Screen = Awaited<ReturnType<typeof show>>;
 

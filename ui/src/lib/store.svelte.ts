@@ -24,6 +24,7 @@ import type {
   Project,
   Relation,
   ValidationError,
+  ViewLayout,
   Viewport,
 } from './types.ts';
 import { errorLine, validateProject } from './validate.ts';
@@ -113,11 +114,16 @@ export class Store {
     }));
   });
 
+  // The studio draws the overview alone; the entries of other views ride
+  // along untouched so a save never drops them.
   get layout(): Layout {
-    return { version: this.#version, nodes: this.positions, viewport: this.viewport };
+    return {
+      version: 2,
+      views: { ...this.#views, overview: { nodes: this.positions, viewport: this.viewport } },
+    };
   }
 
-  #version = 1;
+  #views: Record<string, ViewLayout> = {};
   #cards = new Map<string, { key: string; card: FlowNode }>();
   #timer: ReturnType<typeof setTimeout> | undefined;
   #nodeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -582,9 +588,10 @@ export class Store {
       }
       layout = freshLayout();
     }
-    this.#version = layout.version ?? 1;
-    this.positions = layout.nodes ?? {};
-    this.viewport = layout.viewport ?? { x: 0, y: 0, zoom: 1 };
+    this.#views = layout.views ?? {};
+    const overview = this.#views.overview;
+    this.positions = overview?.nodes ?? {};
+    this.viewport = overview?.viewport ?? { x: 0, y: 0, zoom: 1 };
     return true;
   }
 
@@ -821,7 +828,7 @@ function settle(
 }
 
 function freshLayout(): Layout {
-  return { version: 1, nodes: {}, viewport: { x: 0, y: 0, zoom: 1 } };
+  return { version: 2, views: {} };
 }
 
 function isMissingLayout(failure: unknown): boolean {

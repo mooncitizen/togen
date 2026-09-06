@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { puts, reset, serve, settle, show, socket } from '../../harness.ts';
+import { overviewLayout, puts, reset, serve, settle, show, socket } from '../../harness.ts';
 import { Store } from '../store.svelte.ts';
 import type { Layout, Project } from '../types.ts';
 
@@ -17,11 +17,7 @@ const shop: Project = {
   edges: [{ id: 'edge-1', from: 'gateway-1', to: 'function-1', relation: 'routes' }],
 };
 
-const placed: Layout = {
-  version: 1,
-  nodes: { 'gateway-1': { x: 20, y: 20 }, 'function-1': { x: 260, y: 20 } },
-  viewport: { x: 0, y: 0, zoom: 1 },
-};
+const placed = overviewLayout({ 'gateway-1': { x: 20, y: 20 }, 'function-1': { x: 260, y: 20 } });
 
 function dropOn(target: Element, type: string, at: { x: number; y: number }) {
   const transfer = new DataTransfer();
@@ -108,7 +104,7 @@ test('undoing a delete puts the node back where it was, edges and all', async ()
   expect(store.positions['function-1']).toEqual({ x: 260, y: 20 });
   await vi.waitFor(() => {
     const layout = puts('/api/layout').at(-1)?.body as Layout;
-    expect(layout.nodes['function-1']).toEqual({ x: 260, y: 20 });
+    expect(layout.views.overview.nodes['function-1']).toEqual({ x: 260, y: 20 });
   });
 });
 

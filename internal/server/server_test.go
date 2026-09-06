@@ -40,6 +40,13 @@ func exampleProject() map[string]any {
 	}
 }
 
+func overviewLayout(nodes, viewport map[string]any) map[string]any {
+	return map[string]any{
+		"version": 2,
+		"views":   map[string]any{"overview": map[string]any{"nodes": nodes, "viewport": viewport}},
+	}
+}
+
 func marshal(t *testing.T, value any) []byte {
 	t.Helper()
 	raw, err := json.Marshal(value)
@@ -70,11 +77,7 @@ func harness(t *testing.T) (string, *httptest.Server, *Server) {
 		t.Fatal(err)
 	}
 	writeDoc(t, workspace.ProjectPath(dir), exampleProject())
-	writeDoc(t, workspace.LayoutPath(dir), map[string]any{
-		"version":  1,
-		"nodes":    map[string]any{},
-		"viewport": map[string]any{"x": 0, "y": 0, "zoom": 1},
-	})
+	writeDoc(t, workspace.LayoutPath(dir), overviewLayout(map[string]any{}, map[string]any{"x": 0, "y": 0, "zoom": 1}))
 	writeConfig(t, dir, "version: 1\ntargets: [hcl]\noutDir: infra\n")
 
 	studio, err := New(Options{Dir: dir})
@@ -410,38 +413,242 @@ func TestGetIgnoresOriginHeaders(t *testing.T) {
 	}
 }
 
+func getJSON(t *testing.T, front *httptest.Server, path string, want int) map[string]any {
+	t.Helper()
+	code, raw := send(t, front, http.MethodGet, path, nil)
+	if code != want {
+		t.Fatalf("code = %d, want %d, body = %s", code, want, raw)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatalf("parse %s: %v", raw, err)
+	}
+	return body
+}
+
 func TestLayoutRoundTrips(t *testing.T) {
 	_, front, _ := harness(t)
-	layout := map[string]any{
-		"version":  1,
-		"nodes":    map[string]any{"n1": map[string]any{"x": 40, "y": 80}},
-		"viewport": map[string]any{"x": 0, "y": 0, "zoom": 1.5},
-	}
+	layout := overviewLayout(
+		map[string]any{"n1": map[string]any{"x": 40, "y": 80}},
+		map[string]any{"x": 0, "y": 0, "zoom": 1.5},
+	)
 	if code, raw := send(t, front, http.MethodPut, "/api/layout", marshal(t, layout)); code != http.StatusNoContent {
 		t.Fatalf("put: code = %d, body = %s", code, raw)
 	}
-	code, raw := send(t, front, http.MethodGet, "/api/layout", nil)
-	if code != http.StatusOK {
-		t.Fatalf("get: code = %d, body = %s", code, raw)
+	want := overviewLayout(
+		map[string]any{"n1": map[string]any{"x": float64(40), "y": float64(80)}},
+		map[string]any{"x": float64(0), "y": float64(0), "zoom": 1.5},
+	)
+	want["version"] = float64(2)
+	if diff := cmp.Diff(want, getJSON(t, front, "/api/layout", http.StatusOK)); diff != "" {
+		t.Errorf("layout (-want +got):\n%s", diff)
 	}
-	var got map[string]any
-	if err := json.Unmarshal(raw, &got); err != nil {
+}
+
+func TestPutLayoutWritesAVersionOneBodyAsVersionTwo(t *testing.T) {
+	dir, front, _ := harness(t)
+	body := []byte(`{"version":1,"nodes":{"n1":{"x":40,"y":80}},"viewport":{"x":0,"y":0,"zoom":1.5}}`)
+	if code, raw := send(t, front, http.MethodPut, "/api/layout", body); code != http.StatusNoContent {
+		t.Fatalf("put: code = %d, body = %s", code, raw)
+	}
+	onDisk, err := os.ReadFile(workspace.LayoutPath(dir))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if diff := cmp.Diff(map[string]any{
-		"version":  float64(1),
-		"nodes":    map[string]any{"n1": map[string]any{"x": float64(40), "y": float64(80)}},
-		"viewport": map[string]any{"x": float64(0), "y": float64(0), "zoom": 1.5},
-	}, got); diff != "" {
-		t.Errorf("layout (-want +got):\n%s", diff)
+	var got map[string]any
+	if err := json.Unmarshal(onDisk, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := overviewLayout(
+		map[string]any{"n1": map[string]any{"x": float64(40), "y": float64(80)}},
+		map[string]any{"x": float64(0), "y": float64(0), "zoom": 1.5},
+	)
+	want["version"] = float64(2)
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("layout.json (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetLayoutMigratesAVersionOneFileWithoutRewritingIt(t *testing.T) {
+	dir, front, _ := harness(t)
+	text := []byte(`{"version":1,"nodes":{"n1":{"x":40,"y":80}},"viewport":{"x":0,"y":0,"zoom":1}}`)
+	if err := workspace.WriteRaw(workspace.LayoutPath(dir), text); err != nil {
+		t.Fatal(err)
+	}
+	got := getJSON(t, front, "/api/layout", http.StatusOK)
+	if got["version"] != float64(2) {
+		t.Errorf("version = %v, want 2", got["version"])
+	}
+	views, _ := got["views"].(map[string]any)
+	overview, _ := views["overview"].(map[string]any)
+	if diff := cmp.Diff(map[string]any{"n1": map[string]any{"x": float64(40), "y": float64(80)}}, overview["nodes"]); diff != "" {
+		t.Errorf("overview nodes (-want +got):\n%s", diff)
+	}
+	onDisk, err := os.ReadFile(workspace.LayoutPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(onDisk, text) {
+		t.Error("a GET rewrote the layout file")
 	}
 }
 
 func TestPutLayoutRefusesAnotherVersion(t *testing.T) {
 	_, front, _ := harness(t)
-	code, raw := send(t, front, http.MethodPut, "/api/layout", []byte(`{"version":2}`))
+	code, raw := send(t, front, http.MethodPut, "/api/layout", []byte(`{"version":3}`))
 	if code != http.StatusUnprocessableEntity {
 		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"project: togen/layout.json is version 3 but this Togen only understands up to 2"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestPutLayoutRefusesTheWrongShapeWithItsPath(t *testing.T) {
+	dir, front, _ := harness(t)
+	before, err := os.ReadFile(workspace.LayoutPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"version":2,"views":{"overview":{"nodes":{"n1":{"x":"far","y":0}}}}}`)
+	code, raw := send(t, front, http.MethodPut, "/api/layout", body)
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"views.overview.nodes.n1.x: got string, want number"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+	after, err := os.ReadFile(workspace.LayoutPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Error("the layout file was written despite the refusal")
+	}
+}
+
+func exampleViews() map[string]any {
+	return map[string]any{
+		"version": 1,
+		"views": []any{
+			map[string]any{"id": "overview", "name": "Overview", "nodes": "*"},
+			map[string]any{"id": "orders", "name": "Orders path", "nodes": []any{"n1", "n2"}},
+		},
+	}
+}
+
+func TestGetViewsAnswersWithTheOverviewWhenTheFileIsMissing(t *testing.T) {
+	_, front, _ := harness(t)
+	want := map[string]any{
+		"version": float64(1),
+		"views":   []any{map[string]any{"id": "overview", "name": "Overview", "nodes": "*"}},
+	}
+	if diff := cmp.Diff(want, getJSON(t, front, "/api/views", http.StatusOK)); diff != "" {
+		t.Errorf("views (-want +got):\n%s", diff)
+	}
+}
+
+func TestViewsRoundTrip(t *testing.T) {
+	dir, front, _ := harness(t)
+	if code, raw := send(t, front, http.MethodPut, "/api/views", marshal(t, exampleViews())); code != http.StatusNoContent {
+		t.Fatalf("put: code = %d, body = %s", code, raw)
+	}
+	onDisk, err := os.ReadFile(workspace.ViewsPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.HasPrefix(onDisk, []byte("{\n  \"version\": 1,")) || !bytes.HasSuffix(onDisk, []byte("}\n")) {
+		t.Errorf("views.json = %s, want it indented like the CLI writes", onDisk)
+	}
+	want := map[string]any{
+		"version": float64(1),
+		"views": []any{
+			map[string]any{"id": "overview", "name": "Overview", "nodes": "*"},
+			map[string]any{"id": "orders", "name": "Orders path", "nodes": []any{"n1", "n2"}},
+		},
+	}
+	if diff := cmp.Diff(want, getJSON(t, front, "/api/views", http.StatusOK)); diff != "" {
+		t.Errorf("views (-want +got):\n%s", diff)
+	}
+}
+
+func TestPutViewsRefusesWhatTheProjectCannotAnswerFor(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		edit func(views map[string]any)
+		want string
+	}{
+		{"an unknown node", func(views map[string]any) {
+			views["views"].([]any)[1].(map[string]any)["nodes"] = []any{"n1", "zz"}
+		}, "views.1.nodes.1: view 'orders' refers to missing node 'zz'"},
+		{"a missing overview", func(views map[string]any) {
+			views["views"] = views["views"].([]any)[1:]
+		}, "views: every project has an 'overview' view"},
+		{"a duplicate id", func(views map[string]any) {
+			views["views"].([]any)[1].(map[string]any)["id"] = "overview"
+		}, "views.1.id: duplicate view id 'overview'"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dir, front, _ := harness(t)
+			views := exampleViews()
+			c.edit(views)
+			code, raw := send(t, front, http.MethodPut, "/api/views", marshal(t, views))
+			if code != http.StatusUnprocessableEntity {
+				t.Fatalf("code = %d, body = %s", code, raw)
+			}
+			if diff := cmp.Diff([]string{c.want}, errorLines(t, raw)); diff != "" {
+				t.Errorf("errors (-want +got):\n%s", diff)
+			}
+			if workspace.Exists(workspace.ViewsPath(dir)) {
+				t.Error("views.json was written despite the refusal")
+			}
+		})
+	}
+}
+
+func TestPutViewsRefusesABadShapeWithItsPath(t *testing.T) {
+	_, front, _ := harness(t)
+	views := exampleViews()
+	views["views"].([]any)[1].(map[string]any)["nodes"] = "some"
+	code, raw := send(t, front, http.MethodPut, "/api/views", marshal(t, views))
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"views.1.nodes: value must be '*'"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestPutViewsNeedsAProjectThatLoads(t *testing.T) {
+	dir, front, _ := harness(t)
+	if err := os.WriteFile(workspace.ProjectPath(dir), []byte(`{"version":1,"name":"shop"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, raw := send(t, front, http.MethodPut, "/api/views", marshal(t, exampleViews()))
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"project: the views cannot be checked without a valid project"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetViewsReportsABrokenFile(t *testing.T) {
+	dir, front, _ := harness(t)
+	if err := workspace.WriteRaw(workspace.ViewsPath(dir), []byte(`{"version":1,"views":[{"id":"orders","name":"Orders","nodes":[]}]}`)); err != nil {
+		t.Fatal(err)
+	}
+	code, raw := send(t, front, http.MethodGet, "/api/views", nil)
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"views: every project has an 'overview' view"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }
 
@@ -846,10 +1053,24 @@ func TestEventsFollowTheLayout(t *testing.T) {
 	dir, front, studio := harness(t)
 	events := listen(t, front, studio)
 
-	writeDoc(t, workspace.LayoutPath(dir), map[string]any{
-		"version":  1,
-		"nodes":    map[string]any{"n1": map[string]any{"x": 10, "y": 20}},
-		"viewport": map[string]any{"x": 0, "y": 0, "zoom": 1},
-	})
+	writeDoc(t, workspace.LayoutPath(dir), overviewLayout(
+		map[string]any{"n1": map[string]any{"x": 10, "y": 20}},
+		map[string]any{"x": 0, "y": 0, "zoom": 1},
+	))
 	expectEvent(t, events, "layout-changed")
+}
+
+func TestEventsFollowTheViewsButNotTheApi(t *testing.T) {
+	dir, front, studio := harness(t)
+	events := listen(t, front, studio)
+
+	writeDoc(t, workspace.ViewsPath(dir), exampleViews())
+	expectEvent(t, events, "views-changed")
+
+	own := exampleViews()
+	own["views"].([]any)[1].(map[string]any)["name"] = "Orders"
+	if code, raw := send(t, front, http.MethodPut, "/api/views", marshal(t, own)); code != http.StatusNoContent {
+		t.Fatalf("put: code = %d, body = %s", code, raw)
+	}
+	expectNoEvent(t, events)
 }

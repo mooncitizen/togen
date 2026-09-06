@@ -45,8 +45,28 @@ func (s *Server) getProject(w http.ResponseWriter, _ *http.Request) {
 	s.sendFile(w, workspace.ProjectPath(s.dir))
 }
 
+// Always version 2, whatever the file holds; the file itself is only
+// rewritten by the next PUT.
 func (s *Server) getLayout(w http.ResponseWriter, _ *http.Request) {
-	s.sendFile(w, workspace.LayoutPath(s.dir))
+	layout, err := workspace.LoadLayout(s.dir)
+	if err != nil {
+		if !workspace.Exists(workspace.LayoutPath(s.dir)) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeRefusal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, layout)
+}
+
+func (s *Server) getViews(w http.ResponseWriter, _ *http.Request) {
+	views, err := workspace.LoadViews(s.dir)
+	if err != nil {
+		writeRefusal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, views)
 }
 
 // A missing file is not a problem: it means every default (ADR 0007). Styles
@@ -123,21 +143,41 @@ func (s *Server) putProject(w http.ResponseWriter, r *http.Request) {
 }
 
 // The canvas owns the layout, so it is checked for shape and nothing more.
+// A version 1 body is accepted and lands on disk as version 2.
 func (s *Server) putLayout(w http.ResponseWriter, r *http.Request) {
 	raw, ok := readBody(w, r)
 	if !ok {
 		return
 	}
-	var doc map[string]any
-	if err := json.Unmarshal(raw, &doc); err != nil {
-		writeError(w, http.StatusBadRequest, "the layout must be a JSON object")
+	layout, err := workspace.ParseLayout(raw)
+	if err != nil {
+		writeRefusal(w, err)
 		return
 	}
-	if version, ok := doc["version"].(float64); !ok || int(version) != 1 {
-		writeErrors(w, http.StatusUnprocessableEntity, ir.Errors{{Path: "version", Message: "the layout must have version 1"}})
+	s.saveJSON(w, workspace.LayoutPath(s.dir), layout)
+}
+
+// The node ids a view names can only be checked against a project that loads.
+func (s *Server) putViews(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBody(w, r)
+	if !ok {
 		return
 	}
-	s.saveFile(w, workspace.LayoutPath(s.dir), raw)
+	views, err := workspace.ParseViews(raw)
+	if err != nil {
+		writeRefusal(w, err)
+		return
+	}
+	project, errs, err := workspace.LoadProject(s.dir)
+	if err != nil || len(errs) > 0 {
+		writeErrors(w, http.StatusUnprocessableEntity, ir.Errors{{Message: "the views cannot be checked without a valid project"}})
+		return
+	}
+	if errs := workspace.ValidateViews(views, project); len(errs) > 0 {
+		writeErrors(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+	s.saveJSON(w, workspace.ViewsPath(s.dir), views)
 }
 
 func (s *Server) postGenerate(w http.ResponseWriter, r *http.Request) {
@@ -176,6 +216,15 @@ func (s *Server) sendFile(w http.ResponseWriter, path string) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(raw)
+}
+
+func (s *Server) saveJSON(w http.ResponseWriter, path string, value any) {
+	raw, err := workspace.Marshal(value)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	s.saveFile(w, path, raw)
 }
 
 func (s *Server) saveFile(w http.ResponseWriter, path string, raw []byte) {

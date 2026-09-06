@@ -12,6 +12,8 @@ import (
 var embedCopies = map[string]string{
 	"project.schema.json": "internal/ir/project.schema.json",
 	"togen.schema.json":   "internal/workspace/togen.schema.json",
+	"views.schema.json":   "internal/workspace/views.schema.json",
+	"layout.schema.json":  "internal/workspace/layout.schema.json",
 }
 
 func main() {
