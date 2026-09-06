@@ -23,6 +23,7 @@ var list = []Example{
 	{ID: "aws-full", Description: "Every node type, relation and property this milestone supports"},
 	{ID: "azure-basic", Description: "A gateway routing to a function that reads a database, publishes to a queue and writes to a bucket, on Azure"},
 	{ID: "gcp-basic", Description: "A gateway, a function reading a database and writing to a bucket, a queue worked by a function and a service, and a cache the service reads, on Google Cloud"},
+	{ID: "gcp-full", Description: "Every node type, relation and property on Google Cloud: a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches"},
 }
 
 func List() []Example { return slices.Clone(list) }
