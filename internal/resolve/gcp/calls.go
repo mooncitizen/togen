@@ -46,5 +46,16 @@ func resolveCalls(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) 
 			},
 		})
 	}
-	from.SetEnv(strings.ToUpper(ctx.Local(to.Node.Name))+"_URL", target.URL)
+	from.SetEnv(strings.ToUpper(ctx.Local(to.Node.Name))+"_URL", cloudRunURL(ctx, to.Node))
+}
+
+// The target's uri attribute would make the caller depend on the target, and two services
+// calling each other a cycle. Cloud Run URLs are deterministic, so the caller gets the URL
+// spelt out instead. A function's Cloud Run service shares the function's name.
+func cloudRunURL(ctx *resolve.Context, node ir.Node) ir.Value {
+	return ir.C(
+		ir.Str("https://"+ctx.Named(node.Name)+"-"),
+		ir.D(ensureProject(ctx), ir.Field("number")),
+		ir.Str("."+ctx.Project.Region+".run.app"),
+	)
 }

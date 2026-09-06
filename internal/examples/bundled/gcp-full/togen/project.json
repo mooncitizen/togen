@@ -125,6 +125,6 @@
     { "id": "edge-21", "from": "function-2", "to": "service-1", "relation": "calls" },
     { "id": "edge-22", "from": "function-1", "to": "function-3", "relation": "calls" },
     { "id": "edge-23", "from": "service-1", "to": "service-2", "relation": "calls" },
-    { "id": "edge-24", "from": "function-2", "to": "function-3", "relation": "calls" }
+    { "id": "edge-24", "from": "function-3", "to": "function-2", "relation": "calls" }
   ]
 }
