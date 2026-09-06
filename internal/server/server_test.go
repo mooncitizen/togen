@@ -499,6 +499,60 @@ func TestGetConfigReportsAnInvalidFile(t *testing.T) {
 	}
 }
 
+func TestGetConfigReportsAStyleForANodeThatDoesNotExist(t *testing.T) {
+	dir, front, _ := harness(t)
+	writeConfig(t, dir, "style:\n  nodes:\n    handler:\n      color: \"#DD344C\"\n    orders-db:\n      shape: cylinder\n")
+	code, raw := send(t, front, http.MethodGet, "/api/config", nil)
+	if code != http.StatusUnprocessableEntity {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	want := []string{"style.nodes.orders-db: there is no node named 'orders-db'"}
+	if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+
+	writeConfig(t, dir, "style:\n  nodes:\n    handler:\n      color: \"#DD344C\"\n")
+	got := getConfig(t, front, http.StatusOK)
+	style, _ := got["style"].(map[string]any)
+	if _, ok := style["nodes"].(map[string]any)["handler"]; !ok {
+		t.Errorf("config = %v", got)
+	}
+}
+
+func TestGetConfigAnswersWithoutAProjectToCheckStylesAgainst(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		spoil func(t *testing.T, dir string)
+	}{
+		{"missing", func(t *testing.T, dir string) {
+			if err := os.Remove(workspace.ProjectPath(dir)); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"not json", func(t *testing.T, dir string) {
+			if err := os.WriteFile(workspace.ProjectPath(dir), []byte("not json"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"invalid", func(t *testing.T, dir string) {
+			project := exampleProject()
+			project["edges"] = []any{map[string]any{"id": "e1", "from": "n1", "to": "zz", "relation": "routes"}}
+			writeDoc(t, workspace.ProjectPath(dir), project)
+		}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			dir, front, _ := harness(t)
+			writeConfig(t, dir, "style:\n  nodes:\n    orders-db:\n      shape: cylinder\n")
+			c.spoil(t, dir)
+			got := getConfig(t, front, http.StatusOK)
+			style, _ := got["style"].(map[string]any)
+			if _, ok := style["nodes"].(map[string]any)["orders-db"]; !ok {
+				t.Errorf("config = %v", got)
+			}
+		})
+	}
+}
+
 func TestGetConfigNamesTheLegacyFile(t *testing.T) {
 	dir, front, _ := harness(t)
 	if err := os.Remove(workspace.ConfigPath(dir)); err != nil {

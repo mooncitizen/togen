@@ -114,7 +114,8 @@ func SchemaErrors(root *jsonschema.ValidationError, instance any) Errors {
 			loc = e.InstanceLocation
 		}
 		causes := e.Causes
-		if _, ok := e.ErrorKind.(*kind.OneOf); ok {
+		switch e.ErrorKind.(type) {
+		case *kind.OneOf:
 			causes = discriminated(e, loc)
 			if len(causes) == 0 {
 				if unknown, ok := unknownNodeType(loc, instance); ok {
@@ -122,6 +123,10 @@ func SchemaErrors(root *jsonschema.ValidationError, instance any) Errors {
 					return
 				}
 			}
+		case *kind.AnyOf:
+			// The branches are alternatives, so why each one failed is noise.
+			out = append(out, schemaError(loc, "matches none of the allowed forms", instance))
+			return
 		}
 		if len(causes) == 0 {
 			out = append(out, schemaError(loc, e.ErrorKind.LocalizedString(printer), instance))

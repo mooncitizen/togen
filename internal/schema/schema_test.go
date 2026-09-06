@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mooncitizen/togen/internal/ir"
 )
 
 func TestCommittedSchemaIsCurrent(t *testing.T) {
@@ -25,6 +27,7 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 		},
 		"relations.json": {filepath.Join("..", "..", "schema", "relations.json")},
 		"engines.json":   {filepath.Join("..", "..", "schema", "engines.json")},
+		"styles.json":    {filepath.Join("..", "..", "schema", "styles.json")},
 	}
 	for name, paths := range committed {
 		want, err := os.ReadFile(filepath.Join(dir, name))
@@ -84,6 +87,8 @@ func TestConfigSchemaShape(t *testing.T) {
 		`"^(service|function|database|gateway|queue|bucket|cache)$"`,
 		`"^[a-z][a-z0-9]*(-[a-z0-9]+)*$"`,
 		`"additionalProperties":false`,
+		`"icon":{"anyOf":[{"enum":["aws/api-gateway",`,
+		`"gcp/pubsub"],"type":"string"},{"pattern":"^\\.\\.?/.+$","type":"string"}]`,
 	} {
 		if !strings.Contains(string(b), needle) {
 			t.Errorf("schema lacks %s", needle)
@@ -91,6 +96,37 @@ func TestConfigSchemaShape(t *testing.T) {
 	}
 	if _, ok := Config()["required"]; ok {
 		t.Error("nothing in the configuration is required")
+	}
+}
+
+func TestStylesShape(t *testing.T) {
+	doc := Styles()
+	for _, p := range ir.Providers {
+		if _, ok := doc[string(p)]; !ok {
+			t.Errorf("no scheme for %s", p)
+		}
+	}
+	aws, _ := doc["aws"].(map[string]any)
+	if _, ok := aws["resourceGroup"]; ok {
+		t.Error("aws has no resource group")
+	}
+	kinds, _ := aws["kinds"].(map[string]any)
+	b, err := json.Marshal(kinds["database"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `{"color":"#C925D1","icon":"aws/rds","resource":"RDS","shape":"cylinder"}`
+	if got := string(b); got != want {
+		t.Errorf("aws database = %s, want %s", got, want)
+	}
+	azure, _ := doc["azure"].(map[string]any)
+	b, err = json.Marshal(map[string]any{"network": azure["network"], "resourceGroup": azure["resourceGroup"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = `{"network":{"color":"#0078D4","kind":"VNet"},"resourceGroup":{"color":"#0078D4","kind":"Resource group"}}`
+	if got := string(b); got != want {
+		t.Errorf("azure boundaries = %s, want %s", got, want)
 	}
 }
 

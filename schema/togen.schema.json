@@ -25,9 +25,39 @@
                   "type": "string"
                 },
                 "icon": {
-                  "description": "A bundled icon id such as aws/rds or a path relative to togen.yml",
-                  "minLength": 1,
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "aws/api-gateway",
+                        "aws/ecs",
+                        "aws/elasticache",
+                        "aws/lambda",
+                        "aws/rds",
+                        "aws/s3",
+                        "aws/sqs",
+                        "azure/api-management",
+                        "azure/cache-redis",
+                        "azure/container-apps",
+                        "azure/database-postgresql",
+                        "azure/functions",
+                        "azure/service-bus",
+                        "azure/storage-blob",
+                        "gcp/api-gateway",
+                        "gcp/cloud-functions",
+                        "gcp/cloud-run",
+                        "gcp/cloud-sql",
+                        "gcp/cloud-storage",
+                        "gcp/memorystore",
+                        "gcp/pubsub"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "pattern": "^\\.\\.?/.+$",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "A bundled icon id such as aws/rds or a path relative to togen.yml"
                 },
                 "shape": {
                   "description": "Outline the node is drawn with",
@@ -58,9 +88,39 @@
                   "type": "string"
                 },
                 "icon": {
-                  "description": "A bundled icon id such as aws/rds or a path relative to togen.yml",
-                  "minLength": 1,
-                  "type": "string"
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "aws/api-gateway",
+                        "aws/ecs",
+                        "aws/elasticache",
+                        "aws/lambda",
+                        "aws/rds",
+                        "aws/s3",
+                        "aws/sqs",
+                        "azure/api-management",
+                        "azure/cache-redis",
+                        "azure/container-apps",
+                        "azure/database-postgresql",
+                        "azure/functions",
+                        "azure/service-bus",
+                        "azure/storage-blob",
+                        "gcp/api-gateway",
+                        "gcp/cloud-functions",
+                        "gcp/cloud-run",
+                        "gcp/cloud-sql",
+                        "gcp/cloud-storage",
+                        "gcp/memorystore",
+                        "gcp/pubsub"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "pattern": "^\\.\\.?/.+$",
+                      "type": "string"
+                    }
+                  ],
+                  "description": "A bundled icon id such as aws/rds or a path relative to togen.yml"
                 },
                 "shape": {
                   "description": "Outline the node is drawn with",
