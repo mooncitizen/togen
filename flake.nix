@@ -44,7 +44,7 @@
           ];
 
           shellHook = ''
-            export TF_PLUGIN_CACHE_DIR="$HOME/.terraform.d/plugin-cache"
+            export TF_PLUGIN_CACHE_DIR="''${TF_PLUGIN_CACHE_DIR:-$HOME/.terraform.d/plugin-cache}"
             mkdir -p "$TF_PLUGIN_CACHE_DIR"
 
             # Vitest browser mode drives the chromium from this driver, so
