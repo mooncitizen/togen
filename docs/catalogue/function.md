@@ -31,7 +31,7 @@ A `calls` edge to a service injects `<TARGET>_URL`, which is `http://<name>.<pro
 - `google_storage_bucket` for function sources, one per project, created by whichever function resolves first. Bucket names are global, so it is `<gcp project id>-<project>-<environment>-functions` with the project id from the `project` variable. `uniform_bucket_level_access` and `force_destroy` are on: it holds nothing but zips Terraform uploaded.
 - `google_storage_bucket_object` `<name>.zip` in that bucket, uploaded from the variable `<name>_package`, which defaults to `functions/<name>.zip` as on AWS. The generated code validates without the file; plan and apply need it.
 - `google_cloudfunctions2_function` in the project's region. `build_config` names the runtime, the entry point and the source object, with the object's `generation` alongside it: a new zip is a new generation, so Terraform rebuilds the function the way `source_code_hash` redeploys a Lambda. `service_config` carries the memory, `timeout_seconds` from `timeoutSeconds`, the service account, and the node's `env` as `environment_variables` plus whatever edges add.
-- If any edge gives the function access to something on the private network, `service_config` gains `vpc_connector` set to the implicit network's connector, with `PRIVATE_RANGES_ONLY` egress so only private addresses go through it, and the first node that needs the network creates it. No edge does that yet, so a function stays off the connector and no network is created for it.
+- If any edge gives the function access to something on the private network, `service_config` gains `vpc_connector` set to the implicit network's connector, with `PRIVATE_RANGES_ONLY` egress so only private addresses go through it, and the first node that needs the network creates it. A `reads` or `writes` edge to a database does that; a function with no such edge stays off the connector and no network is created for it.
 
 Runtimes: node `nodejs22`, python `python313`, go `go126`. The entry point is the part of `handler` after the last dot, so `index.handler` gives `handler`. Cloud Functions looks the function up by name in the source's main module (`index.js` for Node, `main.py` for Python, the package for Go) rather than by file, so the file part has nothing to say. A handler that ends in a dot names no function and is refused.
 
@@ -41,7 +41,7 @@ The generated code does not enable APIs. The GCP project needs Cloud Functions, 
 
 ### Edges
 
-A `routes` edge from the gateway opens the function to the internet and outputs its URL, described under [gateway](gateway.md). Other edges are not supported by the GCP resolver yet.
+A `routes` edge from the gateway opens the function to the internet and outputs its URL, described under [gateway](gateway.md). A `reads` or `writes` edge to a database sets the connection details on the function and puts it on the connector, described under [database](database.md). Other edges are not supported by the GCP resolver yet.
 
 ## Azure
 

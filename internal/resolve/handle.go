@@ -9,7 +9,7 @@ import (
 
 type Exports interface{ isExports() }
 
-type DatabaseExports struct{ Host, Port, Name, SecretARN ir.Value }
+type DatabaseExports struct{ Host, Port, Name, User, Password, SecretARN ir.Value }
 
 // ARN and InvokeARN are AWS. URL and PrincipalID are Azure: the function app's hostname and the
 // managed identity that edges grant to.

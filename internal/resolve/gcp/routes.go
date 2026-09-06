@@ -7,23 +7,6 @@ import (
 	"github.com/mooncitizen/togen/internal/resolve"
 )
 
-const routesLabel = "routes"
-
-type routeKey struct {
-	gateway string
-	method  ir.Method
-	path    string
-}
-
-func routeOwners(ctx *resolve.Context) map[routeKey]string {
-	owners, ok := ctx.Scratch[routesLabel].(map[routeKey]string)
-	if !ok {
-		owners = map[routeKey]string{}
-		ctx.Scratch[routesLabel] = owners
-	}
-	return owners
-}
-
 func resolveRoutes(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) {
 	if _, ok := from.Exports.(resolve.GatewayExports); !ok {
 		ctx.Fail(fmt.Sprintf("edge '%s' routes from a %s, which has no gateway exports", edge.ID, from.Node.Type))
@@ -43,18 +26,14 @@ func resolveRoutes(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle)
 // Cloud Run does not route by path, so the routes only exist to say what answers where. Two
 // edges claiming one still contradict each other, and are refused as they are on AWS.
 func claimRoutes(ctx *resolve.Context, edge ir.Edge, from *resolve.Handle) {
-	owners := routeOwners(ctx)
 	for _, method := range edge.Properties.Methods {
-		key := routeKey{gateway: from.Node.ID, method: method, path: edge.Properties.Path}
-		if owner, taken := owners[key]; taken {
+		if owner, ok := ctx.ClaimRoute(from.Node.ID, method, edge.Properties.Path, edge.ID); !ok {
 			ctx.Report(ir.ValidationError{
 				EdgeID: edge.ID,
 				Message: fmt.Sprintf("route '%s %s' on gateway '%s' is already used by edge '%s'",
 					method, edge.Properties.Path, from.Node.Name, owner),
 			})
-			continue
 		}
-		owners[key] = edge.ID
 	}
 }
 

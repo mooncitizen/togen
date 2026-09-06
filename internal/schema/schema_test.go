@@ -234,16 +234,15 @@ func TestEveryNodeVariantPropertyIsDescribed(t *testing.T) {
 
 func TestEnginesShape(t *testing.T) {
 	doc := Engines()
-	if _, ok := doc["gcp"]; ok {
-		t.Error("gcp has no engine table yet")
-	}
-	b, err := json.Marshal(doc["aws"])
-	if err != nil {
-		t.Fatal(err)
-	}
 	want := `{"mysql":{"port":3306,"versions":["8.4","8.0"]},"postgres":{"port":5432,"versions":["17","16","15"]}}`
-	if got := string(b); got != want {
-		t.Errorf("aws engines = %s, want %s", got, want)
+	for _, provider := range []string{"aws", "gcp"} {
+		b, err := json.Marshal(doc[provider])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := string(b); got != want {
+			t.Errorf("%s engines = %s, want %s", provider, got, want)
+		}
 	}
 }
 

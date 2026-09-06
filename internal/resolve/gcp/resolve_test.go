@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -66,7 +67,7 @@ func TestResolveRefusesTheNodeTypesItDoesNotSupportYetAndSkipsTheirEdges(t *test
 	errs := runErrors(t, p)
 	var want ir.Errors
 	for _, n := range p.Nodes {
-		if n.Type == ir.NodeFunction || n.Type == ir.NodeGateway {
+		if n.Type == ir.NodeFunction || n.Type == ir.NodeGateway || n.Type == ir.NodeDatabase {
 			continue
 		}
 		want = append(want, ir.ValidationError{
@@ -123,6 +124,90 @@ func TestResolveProducesAValidGraphForAGatewayAndAFunction(t *testing.T) {
 	names := slices.Sorted(maps.Keys(files))
 	if diff := cmp.Diff([]string{"main.tf", "outputs.tf", "providers.tf", "variables.tf"}, names); diff != "" {
 		t.Errorf("files (-want +got):\n%s", diff)
+	}
+	terraformFmt(t, files)
+}
+
+func TestResolveProducesAValidGraphForAFunctionReadingADatabase(t *testing.T) {
+	p := newProject(t, []ir.Node{
+		{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+		functionNode(t, "n2", "orders", defaultFunction),
+		databaseNode(t, "n3", "orders-db", defaultDatabase),
+	}, []ir.Edge{
+		{ID: "e1", From: "n1", To: "n2", Relation: ir.RelRoutes, Properties: ir.EdgeProperties{Path: "/orders", Methods: []ir.Method{ir.MethodGet}}},
+		{ID: "e2", From: "n2", To: "n3", Relation: ir.RelReads},
+		{ID: "e3", From: "n2", To: "n3", Relation: ir.RelWrites},
+	})
+	g, err := resolve.Run(p, New())
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if errs := ir.ValidateGraph(g); len(errs) > 0 {
+		t.Fatalf("graph is not valid:\n%s", errs.Error())
+	}
+	if diff := cmp.Diff([]ir.Provider{New().ProviderBlock(p), randomProviderBlock}, g.Providers); diff != "" {
+		t.Errorf("providers (-want +got):\n%s", diff)
+	}
+
+	var types []string
+	for _, r := range g.Resources {
+		types = append(types, r.Type)
+	}
+	wantTypes := []string{
+		"google_storage_bucket",
+		"google_service_account",
+		"google_storage_bucket_object",
+		"google_cloudfunctions2_function",
+		"google_compute_network",
+		"google_compute_subnetwork",
+		"google_vpc_access_connector",
+		"google_compute_global_address",
+		"google_service_networking_connection",
+		"google_sql_database_instance",
+		"google_sql_database",
+		"random_password",
+		"google_sql_user",
+		"google_cloud_run_v2_service_iam_member",
+	}
+	if diff := cmp.Diff(wantTypes, types); diff != "" {
+		t.Errorf("resources (-want +got):\n%s", diff)
+	}
+	instance := g.Resources[slices.Index(types, "google_sql_database_instance")]
+	if diff := cmp.Diff([]ir.ID{connectionID}, instance.DependsOn); diff != "" {
+		t.Errorf("depends_on (-want +got):\n%s", diff)
+	}
+
+	fn := g.Resources[slices.Index(types, "google_cloudfunctions2_function")]
+	v, _ := fn.Args.Get("service_config")
+	config := v.(ir.Block)[0]
+	if _, ok := config.Get("vpc_connector"); !ok {
+		t.Error("the function did not join the connector")
+	}
+	env, _ := config.Get("environment_variables")
+	var keys []string
+	for _, a := range env.(ir.Map) {
+		keys = append(keys, a.Key)
+	}
+	wantKeys := []string{"ORDERS_DB_HOST", "ORDERS_DB_PORT", "ORDERS_DB_NAME", "ORDERS_DB_USER", "ORDERS_DB_PASSWORD"}
+	if diff := cmp.Diff(wantKeys, keys); diff != "" {
+		t.Errorf("environment (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"orders_db_connection_name", "api_orders_url"}, outputNames(g.Outputs)); diff != "" {
+		t.Errorf("outputs (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{"project", "orders_package"}, variableNames(g.Variables)); diff != "" {
+		t.Errorf("variables (-want +got):\n%s", diff)
+	}
+
+	files, err := hcl.Emit(g)
+	if err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+	if !strings.Contains(string(files["providers.tf"]), "hashicorp/random") {
+		t.Error("providers.tf does not require the random provider")
+	}
+	if !strings.Contains(string(files["main.tf"]), "depends_on = [google_service_networking_connection.main]") {
+		t.Error("main.tf does not make the instance wait for the peering")
 	}
 	terraformFmt(t, files)
 }

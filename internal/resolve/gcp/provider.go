@@ -50,6 +50,8 @@ func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, b
 		return resolveGateway(n), true
 	case ir.NodeFunction:
 		return resolveFunction(ctx, n), true
+	case ir.NodeDatabase:
+		return resolveDatabase(ctx, n), true
 	}
 	ctx.Report(ir.ValidationError{
 		NodeID:  n.ID,
@@ -62,18 +64,12 @@ func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.H
 	switch e.Relation {
 	case ir.RelRoutes:
 		resolveRoutes(ctx, e, from, to)
+	case ir.RelReads, ir.RelWrites:
+		resolveDataAccess(ctx, e, from, to)
 	default:
 		ctx.Report(ir.ValidationError{
 			EdgeID:  e.ID,
 			Message: fmt.Sprintf("'%s' edges are not supported by the gcp resolver yet", e.Relation),
 		})
 	}
-}
-
-func nodeProps[T any](ctx *resolve.Context, n ir.Node) T {
-	p, err := ir.NodeProps[T](n)
-	if err != nil {
-		ctx.Fail(fmt.Sprintf("node '%s' has properties the gcp resolver cannot read: %v", n.ID, err))
-	}
-	return p
 }

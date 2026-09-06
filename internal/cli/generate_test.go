@@ -388,13 +388,15 @@ func TestGenerateReportsTheNodesTheGCPResolverDoesNotSupportYet(t *testing.T) {
 	project := exampleProject()
 	project["provider"] = "gcp"
 	project["region"] = "europe-west2"
+	project["nodes"] = append(project["nodes"].([]any),
+		map[string]any{"id": "n4", "type": "cache", "name": "sessions"})
 	writeProject(t, cwd, project)
 
 	result := Generate(cwd, "", "", false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
-	want := []string{"project (node n3): node type 'database' is not supported by the gcp resolver yet"}
+	want := []string{"project (node n4): node type 'cache' is not supported by the gcp resolver yet"}
 	if diff := cmp.Diff(want, result.Lines); diff != "" {
 		t.Errorf("lines (-want +got):\n%s", diff)
 	}

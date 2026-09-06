@@ -304,8 +304,8 @@ func TestValidateProjectAcceptsASupportedEngineVersion(t *testing.T) {
 
 func TestValidateProjectSkipsTheEngineCheckForAProviderWithNoTable(t *testing.T) {
 	doc := baseDoc()
-	doc["provider"] = "gcp"
-	doc["region"] = "europe-west2"
+	doc["provider"] = "azure"
+	doc["region"] = "uksouth"
 	doc["nodes"] = databaseWithVersion("9.6")
 	raw, err := json.Marshal(doc)
 	if err != nil {
