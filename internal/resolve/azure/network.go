@@ -11,6 +11,7 @@ type Network struct {
 	VirtualNetwork ir.ID
 	AppsSubnet     ir.ID
 	PostgresSubnet ir.ID
+	MySQLSubnet    ir.ID
 }
 
 const networkLabel = "network"
@@ -46,11 +47,19 @@ func createNetwork(ctx *resolve.Context) *Network {
 	})
 	vnetID := ir.ID{Type: vnet.Type, Name: vnet.Name}
 	// A /23 is the floor for a consumption-only Container Apps environment and well above the
-	// /27 a workload profiles one needs. A subnet carries one delegation, so a MySQL flexible
-	// server will need its own, at 10.0.3.0/24.
+	// /27 a workload profiles one needs.
 	apps := delegatedSubnet(ctx, group, vnetID, "apps", "10.0.0.0/23", "Microsoft.App/environments")
 	postgres := delegatedSubnet(ctx, group, vnetID, "postgres", "10.0.2.0/24", "Microsoft.DBforPostgreSQL/flexibleServers")
 	return &Network{VirtualNetwork: vnetID, AppsSubnet: apps, PostgresSubnet: postgres}
+}
+
+// A subnet carries one delegation, so MySQL gets its own beside the Postgres one. The first
+// MySQL server makes it, since most projects have none.
+func (n *Network) mysqlSubnet(ctx *resolve.Context) ir.ID {
+	if n.MySQLSubnet == (ir.ID{}) {
+		n.MySQLSubnet = delegatedSubnet(ctx, ensureGroup(ctx), n.VirtualNetwork, "mysql", "10.0.3.0/24", "Microsoft.DBforMySQL/flexibleServers")
+	}
+	return n.MySQLSubnet
 }
 
 func delegatedSubnet(ctx *resolve.Context, group *Group, vnet ir.ID, name, prefix, service string) ir.ID {

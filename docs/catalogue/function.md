@@ -58,4 +58,4 @@ The consumption plan does not join the virtual network, so a function never asks
 
 ### Edges
 
-A `routes` edge from a gateway makes the app's default hostname the gateway URL for this function and records the routes as an app setting, described under [gateway](gateway.md). Other edges are not implemented yet.
+A `routes` edge from a gateway makes the app's default hostname the gateway URL for this function and records the routes as an app setting, described under [gateway](gateway.md). A `reads` or `writes` edge to a database sets the connection as app settings, described under [database](database.md), though the consumption plan cannot join the network the server answers on. Other edges are not implemented yet.
