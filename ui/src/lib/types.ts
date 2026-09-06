@@ -40,6 +40,12 @@ export type Layout = {
   views: Record<string, ViewLayout>;
 };
 
+export type ViewNodes = '*' | string[];
+
+export type View = { id: string; name: string; nodes: ViewNodes };
+
+export type Views = { version: number; views: View[] };
+
 export type Generated = {
   dir: string;
   files: string[];

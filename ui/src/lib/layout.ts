@@ -1,11 +1,11 @@
 import dagre from '@dagrejs/dagre';
 
-import type { Position, Project } from './types.ts';
+import type { Edge, Node, Position } from './types.ts';
 
 export const nodeWidth = 180;
 export const nodeHeight = 60;
 
-export function autoLayout(project: Project): Record<string, Position> {
+export function autoLayout(project: { nodes: Node[]; edges: Edge[] }): Record<string, Position> {
   const graph = new dagre.graphlib.Graph();
   graph.setGraph({ rankdir: 'LR', ranksep: 140, nodesep: 48, marginx: 48, marginy: 48 });
   graph.setDefaultEdgeLabel(() => ({}));

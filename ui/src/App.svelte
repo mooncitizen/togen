@@ -7,6 +7,7 @@
   import Inspector from './lib/components/Inspector.svelte';
   import Rail from './lib/components/Rail.svelte';
   import TopBar from './lib/components/TopBar.svelte';
+  import ViewEditor from './lib/components/ViewEditor.svelte';
   import { Store, setStore } from './lib/store.svelte.ts';
   import { Theme, setTheme } from './lib/theme.svelte.ts';
 
@@ -19,7 +20,7 @@
     void store.load();
     const detach = theme.attach();
     const stop = events((name) => {
-      if (name === 'project-changed' || name === 'layout-changed') {
+      if (name === 'project-changed' || name === 'layout-changed' || name === 'views-changed') {
         store.reload();
       }
       if (name === 'config-changed') {
@@ -39,7 +40,11 @@
     <main class="flex min-h-0 flex-1">
       <Rail />
       <Canvas />
-      <Inspector />
+      {#if store.editing}
+        <ViewEditor />
+      {:else}
+        <Inspector />
+      {/if}
     </main>
   </div>
 </SvelteFlowProvider>

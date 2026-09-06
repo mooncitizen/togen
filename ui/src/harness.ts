@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
-import type { Config, Layout, Position, Project, Viewport } from './lib/types.ts';
+import type { Config, Layout, Position, Project, Viewport, Views } from './lib/types.ts';
 
 export type Call = { method: string; path: string; body: unknown; rawBody: string | undefined };
 
@@ -31,6 +31,11 @@ export const defaults: Config = {
   style: { theme: 'dark' },
 };
 
+export const overviewOnly: Views = {
+  version: 1,
+  views: [{ id: 'overview', name: 'Overview', nodes: '*' }],
+};
+
 export function reset() {
   made = [];
   opened = [];
@@ -39,7 +44,12 @@ export function reset() {
   window.sessionStorage.clear();
 }
 
-export function serve(project: Project, layout: Layout, config: Config = defaults) {
+export function serve(
+  project: Project,
+  layout: Layout,
+  config: Config = defaults,
+  views: Views = overviewOnly,
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string, init?: RequestInit) => {
@@ -65,6 +75,9 @@ export function serve(project: Project, layout: Layout, config: Config = default
       }
       if (call.path === '/api/config') {
         return json(config);
+      }
+      if (call.path === '/api/views') {
+        return json(views);
       }
       return new Response(null, { status: 404 });
     }),
