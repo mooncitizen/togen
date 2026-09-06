@@ -15,8 +15,8 @@ export type Boundary = {
 
 type Sketch = Pick<Project, 'name' | 'environment' | 'nodes' | 'edges'>;
 
-const cardWidth = 160;
-const cardHeight = 56;
+export const cardWidth = 160;
+export const cardHeight = 56;
 const padding = 24;
 const labelRoom = 12;
 
@@ -64,6 +64,23 @@ export function boundariesFor(
     boundaries.push(network);
   }
   return boundaries;
+}
+
+// The rectangle round every placed card in the view and the boundaries drawn
+// for them: what a picture of the view has to hold.
+export function frameFor(
+  project: Sketch,
+  visible: Set<string>,
+  positions: Record<string, Position>,
+  provider: Provider,
+): Rect | null {
+  const placed = project.nodes.filter((node) => visible.has(node.id) && node.id in positions);
+  if (placed.length === 0) {
+    return null;
+  }
+  return boundariesFor(project, visible, positions, provider)
+    .map((boundary) => boundary.rect)
+    .reduce(union, cards(placed, positions));
 }
 
 function needsNetwork(node: Node, project: Sketch): boolean {

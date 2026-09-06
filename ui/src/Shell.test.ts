@@ -161,10 +161,10 @@ test('the status pill carries the note about the legacy configuration file', asy
   await expect.element(screen.getByText(note)).toBeInTheDocument();
 });
 
-test('export is drawn but not yet available', async () => {
+test('export and generate are available once the project is loaded', async () => {
   const screen = await show();
 
-  await expect.element(screen.getByRole('button', { name: 'Export' })).toBeDisabled();
+  await expect.element(screen.getByRole('button', { name: 'Export' })).toBeEnabled();
   await expect.element(screen.getByRole('button', { name: 'Generate' })).toBeEnabled();
 });
 

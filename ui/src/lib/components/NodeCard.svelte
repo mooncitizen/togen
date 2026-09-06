@@ -53,7 +53,8 @@
     border: 1px solid color-mix(in srgb, var(--node) var(--togen-border-alpha), transparent);
   }
 
-  .card.selected {
+  /* The ring is the editor's: it comes off while the canvas is copied for an export. */
+  :global(.svelte-flow:not([data-exporting])) .card.selected {
     border-color: var(--togen-selection);
     box-shadow: 0 0 0 1px var(--togen-selection);
   }

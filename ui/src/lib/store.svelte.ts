@@ -82,6 +82,7 @@ export class Store {
   cost = $state.raw<Cost | null>(null);
   costErrors = $state.raw<ValidationError[]>([]);
   costOpen = $state(false);
+  exporting = $state(false);
   positions = $state.raw<Record<string, Position>>({});
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
   selectedNodeId = $state.raw<string | null>(null);
