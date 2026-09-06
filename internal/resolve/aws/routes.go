@@ -37,23 +37,6 @@ func uniqueRouteName(ctx *resolve.Context, name string) string {
 	}
 }
 
-const routesLabel = "routes"
-
-type routeKey struct {
-	gateway string
-	method  ir.Method
-	path    string
-}
-
-func routeOwners(ctx *resolve.Context) map[routeKey]string {
-	owners, ok := ctx.Scratch[routesLabel].(map[routeKey]string)
-	if !ok {
-		owners = map[routeKey]string{}
-		ctx.Scratch[routesLabel] = owners
-	}
-	return owners
-}
-
 func resolveRoutes(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Handle) {
 	gateway, ok := from.Exports.(resolve.GatewayExports)
 	if !ok {
@@ -163,10 +146,8 @@ func addRoutes(
 	integrationID ir.ID,
 	base string,
 ) {
-	owners := routeOwners(ctx)
 	for _, method := range edge.Properties.Methods {
-		key := routeKey{gateway: from.Node.ID, method: method, path: edge.Properties.Path}
-		if owner, taken := owners[key]; taken {
+		if owner, ok := ctx.ClaimRoute(from.Node.ID, method, edge.Properties.Path, edge.ID); !ok {
 			ctx.Report(ir.ValidationError{
 				EdgeID: edge.ID,
 				Message: fmt.Sprintf("route '%s %s' on gateway '%s' is already used by edge '%s'",
@@ -174,7 +155,6 @@ func addRoutes(
 			})
 			continue
 		}
-		owners[key] = edge.ID
 		name := uniqueRouteName(ctx, fmt.Sprintf("%s_%s_%s", base, strings.ToLower(string(method)), pathSlug(edge.Properties.Path)))
 		ctx.Add(ir.Resource{
 			Type:        "aws_apigatewayv2_route",

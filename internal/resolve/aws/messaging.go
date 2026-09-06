@@ -82,6 +82,6 @@ func resolveMessaging(ctx *resolve.Context, edge ir.Edge, from, to *resolve.Hand
 		})
 	}
 
-	p := nodeProps[ir.FunctionProps](ctx, from.Node)
+	p := resolve.Props[ir.FunctionProps](ctx, from.Node)
 	raiseVisibilityTimeout(ctx, to.Node, float64(visibilityTimeoutFactor*p.TimeoutSeconds))
 }

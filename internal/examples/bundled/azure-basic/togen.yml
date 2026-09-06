@@ -1,0 +1,14 @@
+version: 1
+targets: [hcl]
+outDir: infra
+
+# style:
+#   theme: dark            # dark, light or system
+#   kinds:                 # every node of a type
+#     function:
+#       color: "#0078D4"
+#       icon: azure/functions   # a bundled icon id, or a path relative to this file
+#       shape: card
+#   nodes:                 # one node, by name
+#     orders:
+#       color: "#DD344C"

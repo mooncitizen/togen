@@ -29,7 +29,7 @@ func queueResources(ctx *resolve.Context) map[string]*ir.Resource {
 }
 
 func resolveQueue(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.QueueProps](ctx, node)
+	p := resolve.Props[ir.QueueProps](ctx, node)
 	local := ctx.Local(node.Name)
 	name := ctx.Named(node.Name)
 	suffix := ""

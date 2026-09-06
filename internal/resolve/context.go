@@ -21,6 +21,13 @@ type Context struct {
 	providers []ir.Provider
 	declared  map[string]bool
 	handles   map[string]*Handle
+	routes    map[routeKey]string
+}
+
+type routeKey struct {
+	gateway string
+	method  ir.Method
+	path    string
 }
 
 func NewContext(p *ir.Project) *Context {
@@ -29,6 +36,7 @@ func NewContext(p *ir.Project) *Context {
 		Scratch:  map[string]any{},
 		declared: map[string]bool{},
 		handles:  map[string]*Handle{},
+		routes:   map[routeKey]string{},
 	}
 }
 
@@ -86,6 +94,24 @@ func (c *Context) Handle(nodeID string) (*Handle, bool) {
 }
 
 func (c *Context) SetHandle(nodeID string, h *Handle) { c.handles[nodeID] = h }
+
+// ClaimRoute gives a method and path on a gateway to an edge, or names the edge that took it first.
+func (c *Context) ClaimRoute(gateway string, method ir.Method, path, edge string) (string, bool) {
+	key := routeKey{gateway: gateway, method: method, path: path}
+	if owner, taken := c.routes[key]; taken {
+		return owner, false
+	}
+	c.routes[key] = edge
+	return edge, true
+}
+
+func Props[T any](c *Context, n ir.Node) T {
+	p, err := ir.NodeProps[T](n)
+	if err != nil {
+		c.Fail(fmt.Sprintf("node '%s' has properties the %s resolver cannot read: %v", n.ID, c.Project.Provider, err))
+	}
+	return p
+}
 
 func (c *Context) HasResource(id ir.ID) bool {
 	return c.declared["resource."+id.String()]

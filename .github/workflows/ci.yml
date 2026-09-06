@@ -15,7 +15,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.terraform.d/plugin-cache
-          key: terraform-plugins-${{ hashFiles('internal/resolve/aws/provider.go') }}
+          key: terraform-plugins-${{ hashFiles('internal/resolve/*/provider.go') }}
       - run: nix develop -c just check
       - run: nix develop -c golangci-lint run ./...
       - run: nix develop -c just acceptance

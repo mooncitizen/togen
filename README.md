@@ -64,6 +64,8 @@ total  52.30 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a q
 
 `examples/aws-full` is the larger sketch: every node type, every relation and every property this milestone supports, all in one project. It is what `just acceptance` generates and validates alongside `aws-basic`, so a change that breaks a pairing shows up there rather than in someone's real project. It deploys a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches, wired together with routes, calls, reads, writes, publishes and consumes.
 
+`examples/azure-basic` is the first Azure sketch: a gateway routing to a function, which becomes a resource group, a Linux Function App on a consumption plan with its storage account, and an output carrying the app's URL. `just acceptance` validates it with the `azurerm` provider alongside the AWS examples, and it grows as the Azure resolver does.
+
 ## Develop
 
 - `just check` runs `gofmt`, `go vet` and the unit tests. No Node needed.

@@ -31,4 +31,17 @@ Not implemented yet. Planned: `google_cloudfunctions2_function` with a source bu
 
 ## Azure
 
-Not implemented yet. Planned: `azurerm_linux_function_app` on a consumption plan with a storage account.
+- `azurerm_service_plan` with `os_type = "Linux"` and `sku_name = "Y1"`, the consumption plan: billed per execution, nothing when idle. One per function, as each AWS function has its own role and log group. A plan is free, so sharing one would save a resource and gain nothing.
+- `azurerm_storage_account`, Standard tier with LRS replication, which the Functions host needs for its own state and for the content share the consumption plan runs from. Its name is the project, environment and node name with the hyphens dropped, cut to the 24 character limit (the project first, since the node is what tells accounts apart), because storage account names are lowercase alphanumerics and globally unique. The function app reaches it with the account's primary access key, which is the way the provider documents for the consumption plan.
+- `azurerm_linux_function_app` in the resource group every Azure project gets, with `https_only`, a system assigned identity for the role assignments edges will add, and the runtime in `site_config.application_stack`.
+- `app_settings` from the node's `env`, plus `AzureFunctionsJobHost__functionTimeout` carrying `timeoutSeconds` as `hh:mm:ss`. That is the documented way to set a `host.json` value from outside the package, so the timeout applies without editing the code's own `host.json`. The consumption plan stops a function after ten minutes, so a `timeoutSeconds` above 600 is refused rather than written and ignored.
+
+Runtimes: node `node_version = "22"`, python `python_version = "3.12"`, go `use_custom_runtime = true`. Azure Functions has no Go worker, so a Go function runs as a custom handler: an executable the code's `host.json` names under `customHandler.description.defaultExecutablePath`, invoked over HTTP by the host.
+
+`handler` maps to nothing. On Azure the entry point is declared in the code (the function definitions in the package, or `host.json` for a custom handler), not in the infrastructure. `size` maps to nothing either: Y1 has one memory tier and scales by instance count, so small, medium and large produce the same plan.
+
+The consumption plan does not join the virtual network, so a function never asks for one. Code is deployed separately (`func azure functionapp publish`, or a zip deploy); the generated Terraform does not carry a package the way the AWS output does, so there is no package variable.
+
+### Edges
+
+A `routes` edge from a gateway makes the app's default hostname the gateway URL for this function and records the routes as an app setting, described under [gateway](gateway.md). Other edges are not implemented yet.

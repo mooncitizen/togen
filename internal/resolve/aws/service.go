@@ -16,7 +16,7 @@ const (
 )
 
 func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
-	p := nodeProps[ir.ServiceProps](ctx, node)
+	p := resolve.Props[ir.ServiceProps](ctx, node)
 	size, ok := fargateSizes[p.Size]
 	if !ok {
 		ctx.Fail(fmt.Sprintf("service '%s' has an unknown size '%s'", node.Name, p.Size))
@@ -72,7 +72,7 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 
 	// A service always runs in the VPC, so the security group is created up front rather
 	// than waiting for an edge to ask for one.
-	h := &resolve.Handle{Node: node, Env: sortedEnv(p.Env)}
+	h := &resolve.Handle{Node: node, Env: resolve.SortedEnv(p.Env)}
 	sgID := ensureSecurityGroup(ctx, h)
 	network := ensureNetwork(ctx)
 
