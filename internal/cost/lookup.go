@@ -21,6 +21,9 @@ type Lookup struct {
 	Filters  []Filter
 	Quantity float64
 	Unit     string
+	// How many of the sku's units one of the lookup's units is, when the two differ: 3600 for
+	// hours over a meter priced by the second. Zero means they are the same.
+	PerUnit float64
 }
 
 func (f Filter) String() string {

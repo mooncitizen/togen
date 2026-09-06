@@ -1,0 +1,600 @@
+{
+  "skus": [
+    {
+      "name": "services/152E-C115-5142/skus/4856-B847-F1EB",
+      "skuId": "4856-B847-F1EB",
+      "description": "Services CPU (Request-based billing)",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1",
+        "us-east1",
+        "us-west1",
+        "europe-west1",
+        "asia-east1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 180000,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 24000
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "us-central1",
+          "us-east1",
+          "us-west1",
+          "europe-west1",
+          "asia-east1"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/085C-A237-027A",
+      "skuId": "085C-A237-027A",
+      "description": "Services CPU Tier 2 (Request-based billing)",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2",
+        "europe-west3",
+        "us-west2",
+        "asia-south1",
+        "australia-southeast1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 180000,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 33600
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "europe-west2",
+          "europe-west3",
+          "us-west2",
+          "asia-south1",
+          "australia-southeast1"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/02A2-9231-36A6",
+      "skuId": "02A2-9231-36A6",
+      "description": "Services Memory (Request-based billing)",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "RAM",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1",
+        "us-east1",
+        "us-west1",
+        "europe-west1",
+        "asia-east1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 360000,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 2500
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte second",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 1073741824
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "us-central1",
+          "us-east1",
+          "us-west1",
+          "europe-west1",
+          "asia-east1"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/600C-3782-6708",
+      "skuId": "600C-3782-6708",
+      "description": "Services Memory Tier 2 (Request-based billing)",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "RAM",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2",
+        "europe-west3",
+        "us-west2",
+        "asia-south1",
+        "australia-southeast1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 360000,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 3500
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte second",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 1073741824
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "europe-west2",
+          "europe-west3",
+          "us-west2",
+          "asia-south1",
+          "australia-southeast1"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/2DA5-55D3-E679",
+      "skuId": "2DA5-55D3-E679",
+      "description": "Requests",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "Requests",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "count",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              },
+              {
+                "startUsageAmount": 2000000,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 400
+                }
+              }
+            ],
+            "usageUnitDescription": "count",
+            "baseUnit": "count",
+            "baseUnitDescription": "count",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/7EBB-8579-2C98",
+      "skuId": "7EBB-8579-2C98",
+      "description": "Services Min Instance CPU (Request-based billing)",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "us-central1",
+        "us-east1",
+        "us-west1",
+        "europe-west1",
+        "asia-east1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 2500
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "us-central1",
+          "us-east1",
+          "us-west1",
+          "europe-west1",
+          "asia-east1"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/4350-71E4-3051",
+      "skuId": "4350-71E4-3051",
+      "description": "Services Min Instance CPU Tier 2 (Request-based billing)",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2",
+        "europe-west3",
+        "us-west2",
+        "asia-south1",
+        "australia-southeast1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 3500
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "MULTI_REGIONAL",
+        "regions": [
+          "europe-west2",
+          "europe-west3",
+          "us-west2",
+          "asia-south1",
+          "australia-southeast1"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/3DFE-FD5E-A6D0",
+      "skuId": "3DFE-FD5E-A6D0",
+      "description": "Services CPU (Instance-based billing) in europe-west2",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 25200
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/900B-EA7D-0386",
+      "skuId": "900B-EA7D-0386",
+      "description": "Jobs CPU in europe-west2",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 25200
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/152E-C115-5142/skus/60D0-02B3-9EFD",
+      "skuId": "60D0-02B3-9EFD",
+      "description": "Instances CPU in europe-west2",
+      "category": {
+        "serviceDisplayName": "Cloud Run",
+        "resourceFamily": "Compute",
+        "resourceGroup": "CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "s",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 25200
+                }
+              }
+            ],
+            "usageUnitDescription": "second",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 1
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    }
+  ],
+  "nextPageToken": ""
+}

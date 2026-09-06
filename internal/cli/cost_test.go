@@ -164,26 +164,27 @@ func TestCostReportsValidationErrors(t *testing.T) {
 	}
 }
 
-// The gcp resolver refuses every node type for now, so only an empty project reaches the estimate.
-func TestCostPricesNothingForAProviderWithoutPrices(t *testing.T) {
+// The gcp matchers are wired in, but no snapshot is bundled until whoever holds a billing API
+// key runs the refresh, so a gcp project prices nothing and says so rather than failing.
+func TestCostPricesNothingForAProviderWithoutASnapshot(t *testing.T) {
 	cwd := generateCwd(t)
 	project := exampleProject()
 	project["provider"] = "gcp"
 	project["region"] = "europe-west2"
-	project["nodes"] = []any{}
-	project["edges"] = []any{}
 	writeProject(t, cwd, project)
 
 	result := Cost(cwd, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
-	want := []string{
-		"",
-		"total  0.00 USD/month  europe-west2, no gcp prices are bundled yet",
+	last := result.Lines[len(result.Lines)-1]
+	if last != "total  0.00 USD/month  europe-west2, no gcp prices are bundled yet" {
+		t.Errorf("last line = %q", last)
 	}
-	if diff := cmp.Diff(want, result.Lines); diff != "" {
-		t.Errorf("lines (-want +got):\n%s", diff)
+	for _, line := range result.Lines {
+		if strings.Contains(line, "USD") && line != last {
+			t.Errorf("a line carries a price without a snapshot: %q", line)
+		}
 	}
 }
 

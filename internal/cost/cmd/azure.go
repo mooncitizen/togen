@@ -147,7 +147,7 @@ func runAzure(check bool) error {
 	}
 	fmt.Fprintf(os.Stderr, "downloaded %s, %d skus, snapshot %s\n", size(downloaded), len(snapshot.SKUs), size(int64(len(raw))))
 	if check {
-		return compare(snapshot, azureSnapshotPath)
+		return compare(azureSnapshotPath, snapshot)
 	}
 	if err := os.WriteFile(azureSnapshotPath, raw, 0o644); err != nil {
 		return err

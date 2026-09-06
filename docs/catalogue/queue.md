@@ -62,7 +62,7 @@ Pull subscriptions for services and topic schemas are not supported yet.
 
 The generated code does not enable APIs. The GCP project needs Pub/Sub and, for a function consumer, Eventarc enabled before the first apply.
 
-Cost: `togen cost` has no GCP prices yet and reports the queue as not priced.
+Cost: `togen cost` prices a queue on one usage key, `messages`, a rate. Pub/Sub charges for bytes rather than requests, and counts a message as at least a kilobyte once when it is published and once when it is delivered, so the line is labelled `throughput (1 KB in, 1 KB out a message)` and carries two kilobytes a message: 1M/month is 1.907 GB. The meter is the global `Message Delivery Basic` sku, which Google prices per TiB, converted so the line reads in GB. A queue with no usage entry has a zero subtotal with `priced on defaults, no usage set` under it and its throughput meter under not priced. `fifo` changes what the resolver emits but not the meter, so an ordered queue costs the same. The message backlog's storage and the dead letter topic's own delivery are billed separately and are not counted. The matcher is `internal/resolve/gcp/cost.go`.
 
 ## Azure
 

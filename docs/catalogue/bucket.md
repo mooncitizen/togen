@@ -61,7 +61,7 @@ Storage answers on its public endpoint, so neither edge pulls the caller onto th
 
 Lifecycle rules and CORS are not supported yet.
 
-Cost: `togen cost` has no GCP prices yet and reports the bucket as not priced.
+Cost: `togen cost` prices a bucket on the same three usage keys as AWS, `storageGb`, `egressGb` and `requests` (a rate). `storageGb` is the `storage` line in GB-months on the region's `Standard Storage` meter. `requests` is split a tenth writes and nine tenths reads across the global `Regional Standard Class A Operations` and `Regional Standard Class B Operations` meters, labelled `class A operations (1 in 10)` and `class B operations (9 in 10)` so the split is on the page. `egressGb` is the `egress` line on `Download Worldwide Destinations (excluding Asia & Australia)`, which is tiered and holds the first tier's rate with the point where it ends; a quantity past that is priced at the first tier's rate and the line says so. A bucket with no usage entry has a zero subtotal with `priced on defaults, no usage set` under it. Versioning and public access change nothing on their own, and the autoclass and nearline classes are separate meters the resolver does not use. The matcher is `internal/resolve/gcp/cost.go`.
 
 ## Azure
 

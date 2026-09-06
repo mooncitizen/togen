@@ -11,9 +11,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        provider: [aws, azure]
+        provider: [aws, azure, gcp]
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@v16
       - uses: DeterminateSystems/magic-nix-cache-action@v9
-      - run: nix develop -c just refresh-prices --provider ${{ matrix.provider }} --check
+      - env:
+          GCP_BILLING_API_KEY: ${{ secrets.GCP_BILLING_API_KEY }}
+        run: |
+          if [ "${{ matrix.provider }}" = "gcp" ] && [ -z "$GCP_BILLING_API_KEY" ]; then
+            echo "no GCP_BILLING_API_KEY secret, skipping the gcp prices"
+            exit 0
+          fi
+          nix develop -c just refresh-prices --provider ${{ matrix.provider }} --check

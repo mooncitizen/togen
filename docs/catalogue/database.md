@@ -36,7 +36,7 @@ A `reads` or `writes` edge from a function sets `<NAME>_HOST` (the private addre
 
 The generated code does not enable APIs. The GCP project needs the Cloud SQL Admin, Service Networking and Serverless VPC Access APIs enabled before the first apply.
 
-Cost: `togen cost` does not price GCP yet, so a database is listed under `not priced`.
+Cost: `togen cost` prices a database on the Cloud SQL meters, once a GCP snapshot is bundled. A shared core tier (`db-f1-micro`) is one hourly meter, `Cloud SQL for <engine>: <availability> - Micro instance`, at 730 hours a month. A custom tier is two meters, `vCPU` at the tier's cores times 730 and `RAM` at its gigabytes times 730. Storage is `storageGb` GB-months of `Standard storage`. `highAvailability` moves every meter from the `Zonal` set to the `Regional` one, which Google prices at about twice the rate, so it doubles the item the way Multi-AZ does on AWS. The engine version does not change the price and is shown only in the summary. A database takes no usage keys. Backups are not priced and the output says so. The first node that needs the VPC also brings the access connector's instance hours under `network`. The matcher is `internal/resolve/gcp/cost.go`, beside the tier table, so a change to the tiers and its price consequence are one diff.
 
 ## Azure
 

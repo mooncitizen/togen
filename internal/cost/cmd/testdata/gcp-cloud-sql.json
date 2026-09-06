@@ -1,0 +1,1229 @@
+{
+  "skus": [
+    {
+      "name": "services/9662-B51E-5089/skus/3E1A-85BB-7956",
+      "skuId": "3E1A-85BB-7956",
+      "description": "Cloud SQL for PostgreSQL: Zonal - vCPU in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 53500000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/A466-F7CB-DD13",
+      "skuId": "A466-F7CB-DD13",
+      "description": "Cloud SQL for PostgreSQL: Zonal - RAM in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesRAM",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 9050000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/D3C0-6698-D7D2",
+      "skuId": "D3C0-6698-D7D2",
+      "description": "Cloud SQL for PostgreSQL: Regional - vCPU in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 107000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/6F5E-33D5-3944",
+      "skuId": "6F5E-33D5-3944",
+      "description": "Cloud SQL for PostgreSQL: Regional - RAM in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesRAM",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 18100000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/7A3E-C2B1-9F10",
+      "skuId": "7A3E-C2B1-9F10",
+      "description": "Cloud SQL for PostgreSQL: Zonal - Micro instance in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesF1Micro",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 12600000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/B2D4-8E7F-1C33",
+      "skuId": "B2D4-8E7F-1C33",
+      "description": "Cloud SQL for PostgreSQL: Regional - Micro instance in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesF1Micro",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 25200000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/A025-9006-CE7C",
+      "skuId": "A025-9006-CE7C",
+      "description": "Cloud SQL for PostgreSQL: Zonal - Standard storage in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SSD",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 204000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/3782-B08A-12E4",
+      "skuId": "3782-B08A-12E4",
+      "description": "Cloud SQL for PostgreSQL: Regional - Standard storage in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SSD",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 408000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/5F0C-2B9A-77E1",
+      "skuId": "5F0C-2B9A-77E1",
+      "description": "Cloud SQL for MySQL: Zonal - vCPU in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 53500000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/9D31-6C0E-4AB2",
+      "skuId": "9D31-6C0E-4AB2",
+      "description": "Cloud SQL for MySQL: Zonal - RAM in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesRAM",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 9050000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/84E2-CA20-196B",
+      "skuId": "84E2-CA20-196B",
+      "description": "Cloud SQL for MySQL: Regional - vCPU in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 107000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/CF85-986A-75A9",
+      "skuId": "CF85-986A-75A9",
+      "description": "Cloud SQL for MySQL: Regional - RAM in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesRAM",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 18100000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/E1B7-40D2-3C6F",
+      "skuId": "E1B7-40D2-3C6F",
+      "description": "Cloud SQL for MySQL: Zonal - Micro instance in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesF1Micro",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 12600000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/0A9E-7D45-B21C",
+      "skuId": "0A9E-7D45-B21C",
+      "description": "Cloud SQL for MySQL: Regional - Micro instance in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesF1Micro",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 25200000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/8AA6-0F3F-991C",
+      "skuId": "8AA6-0F3F-991C",
+      "description": "Cloud SQL for MySQL: Zonal - Standard storage in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SSD",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 204000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/B3E0-7C8F-34BF",
+      "skuId": "B3E0-7C8F-34BF",
+      "description": "Cloud SQL for MySQL: Regional - Standard storage in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SSD",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 408000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/A181-CC81-6170",
+      "skuId": "A181-CC81-6170",
+      "description": "Cloud SQL for PostgreSQL: Regional - Extended support vCPU v13 in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 160000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/273D-9B08-D338",
+      "skuId": "273D-9B08-D338",
+      "description": "Cloud SQL for MySQL: Regional - Enterprise N4 vCPU in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesN4CPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 100000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/7EE2-1B01-9DF5",
+      "skuId": "7EE2-1B01-9DF5",
+      "description": "Cloud SQL for PostgreSQL: Zonal - Low cost storage in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "PDStandard",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.mo",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 108000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte month",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 2823802781286400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/3C7D-91AF-E052",
+      "skuId": "3C7D-91AF-E052",
+      "description": "Cloud SQL for PostgreSQL: Zonal - 1 vCPU + 3.75GB RAM in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesN1Standard",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 101500000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/6E2A-C40B-5D18",
+      "skuId": "6E2A-C40B-5D18",
+      "description": "Cloud SQL for PostgreSQL: Zonal - Enterprise Plus vCPU in London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 87600000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/D4F1-08B3-A97C",
+      "skuId": "D4F1-08B3-A97C",
+      "description": "Commitment - dollar based v1: Cloud SQL database in London for 1 year",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2Instances",
+        "usageType": "Commit1Yr"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 40100000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/1B6D-3F2E-C8A0",
+      "skuId": "1B6D-3F2E-C8A0",
+      "description": "Cloud SQL for PostgreSQL: Zonal - vCPU in Belgium",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "SQLGen2InstancesCPU",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 41300000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west1"
+        ]
+      }
+    },
+    {
+      "name": "services/9662-B51E-5089/skus/F069-4893-889F",
+      "skuId": "F069-4893-889F",
+      "description": "Network Data Transfer to Google Services from EMEA to London",
+      "category": {
+        "serviceDisplayName": "Cloud SQL",
+        "resourceFamily": "Network",
+        "resourceGroup": "PremiumInternetEgress",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 0
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1073741824
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    }
+  ],
+  "nextPageToken": ""
+}

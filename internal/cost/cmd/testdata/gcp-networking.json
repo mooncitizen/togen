@@ -1,0 +1,197 @@
+{
+  "skus": [
+    {
+      "name": "services/E505-1604-58F8/skus/32E2-4EFC-EF9F",
+      "skuId": "32E2-4EFC-EF9F",
+      "description": "Networking Cloud Nat Gateway Uptime",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "CloudNAT",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 44000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/E505-1604-58F8/skus/015F-5732-FFF0",
+      "skuId": "015F-5732-FFF0",
+      "description": "Networking Cloud Nat Data Processing",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "CloudNAT",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 45000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte",
+            "baseUnit": "By",
+            "baseUnitDescription": "By",
+            "baseUnitConversionFactor": 1073741824
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/E505-1604-58F8/skus/AAF7-1D17-BFC4",
+      "skuId": "AAF7-1D17-BFC4",
+      "description": "Networking Private Nat Gateway Uptime",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "CloudNAT",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 44000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    },
+    {
+      "name": "services/E505-1604-58F8/skus/8515-9425-D2CE",
+      "skuId": "8515-9425-D2CE",
+      "description": "Networking Cloud NAT IP Usage",
+      "category": {
+        "serviceDisplayName": "Networking",
+        "resourceFamily": "Network",
+        "resourceGroup": "CloudNAT",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "global"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 5000000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "GLOBAL"
+      }
+    }
+  ],
+  "nextPageToken": ""
+}

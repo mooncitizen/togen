@@ -1,0 +1,362 @@
+{
+  "skus": [
+    {
+      "name": "services/5AF5-2C11-D467/skus/8FF9-D19D-3185",
+      "skuId": "8FF9-D19D-3185",
+      "description": "Redis Capacity Basic M1 London",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCapacity",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 59200000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/5AF5-2C11-D467/skus/583A-B0BE-7BD2",
+      "skuId": "583A-B0BE-7BD2",
+      "description": "Redis Capacity Basic M2 London",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCapacity",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 39600000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/5AF5-2C11-D467/skus/2599-6A81-3CB1",
+      "skuId": "2599-6A81-3CB1",
+      "description": "Redis Capacity Standard M1 London",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCapacity",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 98500000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/5AF5-2C11-D467/skus/D706-6EB9-B22E",
+      "skuId": "D706-6EB9-B22E",
+      "description": "Redis Capacity Standard M2 London",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCapacity",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 88800000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/5AF5-2C11-D467/skus/6B4E-CF8F-A645",
+      "skuId": "6B4E-CF8F-A645",
+      "description": "Redis Standard Node Capacity M2 London",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCapacity",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 44400000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/5AF5-2C11-D467/skus/04EF-FE6B-7ADC",
+      "skuId": "04EF-FE6B-7ADC",
+      "description": "Redis Cluster Node Default London",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCluster",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west2"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 68800000
+                }
+              }
+            ],
+            "usageUnitDescription": "hour",
+            "baseUnit": "s",
+            "baseUnitDescription": "s",
+            "baseUnitConversionFactor": 3600
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west2"
+        ]
+      }
+    },
+    {
+      "name": "services/5AF5-2C11-D467/skus/7C15-0A2D-E4B9",
+      "skuId": "7C15-0A2D-E4B9",
+      "description": "Redis Capacity Basic M1 Belgium",
+      "category": {
+        "serviceDisplayName": "Cloud Memorystore for Redis",
+        "resourceFamily": "ApplicationServices",
+        "resourceGroup": "RedisCapacity",
+        "usageType": "OnDemand"
+      },
+      "serviceRegions": [
+        "europe-west1"
+      ],
+      "pricingInfo": [
+        {
+          "summary": "",
+          "pricingExpression": {
+            "usageUnit": "GiBy.h",
+            "displayQuantity": 1,
+            "tieredRates": [
+              {
+                "startUsageAmount": 0,
+                "unitPrice": {
+                  "currencyCode": "USD",
+                  "units": "0",
+                  "nanos": 49000000
+                }
+              }
+            ],
+            "usageUnitDescription": "gibibyte hour",
+            "baseUnit": "By.s",
+            "baseUnitDescription": "By.s",
+            "baseUnitConversionFactor": 3865470566400
+          },
+          "aggregationInfo": {
+            "aggregationLevel": "ACCOUNT",
+            "aggregationInterval": "MONTHLY",
+            "aggregationCount": 1
+          },
+          "currencyConversionRate": 1,
+          "effectiveTime": "2026-08-01T00:00:00Z"
+        }
+      ],
+      "serviceProviderName": "Google",
+      "geoTaxonomy": {
+        "type": "REGIONAL",
+        "regions": [
+          "europe-west1"
+        ]
+      }
+    }
+  ],
+  "nextPageToken": ""
+}
