@@ -4,6 +4,14 @@
   import { getStore } from '../store.svelte.ts';
   import EdgeForm from './EdgeForm.svelte';
   import NodeForm from './NodeForm.svelte';
+  import StyleTab from './StyleTab.svelte';
+
+  type Tab = 'properties' | 'style';
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'properties', label: 'Properties' },
+    { id: 'style', label: 'Style' },
+  ];
 
   const store = getStore();
   const node = $derived(
@@ -12,6 +20,9 @@
   const edge = $derived(
     store.project?.edges.find((candidate) => candidate.id === store.selectedEdgeId) ?? null,
   );
+
+  // Outlives the panel, so the tab chosen for one node is the one the next opens on.
+  let tab = $state<Tab>('properties');
 
   function keydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
@@ -61,10 +72,31 @@
         </svg>
       </button>
     </header>
+    {#if node !== null}
+      <div class="flex shrink-0 gap-1 border-b border-border px-3 pt-2" role="tablist">
+        {#each tabs as entry (entry.id)}
+          <button
+            id="inspector-tab-{entry.id}"
+            class="-mb-px border-b-2 px-2 pt-1.5 pb-2 font-medium {tab === entry.id
+              ? 'border-accent text-text'
+              : 'border-transparent text-muted hover:text-text'}"
+            role="tab"
+            aria-selected={tab === entry.id}
+            onclick={() => (tab = entry.id)}>{entry.label}</button
+          >
+        {/each}
+      </div>
+    {/if}
     <div class="min-h-0 flex-1 overflow-y-auto">
       {#if node !== null}
         {#key node.id}
-          <NodeForm {node} />
+          <div role="tabpanel" aria-labelledby="inspector-tab-{tab}">
+            {#if tab === 'style'}
+              <StyleTab {node} />
+            {:else}
+              <NodeForm {node} />
+            {/if}
+          </div>
         {/key}
       {:else if edge !== null}
         {#key edge.id}
