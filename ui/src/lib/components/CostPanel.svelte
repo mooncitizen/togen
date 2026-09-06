@@ -1,13 +1,14 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
 
-  import { belongs, money, quantity, unitPrice } from '../cost.ts';
+  import { belongs, money, onDefaults, quantity, unitPrice } from '../cost.ts';
   import { getStore } from '../store.svelte.ts';
   import { errorLine } from '../validate.ts';
 
   const store = getStore();
   const cost = $derived(store.cost);
   const lines = $derived(store.costErrors.map(errorLine));
+  const defaulted = $derived(onDefaults(cost));
   const selected = $derived(
     store.project?.nodes.find((node) => node.id === store.selectedNodeId) ?? null,
   );
@@ -97,6 +98,9 @@
                 >
                 <span class="text-right font-mono">{money(line.amount)}</span>
               </div>
+              {#if line.note}
+                <p class="pl-3 text-[11px] text-muted">{line.note}</p>
+              {/if}
             {/each}
             <div class="grid grid-cols-[1fr_auto] items-baseline gap-x-3 text-xs">
               <span class="text-right text-[11px] text-muted">subtotal</span>
@@ -139,6 +143,9 @@
         <span class="font-mono">{money(cost.total)} {cost.currency}/month</span>
       </div>
       <p>{cost.region}, {cost.note}</p>
+      {#if defaulted.length > 0}
+        <p>On defaults, no usage set: {defaulted.join(', ')}</p>
+      {/if}
       {#if cost.warning}
         <p class="text-warn">{cost.warning}</p>
       {/if}

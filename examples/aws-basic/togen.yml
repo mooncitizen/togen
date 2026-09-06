@@ -12,3 +12,15 @@ outDir: infra
 #   nodes:                 # one node, by name
 #     orders-db:
 #       color: "#DD344C"
+
+usage:                     # what togen cost prices the pay-per-use nodes on, by name
+  api:
+    requests: 500/min
+  orders:
+    invocations: 2M/month
+    durationMs: 300
+  uploads:
+    storageGb: 200
+    egressGb: 40
+  web:
+    egressGb: 100

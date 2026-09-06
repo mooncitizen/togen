@@ -16,7 +16,7 @@ func Validate(cwd string) Result {
 		return noted(failure(err), note)
 	}
 	if len(errs) == 0 {
-		errs = workspace.CheckStyle(config, project)
+		errs = workspace.CheckConfig(config, project)
 	}
 	if len(errs) > 0 {
 		return Result{Code: 1, Lines: errorLines(errs), Note: note}

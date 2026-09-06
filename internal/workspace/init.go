@@ -123,8 +123,8 @@ func CreateProject(cwd string, files map[string][]byte) ([]string, error) {
 	return written, nil
 }
 
-// The style block is commented out: it is here to be read and uncommented, and
-// the studio reads this file but never writes it (ADR 0007).
+// The style and usage blocks are commented out: they are here to be read and
+// uncommented, and the studio reads this file but never writes it (ADR 0007).
 func ConfigFile(targets []string, outDir string) []byte {
 	return fmt.Appendf(nil, `version: %d
 targets: [%s]
@@ -140,6 +140,23 @@ outDir: %s
 #   nodes:                 # one node, by name
 #     orders-db:
 #       color: "#DD344C"
+
+# usage:                   # what togen cost prices the pay-per-use nodes on, by name
+#   api:                   # gateway: requests
+#     requests: 500/min    # a rate is a number per min, hour, day or month, k and M allowed
+#   orders:                # function: invocations and durationMs
+#     invocations: 2M/month
+#     durationMs: 300
+#   jobs:                  # queue: messages
+#     messages: 100k/day
+#   uploads:               # bucket: storageGb, egressGb and requests
+#     storageGb: 200
+#     egressGb: 40
+#     requests: 1M/month
+#   web:                   # service: egressGb
+#     egressGb: 100
+#   network:               # the implicit network: natGb
+#     natGb: 50
 `, ir.Version, strings.Join(targets, ", "), outDir)
 }
 

@@ -20,6 +20,7 @@ func fixture() *Snapshot {
 			{ID: "regional-nat-euw2", Service: "svc", Attributes: map[string]string{"kind": "nat", "regionCode": "eu-west-2", "usagetype": "EUW2-RegionalNatGateway-Hours"}, Unit: "Hrs", Price: 0.05},
 			{ID: "nat-use1", Service: "svc", Attributes: map[string]string{"kind": "nat", "regionCode": "us-east-1", "usagetype": "NatGateway-Hours"}, Unit: "Hrs", Price: 0.045},
 			{ID: "other-service", Service: "other", Attributes: map[string]string{"kind": "db", "regionCode": "eu-west-2"}, Unit: "Hrs", Price: 9},
+			{ID: "requests-euw2", Service: "svc", Attributes: map[string]string{"kind": "requests", "regionCode": "eu-west-2"}, Unit: "Requests", Price: 0.000001, UpTo: 300000000},
 		},
 	}
 }

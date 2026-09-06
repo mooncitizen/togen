@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/style"
 )
@@ -34,10 +36,11 @@ var configSchemaJSON []byte
 var configSchema = &compiledSchema{url: configSchemaURL, raw: configSchemaJSON}
 
 type Config struct {
-	Version int      `json:"version" yaml:"version" jsonschema:"minimum=1,description=File format version"`
-	Targets []string `json:"targets" yaml:"targets" jsonschema:"minItems=1,description=Code generators to run"`
-	OutDir  string   `json:"outDir"  yaml:"outDir"  jsonschema:"minLength=1,description=Directory the generated code is written to"`
-	Style   *Style   `json:"style,omitempty" yaml:"style,omitempty" jsonschema:"description=How the studio draws the diagram"`
+	Version int        `json:"version" yaml:"version" jsonschema:"minimum=1,description=File format version"`
+	Targets []string   `json:"targets" yaml:"targets" jsonschema:"minItems=1,description=Code generators to run"`
+	OutDir  string     `json:"outDir"  yaml:"outDir"  jsonschema:"minLength=1,description=Directory the generated code is written to"`
+	Style   *Style     `json:"style,omitempty" yaml:"style,omitempty" jsonschema:"description=How the studio draws the diagram"`
+	Usage   cost.Usage `json:"usage,omitempty" yaml:"usage,omitempty" jsonschema:"description=Expected monthly usage per node, for togen cost"`
 }
 
 type Style struct {
@@ -146,14 +149,19 @@ func validateConfig(fields map[string]any) ir.Errors {
 }
 
 // An icon is an anyOf of the bundled ids and a path, and the schema's word for
-// failing both says nothing a person can act on.
+// failing both says nothing a person can act on; a rate's pattern is as opaque.
 func configError(err ir.ValidationError) ir.ValidationError {
 	parts := strings.Split(err.Path, ".")
-	if len(parts) == 4 && parts[0] == "style" && parts[3] == "icon" {
+	switch {
+	case len(parts) == 4 && parts[0] == "style" && parts[3] == "icon":
 		err.Message = iconMessage
+	case len(parts) == 3 && parts[0] == "usage" && slices.Contains(rateKeys, parts[2]):
+		err.Message = cost.RateHelp
 	}
 	return err
 }
+
+var rateKeys = []string{"requests", "invocations", "messages"}
 
 // The validator wants what a JSON decode produces, and YAML hands back ints and
 // timestamps, so the parsed document goes through JSON on its way in.

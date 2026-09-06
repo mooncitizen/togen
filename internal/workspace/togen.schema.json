@@ -159,6 +159,54 @@
       "minItems": 1,
       "type": "array"
     },
+    "usage": {
+      "additionalProperties": false,
+      "description": "Usage of one node by name, or of the network",
+      "patternProperties": {
+        "^[a-z][a-z0-9]*(-[a-z0-9]+)*$": {
+          "additionalProperties": false,
+          "properties": {
+            "durationMs": {
+              "description": "Milliseconds one run of a function takes",
+              "minimum": 0,
+              "type": "number"
+            },
+            "egressGb": {
+              "description": "Gigabytes a bucket or service sends to the internet a month",
+              "minimum": 0,
+              "type": "number"
+            },
+            "invocations": {
+              "description": "Times a function runs (a rate)",
+              "pattern": "^[0-9]+(\\.[0-9]+)?[kM]?/(min|hour|day|month)$",
+              "type": "string"
+            },
+            "messages": {
+              "description": "Messages a queue carries (a rate)",
+              "pattern": "^[0-9]+(\\.[0-9]+)?[kM]?/(min|hour|day|month)$",
+              "type": "string"
+            },
+            "natGb": {
+              "description": "Gigabytes the network's NAT gateway processes a month",
+              "minimum": 0,
+              "type": "number"
+            },
+            "requests": {
+              "description": "Requests a gateway serves or a bucket takes (a rate)",
+              "pattern": "^[0-9]+(\\.[0-9]+)?[kM]?/(min|hour|day|month)$",
+              "type": "string"
+            },
+            "storageGb": {
+              "description": "Gigabytes a bucket holds over the month",
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
     "version": {
       "description": "File format version",
       "minimum": 1,

@@ -11,21 +11,21 @@ import (
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
-// Prices databases with an instance and a disk, gateways at rest on a request meter, and adds
-// a nat when there is a database.
+// Prices databases with an instance and a disk, gateways on a request meter the usage block
+// drives, and adds a nat when there is a database.
 type fakeMatchers struct{}
 
-func (fakeMatchers) Node(n ir.Node, region string) (Item, bool, error) {
+func (fakeMatchers) Node(n ir.Node, region string, u NodeUsage) (Item, bool, error) {
 	if n.Type == ir.NodeGateway {
 		requests := lookup("requests", region)
-		requests.Quantity, requests.Unit = 0, "requests"
+		requests.Unit = "requests"
+		requests.Quantity, _ = u.Requests.PerMonth()
 		return Item{
 			Name:     n.Name,
 			Kind:     string(n.Type),
 			Summary:  "HTTP API",
-			Note:     "priced at rest, usage not set",
 			Usage:    []Lookup{requests},
-			Unpriced: []string{"requests", "data transfer"},
+			Unpriced: []string{"data transfer"},
 		}, true, nil
 	}
 	if n.Type != ir.NodeDatabase {
@@ -42,7 +42,7 @@ func (fakeMatchers) Node(n ir.Node, region string) (Item, bool, error) {
 	}, true, nil
 }
 
-func (fakeMatchers) Implicit(p *ir.Project) []Item {
+func (fakeMatchers) Implicit(p *ir.Project, _ Usage) []Item {
 	for _, n := range p.Nodes {
 		if n.Type == ir.NodeDatabase {
 			nat := lookup("nat", p.Region)
@@ -67,7 +67,7 @@ var (
 )
 
 func TestEstimatePricesEveryLineAndAddsThemUp(t *testing.T) {
-	doc, err := Estimate(project("eu-west-2", gateway, database, queue), fakeMatchers{}, fixture(), taken)
+	doc, err := Estimate(project("eu-west-2", gateway, database, queue), fakeMatchers{}, fixture(), nil, taken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestEstimatePricesEveryLineAndAddsThemUp(t *testing.T) {
 		Currency: "USD",
 		Items: []Priced{
 			{
-				Name: "api", Kind: "gateway", Summary: "HTTP API", Note: "priced at rest, usage not set",
+				Name: "api", Kind: "gateway", Summary: "HTTP API", Note: "priced on defaults, no usage set",
 				Lines: []Line{}, Subtotal: 0,
 			},
 			{
@@ -110,8 +110,73 @@ func TestEstimatePricesEveryLineAndAddsThemUp(t *testing.T) {
 	}
 }
 
+func TestEstimatePricesTheUsageLinesTheBlockSets(t *testing.T) {
+	usage := Usage{"api": {Requests: "2M/month"}}
+	doc, err := Estimate(project("eu-west-2", gateway), fakeMatchers{}, fixture(), usage, taken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Priced{
+		Name: "api", Kind: "gateway", Summary: "HTTP API",
+		Lines:    []Line{{Label: "requests", Quantity: 2000000, Unit: "requests", UnitPrice: 0.000001, Amount: 2, SKU: "requests-euw2"}},
+		Subtotal: 2,
+	}
+	if diff := cmp.Diff(want, doc.Items[0]); diff != "" {
+		t.Errorf("gateway (-want +got):\n%s", diff)
+	}
+	wantOmitted := []Omission{{Name: "api", Kind: "gateway", Reason: "data transfer"}}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+	if doc.Total != 2 {
+		t.Errorf("total = %v", doc.Total)
+	}
+}
+
+// An entry with the meter left out is not on defaults, but the meter is still not priced.
+func TestEstimateListsAUsageMeterTheEntryLeavesOut(t *testing.T) {
+	usage := Usage{"api": {}}
+	doc, err := Estimate(project("eu-west-2", gateway), fakeMatchers{}, fixture(), usage, taken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := doc.Items[0]; got.Note != "" || len(got.Lines) != 0 {
+		t.Errorf("gateway = %+v", got)
+	}
+	wantOmitted := []Omission{
+		{Name: "api", Kind: "gateway", Reason: "requests"},
+		{Name: "api", Kind: "gateway", Reason: "data transfer"},
+	}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+}
+
+func TestEstimateNotesAQuantityPastTheFirstTier(t *testing.T) {
+	usage := Usage{"api": {Requests: "400M/month"}}
+	doc, err := Estimate(project("eu-west-2", gateway), fakeMatchers{}, fixture(), usage, taken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := Line{
+		Label: "requests", Quantity: 400000000, Unit: "requests", UnitPrice: 0.000001, Amount: 400, SKU: "requests-euw2",
+		Note: "past the first tier of 300,000,000 requests, priced at its rate",
+	}
+	if diff := cmp.Diff(want, doc.Items[0].Lines[0]); diff != "" {
+		t.Errorf("line (-want +got):\n%s", diff)
+	}
+	table := doc.Table()
+	if diff := cmp.Diff([]string{
+		"api  gateway  HTTP API",
+		"  requests  400000000 requests  x  0.000001 USD   400.00",
+		"    past the first tier of 300,000,000 requests, priced at its rate",
+	}, table[:3]); diff != "" {
+		t.Errorf("table (-want +got):\n%s", diff)
+	}
+}
+
 func TestEstimateFollowsTheProjectRegion(t *testing.T) {
-	doc, err := Estimate(project("us-east-1", database), fakeMatchers{}, fixture(), taken)
+	doc, err := Estimate(project("us-east-1", database), fakeMatchers{}, fixture(), nil, taken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +189,7 @@ func TestEstimateFollowsTheProjectRegion(t *testing.T) {
 }
 
 func TestEstimateRefusesARegionTheSnapshotLacks(t *testing.T) {
-	_, err := Estimate(project("eu-west-9", database), fakeMatchers{}, fixture(), taken)
+	_, err := Estimate(project("eu-west-9", database), fakeMatchers{}, fixture(), nil, taken)
 	if err == nil || err.Error() != "no aws prices are bundled for region 'eu-west-9'" {
 		t.Errorf("error = %v", err)
 	}
@@ -133,14 +198,14 @@ func TestEstimateRefusesARegionTheSnapshotLacks(t *testing.T) {
 func TestEstimateReportsALookupThatFindsNothing(t *testing.T) {
 	snapshot := fixture()
 	snapshot.SKUs = slices.DeleteFunc(snapshot.SKUs, func(sku SKU) bool { return sku.Attributes["kind"] == "disk" })
-	_, err := Estimate(project("eu-west-2", database), fakeMatchers{}, snapshot, taken)
+	_, err := Estimate(project("eu-west-2", database), fakeMatchers{}, snapshot, nil, taken)
 	if err == nil || !strings.Contains(err.Error(), "orders-db: no aws sku matches storage") {
 		t.Errorf("error = %v", err)
 	}
 }
 
 func TestEstimateCarriesTheStalenessWarning(t *testing.T) {
-	doc, err := Estimate(project("eu-west-2", database), fakeMatchers{}, fixture(), taken.Add(100*24*time.Hour))
+	doc, err := Estimate(project("eu-west-2", database), fakeMatchers{}, fixture(), nil, taken.Add(100*24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +217,7 @@ func TestEstimateCarriesTheStalenessWarning(t *testing.T) {
 func TestEstimatePricesNothingWithoutMatchers(t *testing.T) {
 	p := project("europe-west2", gateway, ir.Node{ID: "q1", Type: ir.NodeQueue, Name: "jobs"})
 	p.Provider = ir.ProviderGCP
-	doc, err := Estimate(p, nil, nil, taken)
+	doc, err := Estimate(p, nil, nil, nil, taken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,28 +238,28 @@ func TestEstimatePricesNothingWithoutMatchers(t *testing.T) {
 }
 
 func TestEstimateNeedsASnapshotWhenThereAreMatchers(t *testing.T) {
-	_, err := Estimate(project("eu-west-2", database), fakeMatchers{}, nil, taken)
+	_, err := Estimate(project("eu-west-2", database), fakeMatchers{}, nil, nil, taken)
 	if err == nil || err.Error() != "no aws price snapshot is bundled" {
 		t.Errorf("error = %v", err)
 	}
 }
 
 func TestTableLinesUpTheColumns(t *testing.T) {
-	doc, err := Estimate(project("eu-west-2", gateway, database, queue), fakeMatchers{}, fixture(), taken.Add(100*24*time.Hour))
+	doc, err := Estimate(project("eu-west-2", gateway, database, queue), fakeMatchers{}, fixture(), nil, taken.Add(100*24*time.Hour))
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
 		"api        gateway       HTTP API",
-		"  priced at rest, usage not set",
-		"                                     0.00",
+		"  priced on defaults, no usage set",
+		"                                       0.00",
 		"orders-db  database      small, 20 GB",
 		"  db       730 h   x  0.0180 USD    13.14",
 		"  storage   20 GB  x  0.1330 USD     2.66",
-		"                                    15.80",
+		"                                      15.80",
 		"network    implicit VPC",
 		"  nat      730 h   x  0.0500 USD    36.50",
-		"                                    36.50",
+		"                                      36.50",
 		"not priced",
 		"  jobs       queue         no aws prices for this node type yet",
 		"  api        gateway       requests",
@@ -211,14 +276,14 @@ func TestTableLinesUpTheColumns(t *testing.T) {
 }
 
 func TestTablePutsTheSubtotalPastTheNoteWhenNothingHasLines(t *testing.T) {
-	doc, err := Estimate(project("eu-west-2", gateway), fakeMatchers{}, fixture(), taken)
+	doc, err := Estimate(project("eu-west-2", gateway), fakeMatchers{}, fixture(), nil, taken)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{
 		"api  gateway  HTTP API",
-		"  priced at rest, usage not set",
-		"                                    0.00",
+		"  priced on defaults, no usage set",
+		"                                       0.00",
 		"not priced",
 		"  api  gateway  requests",
 		"  api  gateway  data transfer",
@@ -233,7 +298,7 @@ func TestTablePutsTheSubtotalPastTheNoteWhenNothingHasLines(t *testing.T) {
 func TestTableForAProviderWithoutPrices(t *testing.T) {
 	p := project("europe-west2", gateway)
 	p.Provider = ir.ProviderGCP
-	doc, err := Estimate(p, nil, nil, taken)
+	doc, err := Estimate(p, nil, nil, nil, taken)
 	if err != nil {
 		t.Fatal(err)
 	}

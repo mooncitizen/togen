@@ -79,6 +79,14 @@ func expectConfig(t *testing.T, cwd, outDir string) {
 		"#     database:",
 		"#   nodes:",
 		"#     orders-db:",
+		"# usage:",
+		"#   api:",
+		"#     requests: 500/min",
+		"#   orders:",
+		"#     invocations: 2M/month",
+		"#     durationMs: 300",
+		"#   network:",
+		"#     natGb: 50",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("togen.yml has no %q:\n%s", want, text)

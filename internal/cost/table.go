@@ -41,6 +41,9 @@ func (d Document) Table() []string {
 			out = append(out, fmt.Sprintf("  %-*s  %*s %-*s  x  %*s %s  %*s",
 				labelW, l.Label, qtyW, quantity(l.Quantity), unitW, l.Unit, priceW, unitPrice(l.UnitPrice), d.Currency,
 				amountW, money(l.Amount)))
+			if l.Note != "" {
+				out = append(out, "    "+l.Note)
+			}
 		}
 		out = append(out, strings.Repeat(" ", amountAt)+fmt.Sprintf("%*s", amountW, money(item.Subtotal)))
 	}
@@ -59,6 +62,13 @@ func (d Document) Table() []string {
 
 func money(amount float64) string { return strconv.FormatFloat(amount, 'f', 2, 64) }
 
-func unitPrice(price float64) string { return strconv.FormatFloat(price, 'f', 4, 64) }
+// Four places, or as many as a rate needs when four would show it as nothing: a Lambda
+// request is 0.0000002.
+func unitPrice(price float64) string {
+	if price > 0 && price < 0.0001 {
+		return strconv.FormatFloat(price, 'f', -1, 64)
+	}
+	return strconv.FormatFloat(price, 'f', 4, 64)
+}
 
 func quantity(q float64) string { return strconv.FormatFloat(q, 'f', -1, 64) }
