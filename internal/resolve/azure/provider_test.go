@@ -270,8 +270,8 @@ func TestResolveProducesAValidGraphForAServiceBehindAGateway(t *testing.T) {
 	for _, want := range []string{
 		`external_enabled = true`,
 		`env { name = "MAIN_DB_HOST" value = azurerm_postgresql_flexible_server.main_db.fqdn }`,
-		`env { name = "ORDERS_URL" value = "https://${azurerm_linux_function_app.orders.default_hostname}" }`,
-		`WEB_URL = "https://${azurerm_container_app.web.ingress[0].fqdn}"`,
+		`env { name = "ORDERS_URL" value = "https://shop-dev-orders.azurewebsites.net" }`,
+		`WEB_URL = "https://shop-dev-web.${azurerm_container_app_environment.main.default_domain}"`,
 	} {
 		if !strings.Contains(main, want) {
 			t.Errorf("main.tf lacks %s:\n%s", want, files["main.tf"])
