@@ -103,7 +103,7 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 			ir.A("name", ir.Str(ctx.Named(node.Name))),
 			ir.A("cluster", ir.R(cluster, ir.Field("id"))),
 			ir.A("task_definition", ir.R(definitionID, ir.Field("arn"))),
-			ir.A("desired_count", ir.Num(float64(p.MinReplicas))),
+			ir.A("desired_count", ir.Num(float64(*p.MinReplicas))),
 			ir.A("launch_type", ir.Str("FARGATE")),
 			ir.A("network_configuration", ir.B(ir.Attrs{
 				ir.A("subnets", subnetRefs(network.PrivateSubnets)),

@@ -128,3 +128,49 @@ func TestEveryPropsDefaultParses(t *testing.T) {
 		}
 	}
 }
+
+func TestApplyDefaultsKeepsAZeroMinReplicas(t *testing.T) {
+	p := &Project{Nodes: []Node{
+		{ID: "s1", Type: NodeService, Name: "web", Properties: json.RawMessage(`{"image":"nginx","minReplicas":0}`)},
+		{ID: "s2", Type: NodeService, Name: "api", Properties: json.RawMessage(`{"image":"nginx"}`)},
+	}}
+	out, err := ApplyDefaults(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out, err = ApplyDefaults(out); err != nil {
+		t.Fatal(err)
+	}
+	web, err := NodeProps[ServiceProps](out.Nodes[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if web.MinReplicas == nil || *web.MinReplicas != 0 {
+		t.Errorf("minReplicas = %v, want 0", web.MinReplicas)
+	}
+	api, err := NodeProps[ServiceProps](out.Nodes[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if api.MinReplicas == nil || *api.MinReplicas != 1 {
+		t.Errorf("minReplicas = %v, want the default of 1", api.MinReplicas)
+	}
+}
+
+func TestServicePropsWriteAZeroAndOmitAnUnsetMinReplicas(t *testing.T) {
+	for _, c := range []struct {
+		props ServiceProps
+		want  string
+	}{
+		{ServiceProps{Image: "nginx"}, `{"image":"nginx"}`},
+		{ServiceProps{Image: "nginx", MinReplicas: Ptr(0)}, `{"image":"nginx","minReplicas":0}`},
+	} {
+		raw, err := json.Marshal(c.props)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(raw) != c.want {
+			t.Errorf("got %s, want %s", raw, c.want)
+		}
+	}
+}

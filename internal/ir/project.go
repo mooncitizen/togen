@@ -120,7 +120,7 @@ type ServiceProps struct {
 	Image       string            `json:"image"                 jsonschema:"description=Container image to run"`
 	Port        int               `json:"port,omitempty"        jsonschema:"minimum=1,maximum=65535,default=8080,description=Port the container listens on"`
 	Size        Size              `json:"size,omitempty"        jsonschema:"default=small,description=Memory and CPU tier"`
-	MinReplicas int               `json:"minReplicas,omitempty" jsonschema:"minimum=0,default=1,description=Fewest tasks to keep running"`
+	MinReplicas *int              `json:"minReplicas,omitempty" jsonschema:"minimum=0,default=1,description=Fewest tasks to keep running. Zero is allowed"`
 	MaxReplicas int               `json:"maxReplicas,omitempty" jsonschema:"minimum=1,default=2,description=Most tasks to scale out to"`
 	Public      bool              `json:"public,omitempty"      jsonschema:"default=false,description=Reachable from the internet"`
 	Env         map[string]string `json:"env,omitempty"         jsonschema:"description=Environment variables to set on the container"`
@@ -157,4 +157,8 @@ type BucketProps struct {
 
 type CacheProps struct {
 	Size Size `json:"size,omitempty" jsonschema:"default=small,description=Memory and CPU tier"`
+}
+
+func Ptr[T any](v T) *T {
+	return &v
 }

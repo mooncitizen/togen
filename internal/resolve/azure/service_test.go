@@ -15,7 +15,7 @@ var defaultService = ir.ServiceProps{
 	Image:       "nginx:1.27",
 	Port:        8080,
 	Size:        ir.SizeSmall,
-	MinReplicas: 1,
+	MinReplicas: ir.Ptr(1),
 	MaxReplicas: 2,
 }
 
@@ -234,7 +234,7 @@ func TestServiceIngressIsExternalOnlyWhenPublic(t *testing.T) {
 func TestServiceWritesTheReplicasAndThePortAsGiven(t *testing.T) {
 	p := defaultService
 	p.Port = 3000
-	p.MinReplicas = 2
+	p.MinReplicas = ir.Ptr(2)
 	p.MaxReplicas = 5
 	ctx, _ := setupService(t, p)
 
@@ -301,5 +301,17 @@ func TestTwoServicesShareOneEnvironment(t *testing.T) {
 		if !strings.Contains(main, want) {
 			t.Errorf("main.tf lacks %s:\n%s", want, files["main.tf"])
 		}
+	}
+}
+
+func TestServiceWithZeroMinReplicasScalesToZero(t *testing.T) {
+	p := defaultService
+	p.MinReplicas = ir.Ptr(0)
+	ctx, _ := setupService(t, p)
+
+	template, _ := containerApp(t, ctx, appID).Get("template")
+	minReplicas, _ := template.(ir.Block)[0].Get("min_replicas")
+	if diff := cmp.Diff(ir.Value(ir.Num(0)), minReplicas); diff != "" {
+		t.Errorf("min_replicas (-want +got):\n%s", diff)
 	}
 }

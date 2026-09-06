@@ -43,7 +43,7 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 	template := ir.Attrs{
 		ir.A("service_account", ir.R(accountID, ir.Field("email"))),
 		ir.A("scaling", ir.B(ir.Attrs{
-			ir.A("min_instance_count", ir.Num(float64(p.MinReplicas))),
+			ir.A("min_instance_count", ir.Num(float64(*p.MinReplicas))),
 			ir.A("max_instance_count", ir.Num(float64(p.MaxReplicas))),
 		})),
 	}

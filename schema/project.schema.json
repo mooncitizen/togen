@@ -137,7 +137,7 @@
                   },
                   "minReplicas": {
                     "default": 1,
-                    "description": "Fewest tasks to keep running",
+                    "description": "Fewest tasks to keep running. Zero is allowed",
                     "minimum": 0,
                     "type": "integer"
                   },

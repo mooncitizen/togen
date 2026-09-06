@@ -64,7 +64,7 @@ func resolveService(ctx *resolve.Context, node ir.Node) *resolve.Handle {
 			container = append(container, ir.A("env", containerEnv(h.Env)))
 		}
 		app.Args.Set("template", ir.B(ir.Attrs{
-			ir.A("min_replicas", ir.Num(float64(p.MinReplicas))),
+			ir.A("min_replicas", ir.Num(float64(*p.MinReplicas))),
 			ir.A("max_replicas", ir.Num(float64(p.MaxReplicas))),
 			ir.A("container", ir.B(container)),
 		}))

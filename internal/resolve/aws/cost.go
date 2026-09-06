@@ -77,7 +77,7 @@ func (m costMatchers) Catalogue(region string) ([]cost.Lookup, error) {
 				}
 			}
 		}
-		if err := add(ir.NodeService, ir.ServiceProps{Size: size, MinReplicas: 1, Public: true}); err != nil {
+		if err := add(ir.NodeService, ir.ServiceProps{Size: size, MinReplicas: ir.Ptr(1), Public: true}); err != nil {
 			return nil, err
 		}
 		if err := add(ir.NodeCache, ir.CacheProps{Size: size}); err != nil {
@@ -183,7 +183,7 @@ func serviceCost(n ir.Node, region string) (cost.Item, error) {
 	if !ok {
 		return cost.Item{}, fmt.Errorf("service '%s' has an unknown size '%s'", n.Name, p.Size)
 	}
-	tasks := float64(p.MinReplicas)
+	tasks := float64(*p.MinReplicas)
 	reach := "private"
 	if p.Public {
 		reach = "public"
@@ -192,7 +192,7 @@ func serviceCost(n ir.Node, region string) (cost.Item, error) {
 		Name: n.Name,
 		Kind: string(n.Type),
 		Summary: fmt.Sprintf("%s vCPU, %s GB, %s, %s",
-			number(size.vCPU()), number(size.memoryGB()), count(p.MinReplicas, "task"), reach),
+			number(size.vCPU()), number(size.memoryGB()), count(*p.MinReplicas, "task"), reach),
 		Lookups: []cost.Lookup{
 			{
 				Label:   "vcpu",

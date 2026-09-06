@@ -35,7 +35,7 @@ var defaultService = ir.ServiceProps{
 	Image:       "nginx:1.27",
 	Port:        8080,
 	Size:        ir.SizeSmall,
-	MinReplicas: 1,
+	MinReplicas: ir.Ptr(1),
 	MaxReplicas: 2,
 }
 
@@ -210,7 +210,7 @@ func TestServiceEmitsAClusterLogGroupRolesAndAFargateService(t *testing.T) {
 func TestServiceHonoursReplicasAndTheContainerImage(t *testing.T) {
 	p := defaultService
 	p.Image = "ghcr.io/shop/web:1.2.3"
-	p.MinReplicas = 3
+	p.MinReplicas = ir.Ptr(3)
 	ctx, handle := setupService(t, p)
 	handle.Finalise()
 
@@ -434,5 +434,17 @@ func TestServiceWritesStatementsOntoTheTaskRole(t *testing.T) {
 	policy := firstOfType(t, ctx, "aws_iam_role_policy")
 	if diff := cmp.Diff(want, policy.Args); diff != "" {
 		t.Errorf("role policy args (-want +got):\n%s", diff)
+	}
+}
+
+func TestServiceWithZeroMinReplicasRunsNoTasks(t *testing.T) {
+	p := defaultService
+	p.MinReplicas = ir.Ptr(0)
+	ctx, handle := setupService(t, p)
+	handle.Finalise()
+
+	got, _ := named(t, ctx, svcID).Args.Get("desired_count")
+	if diff := cmp.Diff(ir.Value(ir.Num(0)), got); diff != "" {
+		t.Errorf("desired_count (-want +got):\n%s", diff)
 	}
 }
