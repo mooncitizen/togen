@@ -252,6 +252,27 @@ func TestValidateReportsAStyleForANodeThatDoesNotExist(t *testing.T) {
 	}
 }
 
+func TestValidateReportsAUsageEntryThatDoesNotFit(t *testing.T) {
+	cwd := generateCwd(t)
+	writeFileText(t, workspace.ConfigPath(cwd), "usage:\n  api:\n    requests: 500/min\n  handler:\n    messages: 1/min\n  orders-db:\n    storageGb: 50\n")
+	result := Validate(cwd)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, want 1", result.Code)
+	}
+	want := []string{
+		"usage.handler.messages: a function takes invocations, durationMs only",
+		"usage.orders-db: there is no node named 'orders-db'",
+	}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
+	}
+
+	writeFileText(t, workspace.ConfigPath(cwd), "usage:\n  api:\n    requests: 500/min\n  network:\n    natGb: 5\n")
+	if result := Validate(cwd); result.Code != 0 {
+		t.Errorf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+}
+
 func TestValidateIgnoresABrokenViewsFile(t *testing.T) {
 	cwd := t.TempDir()
 	if result := Init(cwd, "", "shop", false); result.Code != 0 {

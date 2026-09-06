@@ -2,6 +2,7 @@ package aws
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,12 +94,23 @@ func s3Requests(id, region, group, usage string, price float64) cost.SKU {
 	}}
 }
 
+func dataTransfer(id, region, transfer, to, usage string, price, upTo float64) cost.SKU {
+	sku := cost.SKU{ID: id, Service: "AWSDataTransfer", Unit: "GB", Price: price, UpTo: upTo, Attributes: map[string]string{
+		"productFamily": "Data Transfer", "transferType": transfer, "toLocation": to, "usagetype": usage, "termType": "OnDemand",
+	}}
+	if region != "" {
+		sku.Attributes["regionCode"] = region
+	}
+	return sku
+}
+
 // Two regions, both engines, every size, with the neighbours a loose filter would catch:
 // reserved terms, gp3 and SSD-labelled storage, the regional NAT variant and its data charge,
 // the arm64, edge and storage meters of Lambda, the REST API and fair queue meters, the free
 // tier rows that belong to no region, ARM and Windows Fargate, the trust store and network
 // load balancer hours and the capacity units, other cache engines and extended support node
-// hours, and the S3 annotation meters.
+// hours, and the S3 annotation meters, and the data transfer rows that are not internet egress
+// from the region: the global free allowance, inbound and between regions.
 func priceFixture() *cost.Snapshot {
 	reserved := rdsInstance("rds-micro-pg-single-euw2-reserved", "eu-west-2", "db.t4g.micro", "PostgreSQL", "Single-AZ", 0.011)
 	reserved.Attributes["termType"] = "Reserved"
@@ -116,6 +128,7 @@ func priceFixture() *cost.Snapshot {
 			"AWSLambda":         {"eu-west-2": "v1", "us-east-1": "v1"},
 			"AmazonApiGateway":  {"eu-west-2": "v1", "us-east-1": "v1"},
 			"AWSQueueService":   {"eu-west-2": "v1", "us-east-1": "v1"},
+			"AWSDataTransfer":   {"eu-west-2": "v1", "us-east-1": "v1"},
 		},
 		SKUs: []cost.SKU{
 			lambda("lambda-request-euw2", "eu-west-2", "AWS-Lambda-Requests", "EUW2-Request", 0.0000002, 0),
@@ -156,6 +169,7 @@ func priceFixture() *cost.Snapshot {
 			natGateway("nat-euw2", "eu-west-2", "EUW2-NatGateway-Hours", 0.05),
 			natGateway("nat-regional-euw2", "eu-west-2", "EUW2-RegionalNatGateway-Hours", 0.05),
 			natGateway("nat-bytes-euw2", "eu-west-2", "EUW2-NatGateway-Bytes", 0.05),
+			natGateway("nat-regional-bytes-euw2", "eu-west-2", "EUW2-RegionalNatGateway-Bytes", 0.05),
 			fargate("fargate-vcpu-euw2", "eu-west-2", "EUW2-Fargate-vCPU-Hours:perCPU", 0.04656),
 			fargate("fargate-gb-euw2", "eu-west-2", "EUW2-Fargate-GB-Hours", 0.00511),
 			fargate("fargate-arm-vcpu-euw2", "eu-west-2", "EUW2-Fargate-ARM-vCPU-Hours:perCPU", 0.03725),
@@ -177,19 +191,26 @@ func priceFixture() *cost.Snapshot {
 			s3Requests("s3-put-euw2", "eu-west-2", "S3-API-Tier1", "EUW2-Requests-Tier1", 0.0000053),
 			s3Requests("s3-get-euw2", "eu-west-2", "S3-API-Tier2", "EUW2-Requests-Tier2", 0.00000042),
 			s3Requests("s3-put-annotation-euw2", "eu-west-2", "S3-API-Tier1", "EUW2-Requests-Annotation-Tier1", 0.0000053),
+			dataTransfer("egress-euw2", "eu-west-2", "AWS Outbound", "External", "EUW2-DataTransfer-Out-Bytes", 0.09, 10240),
+			dataTransfer("ingress-euw2", "eu-west-2", "AWS Inbound", "EU (London)", "EUW2-DataTransfer-In-Bytes", 0, 0),
+			dataTransfer("interregion-euw2", "eu-west-2", "InterRegion Outbound", "EU (Ireland)", "EUW2-EU-AWS-Out-Bytes", 0.02, 0),
+			dataTransfer("egress-free", "", "AWS Outbound", "External", "Global-DataTransfer-Out-Bytes", 0, 100),
 
 			rdsInstance("rds-micro-pg-single-use1", "us-east-1", "db.t4g.micro", "PostgreSQL", "Single-AZ", 0.016),
 			rdsStorage("rds-gp2-pg-single-use1", "us-east-1", "General Purpose", "PostgreSQL", "Single-AZ", 0.115),
 			natGateway("nat-use1", "us-east-1", "NatGateway-Hours", 0.045),
 			natGateway("nat-regional-use1", "us-east-1", "RegionalNatGateway-Hours", 0.045),
+			natGateway("nat-bytes-use1", "us-east-1", "NatGateway-Bytes", 0.045),
 			fargate("fargate-vcpu-use1", "us-east-1", "USE1-Fargate-vCPU-Hours:perCPU", 0.04048),
 			fargate("fargate-gb-use1", "us-east-1", "USE1-Fargate-GB-Hours", 0.004445),
 			loadBalancer("alb-use1", "us-east-1", "Load Balancer-Application", "LoadBalancerUsage", "Hrs", 0.0225),
 			loadBalancer("alb-trust-store-use1", "us-east-1", "Load Balancer-Application", "TS-LoadBalancerUsage", "Hrs", 0.005),
+			loadBalancer("alb-lcu-use1", "us-east-1", "Load Balancer-Application", "LCUUsage", "LCU-Hrs", 0.008),
 			cacheNode("cache-micro-redis-use1", "us-east-1", "cache.t4g.micro", "Redis", "NodeUsage:cache.t4g.micro", 0.016),
 			s3Storage("s3-standard-use1", "us-east-1", "Standard", "TimedStorage-ByteHrs", 0.023),
 			s3Requests("s3-put-use1", "us-east-1", "S3-API-Tier1", "Requests-Tier1", 0.000005),
 			s3Requests("s3-get-use1", "us-east-1", "S3-API-Tier2", "Requests-Tier2", 0.0000004),
+			dataTransfer("egress-use1", "us-east-1", "AWS Outbound", "External", "DataTransfer-Out-Bytes", 0.09, 10240),
 		},
 	}
 }
@@ -206,9 +227,14 @@ func estimate(t *testing.T, region string, nodes []ir.Node) cost.Document {
 
 func estimateGraph(t *testing.T, region string, nodes []ir.Node, edges []ir.Edge) cost.Document {
 	t.Helper()
+	return estimateUsage(t, region, nodes, edges, nil)
+}
+
+func estimateUsage(t *testing.T, region string, nodes []ir.Node, edges []ir.Edge, usage cost.Usage) cost.Document {
+	t.Helper()
 	p := newProject(t, nodes, edges)
 	p.Region = region
-	doc, err := cost.Estimate(p, Cost(), priceFixture(), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+	doc, err := cost.Estimate(p, Cost(), priceFixture(), usage, time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +256,7 @@ func TestDatabaseCostPricesTheInstanceAndItsStorage(t *testing.T) {
 	}
 	wantOmitted := []cost.Omission{
 		{Name: "main-db", Kind: "database", Reason: "backups beyond 20 GB"},
-		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data"},
 	}
 	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
 		t.Errorf("not priced (-want +got):\n%s", diff)
@@ -316,7 +342,7 @@ func TestNetworkCostComesWithTheFirstNodeThatNeedsIt(t *testing.T) {
 
 	doc = estimate(t, "eu-west-2", append(serverless, databaseNode(t, ir.DatabaseProps{})))
 	want := cost.Priced{
-		Name: "network", Kind: "implicit VPC",
+		Name: "network", Kind: "implicit VPC", Note: "priced on defaults, no usage set",
 		Lines:    []cost.Line{{Label: "nat gateway", Quantity: 730, Unit: "h", UnitPrice: 0.05, Amount: 36.50, SKU: "nat-euw2"}},
 		Subtotal: 36.50,
 	}
@@ -333,19 +359,20 @@ func functionNode(t *testing.T, p ir.FunctionProps) ir.Node {
 	return ir.Node{ID: "n2", Type: ir.NodeFunction, Name: "handler", Properties: props(t, p)}
 }
 
-// The at-rest items carry no lines, so their meters are checked by hand against the fixture.
+// A pay-per-use item on defaults carries no lines, so its meters are checked by hand against
+// the fixture.
 func usageSKUs(t *testing.T, n ir.Node, region string) []string {
 	t.Helper()
 	p, err := ir.ApplyDefaults(newProject(t, []ir.Node{n}, nil))
 	if err != nil {
 		t.Fatal(err)
 	}
-	item, ok, err := Cost().Node(p.Nodes[0], region)
+	item, ok, err := Cost().Node(p.Nodes[0], region, cost.NodeUsage{})
 	if err != nil || !ok {
 		t.Fatalf("node = %+v, %v, %v", item, ok, err)
 	}
 	if len(item.Lookups) != 0 {
-		t.Errorf("an at-rest item has fixed lookups: %+v", item.Lookups)
+		t.Errorf("a pay-per-use item has fixed lookups: %+v", item.Lookups)
 	}
 	var ids []string
 	for _, l := range item.Usage {
@@ -358,10 +385,10 @@ func usageSKUs(t *testing.T, n ir.Node, region string) []string {
 	return ids
 }
 
-func TestFunctionCostIsPricedAtRestOnTheX86Meters(t *testing.T) {
+func TestFunctionCostIsPricedOnDefaultsOnTheX86Meters(t *testing.T) {
 	doc := estimate(t, "eu-west-2", []ir.Node{functionNode(t, ir.FunctionProps{})})
 	want := cost.Priced{
-		Name: "handler", Kind: "function", Summary: "node, 512 MB, x86_64", Note: "priced at rest, usage not set",
+		Name: "handler", Kind: "function", Summary: "node, 512 MB, x86_64", Note: "priced on defaults, no usage set",
 		Lines: []cost.Line{}, Subtotal: 0,
 	}
 	if diff := cmp.Diff(want, doc.Items[0]); diff != "" {
@@ -405,11 +432,11 @@ func TestFunctionCostShowsTheRuntimeAndMemoryOfEverySize(t *testing.T) {
 	}
 }
 
-func TestGatewayCostIsPricedAtRestOnTheHttpApiMeter(t *testing.T) {
+func TestGatewayCostIsPricedOnDefaultsOnTheHttpApiMeter(t *testing.T) {
 	api := ir.Node{ID: "n1", Type: ir.NodeGateway, Name: "api"}
 	doc := estimate(t, "eu-west-2", []ir.Node{api})
 	want := cost.Priced{
-		Name: "api", Kind: "gateway", Summary: "HTTP API", Note: "priced at rest, usage not set",
+		Name: "api", Kind: "gateway", Summary: "HTTP API", Note: "priced on defaults, no usage set",
 		Lines: []cost.Line{}, Subtotal: 0,
 	}
 	if diff := cmp.Diff(want, doc.Items[0]); diff != "" {
@@ -443,13 +470,13 @@ func TestQueueCostFollowsTheFifoProperty(t *testing.T) {
 		jobs := ir.Node{ID: "q1", Type: ir.NodeQueue, Name: "jobs", Properties: props(t, ir.QueueProps{FIFO: c.fifo})}
 		doc := estimate(t, "eu-west-2", []ir.Node{jobs})
 		want := cost.Priced{
-			Name: "jobs", Kind: "queue", Summary: c.summary, Note: "priced at rest, usage not set",
+			Name: "jobs", Kind: "queue", Summary: c.summary, Note: "priced on defaults, no usage set",
 			Lines: []cost.Line{}, Subtotal: 0,
 		}
 		if diff := cmp.Diff(want, doc.Items[0]); diff != "" {
 			t.Errorf("queue (-want +got):\n%s", diff)
 		}
-		wantOmitted := []cost.Omission{{Name: "jobs", Kind: "queue", Reason: "messages"}}
+		wantOmitted := []cost.Omission{{Name: "jobs", Kind: "queue", Reason: "requests (3 per message)"}}
 		if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
 			t.Errorf("not priced (-want +got):\n%s", diff)
 		}
@@ -498,7 +525,7 @@ func TestNeedsNetworkAgreesWithTheResolver(t *testing.T) {
 func TestServiceCostPricesTheTasksAndThePublicLoadBalancer(t *testing.T) {
 	doc := estimate(t, "eu-west-2", []ir.Node{serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Public: true})})
 	want := cost.Priced{
-		Name: "web", Kind: "service", Summary: "0.25 vCPU, 0.5 GB, 1 task, public",
+		Name: "web", Kind: "service", Summary: "0.25 vCPU, 0.5 GB, 1 task, public", Note: "priced on defaults, no usage set",
 		Lines: []cost.Line{
 			{Label: "vcpu", Quantity: 182.5, Unit: "vCPU-h", UnitPrice: 0.04656, Amount: 8.50, SKU: "fargate-vcpu-euw2"},
 			{Label: "memory", Quantity: 365, Unit: "GB-h", UnitPrice: 0.00511, Amount: 1.87, SKU: "fargate-gb-euw2"},
@@ -510,8 +537,9 @@ func TestServiceCostPricesTheTasksAndThePublicLoadBalancer(t *testing.T) {
 		t.Errorf("service (-want +got):\n%s", diff)
 	}
 	wantOmitted := []cost.Omission{
-		{Name: "web", Kind: "service", Reason: "load balancer capacity units"},
-		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+		{Name: "web", Kind: "service", Reason: "egress"},
+		{Name: "web", Kind: "service", Reason: "capacity units"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data"},
 	}
 	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
 		t.Errorf("not priced (-want +got):\n%s", diff)
@@ -544,7 +572,7 @@ func TestServiceCostScalesWithTheSizeAndReplicas(t *testing.T) {
 			if svc.Lines[0].Quantity != c.vcpu || svc.Lines[1].Quantity != c.memory {
 				t.Errorf("quantities = %v vCPU-h, %v GB-h, want %v, %v", svc.Lines[0].Quantity, svc.Lines[1].Quantity, c.vcpu, c.memory)
 			}
-			if len(doc.NotPriced) != 1 || doc.NotPriced[0].Name != "network" {
+			if len(doc.NotPriced) != 2 || doc.NotPriced[0].Reason != "egress" || doc.NotPriced[1].Name != "network" {
 				t.Errorf("not priced = %+v", doc.NotPriced)
 			}
 		})
@@ -565,7 +593,7 @@ func TestPrivateServiceGetsALoadBalancerOnlyWhenAGatewayRoutesToIt(t *testing.T)
 
 	doc = estimateGraph(t, "eu-west-2", []ir.Node{api, admin}, []ir.Edge{route("e1", "g1")})
 	want := cost.Priced{
-		Name: "admin", Kind: "implicit ALB", Summary: "internal load balancer, routed from api",
+		Name: "admin", Kind: "implicit ALB", Summary: "internal load balancer, routed from api", Note: "priced on defaults, no usage set",
 		Lines:    []cost.Line{{Label: "load balancer", Quantity: 730, Unit: "h", UnitPrice: 0.02646, Amount: 19.32, SKU: "alb-euw2"}},
 		Subtotal: 19.32,
 	}
@@ -578,8 +606,9 @@ func TestPrivateServiceGetsALoadBalancerOnlyWhenAGatewayRoutesToIt(t *testing.T)
 	wantOmitted := []cost.Omission{
 		{Name: "api", Kind: "gateway", Reason: "requests"},
 		{Name: "api", Kind: "gateway", Reason: "data transfer"},
-		{Name: "admin", Kind: "implicit ALB", Reason: "load balancer capacity units"},
-		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+		{Name: "admin", Kind: "service", Reason: "egress"},
+		{Name: "admin", Kind: "implicit ALB", Reason: "capacity units"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data"},
 	}
 	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
 		t.Errorf("not priced (-want +got):\n%s", diff)
@@ -673,25 +702,27 @@ func TestCacheCostPricesTheNodeHours(t *testing.T) {
 	}
 }
 
-func TestBucketCostIsPricedAtRestOnTheStandardMeters(t *testing.T) {
+func TestBucketCostIsPricedOnDefaultsOnTheStandardMeters(t *testing.T) {
 	uploads := ir.Node{ID: "b1", Type: ir.NodeBucket, Name: "uploads"}
 	doc := estimate(t, "eu-west-2", []ir.Node{
 		uploads,
 		{ID: "b2", Type: ir.NodeBucket, Name: "assets", Properties: json.RawMessage(`{"versioning":false,"public":true}`)},
 	})
 	want := []cost.Priced{
-		{Name: "uploads", Kind: "bucket", Summary: "standard storage, versioned, private", Note: "priced at rest, usage not set", Lines: []cost.Line{}},
-		{Name: "assets", Kind: "bucket", Summary: "standard storage, unversioned, public", Note: "priced at rest, usage not set", Lines: []cost.Line{}},
+		{Name: "uploads", Kind: "bucket", Summary: "standard storage, versioned, private", Note: "priced on defaults, no usage set", Lines: []cost.Line{}},
+		{Name: "assets", Kind: "bucket", Summary: "standard storage, unversioned, public", Note: "priced on defaults, no usage set", Lines: []cost.Line{}},
 	}
 	if diff := cmp.Diff(want, doc.Items); diff != "" {
 		t.Errorf("buckets (-want +got):\n%s", diff)
 	}
 	wantOmitted := []cost.Omission{
 		{Name: "uploads", Kind: "bucket", Reason: "storage"},
-		{Name: "uploads", Kind: "bucket", Reason: "requests"},
+		{Name: "uploads", Kind: "bucket", Reason: "put requests (1 in 10)"},
+		{Name: "uploads", Kind: "bucket", Reason: "get requests (9 in 10)"},
 		{Name: "uploads", Kind: "bucket", Reason: "egress"},
 		{Name: "assets", Kind: "bucket", Reason: "storage"},
-		{Name: "assets", Kind: "bucket", Reason: "requests"},
+		{Name: "assets", Kind: "bucket", Reason: "put requests (1 in 10)"},
+		{Name: "assets", Kind: "bucket", Reason: "get requests (9 in 10)"},
 		{Name: "assets", Kind: "bucket", Reason: "egress"},
 	}
 	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
@@ -701,10 +732,10 @@ func TestBucketCostIsPricedAtRestOnTheStandardMeters(t *testing.T) {
 		t.Errorf("total = %v", doc.Total)
 	}
 
-	if diff := cmp.Diff([]string{"s3-standard-euw2", "s3-put-euw2", "s3-get-euw2"}, usageSKUs(t, uploads, "eu-west-2")); diff != "" {
+	if diff := cmp.Diff([]string{"s3-standard-euw2", "s3-put-euw2", "s3-get-euw2", "egress-euw2"}, usageSKUs(t, uploads, "eu-west-2")); diff != "" {
 		t.Errorf("eu-west-2 meters (-want +got):\n%s", diff)
 	}
-	if diff := cmp.Diff([]string{"s3-standard-use1", "s3-put-use1", "s3-get-use1"}, usageSKUs(t, uploads, "us-east-1")); diff != "" {
+	if diff := cmp.Diff([]string{"s3-standard-use1", "s3-put-use1", "s3-get-use1", "egress-use1"}, usageSKUs(t, uploads, "us-east-1")); diff != "" {
 		t.Errorf("us-east-1 meters (-want +got):\n%s", diff)
 	}
 }
@@ -763,7 +794,7 @@ func TestCacheNodeTypeFollowsTheRegionWithTheResolver(t *testing.T) {
 					resolved = string(nodeType.(ir.String))
 				}
 			}
-			item, _, err := Cost().Node(p.Nodes[0], region)
+			item, _, err := Cost().Node(p.Nodes[0], region, cost.NodeUsage{})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -795,13 +826,14 @@ func TestCatalogueCoversEverySizeEngineAndDeployment(t *testing.T) {
 	}
 	// 3 sizes x 2 engines x 2 deployments of instance, 2 x 2 of storage, the nat gateway,
 	// Fargate vcpu and memory, the load balancer, 3 cache node types, and the usage meters: the
-	// function's requests and duration, the gateway's requests, standard and FIFO requests, and
-	// the bucket's storage, put and get requests.
-	if len(distinct) != 12+4+1+2+1+3+2+1+2+3 {
-		t.Errorf("distinct lookups = %d, want 31", len(distinct))
+	// function's requests and duration, the gateway's requests, standard and FIFO requests, the
+	// bucket's storage, put and get requests, egress (one meter for buckets and services), the
+	// load balancer's capacity units and the nat gateway's data.
+	if len(distinct) != 12+4+1+2+1+3+2+1+2+3+1+1+1 {
+		t.Errorf("distinct lookups = %d, want 34", len(distinct))
 	}
-	if len(unsized) != 2+1+2+3 {
-		t.Errorf("usage meters with no quantity = %d, want 8", len(unsized))
+	if len(unsized) != 2+1+2+3+1+1+1 {
+		t.Errorf("usage meters with no quantity = %d, want 11", len(unsized))
 	}
 }
 
@@ -822,5 +854,161 @@ func TestBundledSnapshotHoldsEveryMeterTheCatalogueNames(t *testing.T) {
 				t.Error(err)
 			}
 		}
+	}
+}
+
+// Every quantity here is worked by hand from the usage figures: a rate times its period's
+// share of a 730 hour month, the size's memory for GB-seconds, three requests a message, a
+// tenth of a bucket's requests as writes, and egress standing in for capacity units.
+func TestUsageLinesPerNodeType(t *testing.T) {
+	api := ir.Node{ID: "g1", Type: ir.NodeGateway, Name: "api"}
+	handler := functionNode(t, ir.FunctionProps{})
+	jobs := ir.Node{ID: "q1", Type: ir.NodeQueue, Name: "jobs", Properties: props(t, ir.QueueProps{FIFO: true})}
+	uploads := ir.Node{ID: "b1", Type: ir.NodeBucket, Name: "uploads"}
+	web := serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Public: true})
+	usage := cost.Usage{
+		"api":     {Requests: "500/min"},
+		"handler": {Invocations: "2M/month", DurationMs: 300},
+		"jobs":    {Messages: "1M/month"},
+		"uploads": {StorageGb: 200, Requests: "1M/month", EgressGb: 40},
+		"web":     {EgressGb: 100},
+		"network": {NatGb: 50},
+	}
+	doc := estimateUsage(t, "eu-west-2", []ir.Node{api, handler, jobs, uploads, web}, nil, usage)
+	want := []cost.Priced{
+		{
+			Name: "api", Kind: "gateway", Summary: "HTTP API",
+			Lines:    []cost.Line{{Label: "requests", Quantity: 21900000, Unit: "requests", UnitPrice: 0.00000116, Amount: 25.40, SKU: "apigw-http-euw2"}},
+			Subtotal: 25.40,
+		},
+		{
+			Name: "handler", Kind: "function", Summary: "node, 512 MB, x86_64",
+			Lines: []cost.Line{
+				{Label: "requests", Quantity: 2000000, Unit: "requests", UnitPrice: 0.0000002, Amount: 0.40, SKU: "lambda-request-euw2"},
+				{Label: "duration", Quantity: 300000, Unit: "GB-s", UnitPrice: 0.0000166667, Amount: 5.00, SKU: "lambda-duration-euw2"},
+			},
+			Subtotal: 5.40,
+		},
+		{
+			Name: "jobs", Kind: "queue", Summary: "FIFO",
+			Lines:    []cost.Line{{Label: "requests (3 per message)", Quantity: 3000000, Unit: "requests", UnitPrice: 0.0000005, Amount: 1.50, SKU: "sqs-fifo-euw2"}},
+			Subtotal: 1.50,
+		},
+		{
+			Name: "uploads", Kind: "bucket", Summary: "standard storage, versioned, private",
+			Lines: []cost.Line{
+				{Label: "storage", Quantity: 200, Unit: "GB", UnitPrice: 0.024, Amount: 4.80, SKU: "s3-standard-euw2"},
+				{Label: "put requests (1 in 10)", Quantity: 100000, Unit: "requests", UnitPrice: 0.0000053, Amount: 0.53, SKU: "s3-put-euw2"},
+				{Label: "get requests (9 in 10)", Quantity: 900000, Unit: "requests", UnitPrice: 0.00000042, Amount: 0.38, SKU: "s3-get-euw2"},
+				{Label: "egress", Quantity: 40, Unit: "GB", UnitPrice: 0.09, Amount: 3.60, SKU: "egress-euw2"},
+			},
+			Subtotal: 9.31,
+		},
+		{
+			Name: "web", Kind: "service", Summary: "0.25 vCPU, 0.5 GB, 1 task, public",
+			Lines: []cost.Line{
+				{Label: "vcpu", Quantity: 182.5, Unit: "vCPU-h", UnitPrice: 0.04656, Amount: 8.50, SKU: "fargate-vcpu-euw2"},
+				{Label: "memory", Quantity: 365, Unit: "GB-h", UnitPrice: 0.00511, Amount: 1.87, SKU: "fargate-gb-euw2"},
+				{Label: "load balancer", Quantity: 730, Unit: "h", UnitPrice: 0.02646, Amount: 19.32, SKU: "alb-euw2"},
+				{Label: "egress", Quantity: 100, Unit: "GB", UnitPrice: 0.09, Amount: 9.00, SKU: "egress-euw2"},
+				{Label: "capacity units", Quantity: 100, Unit: "LCU-h", UnitPrice: 0.0084, Amount: 0.84, SKU: "alb-lcu-euw2"},
+			},
+			Subtotal: 39.53,
+		},
+		{
+			Name: "network", Kind: "implicit VPC",
+			Lines: []cost.Line{
+				{Label: "nat gateway", Quantity: 730, Unit: "h", UnitPrice: 0.05, Amount: 36.50, SKU: "nat-euw2"},
+				{Label: "nat gateway data", Quantity: 50, Unit: "GB", UnitPrice: 0.05, Amount: 2.50, SKU: "nat-bytes-euw2"},
+			},
+			Subtotal: 39.00,
+		},
+	}
+	if diff := cmp.Diff(want, doc.Items); diff != "" {
+		t.Errorf("items (-want +got):\n%s", diff)
+	}
+	wantOmitted := []cost.Omission{{Name: "api", Kind: "gateway", Reason: "data transfer"}}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+	if doc.Total != 120.14 {
+		t.Errorf("total = %v", doc.Total)
+	}
+}
+
+func TestUsageLinesFollowTheProjectRegion(t *testing.T) {
+	uploads := ir.Node{ID: "b1", Type: ir.NodeBucket, Name: "uploads"}
+	web := serviceNode(t, "s1", "web", ir.ServiceProps{Image: "nginx:1.27", Public: true})
+	usage := cost.Usage{"uploads": {EgressGb: 10}, "web": {EgressGb: 10}, "network": {NatGb: 10}}
+	doc := estimateUsage(t, "us-east-1", []ir.Node{uploads, web}, nil, usage)
+	got := map[string]string{}
+	for _, item := range doc.Items {
+		for _, l := range item.Lines {
+			got[item.Name+" "+l.Label] = l.SKU
+		}
+	}
+	want := map[string]string{
+		"uploads egress":           "egress-use1",
+		"web vcpu":                 "fargate-vcpu-use1",
+		"web memory":               "fargate-gb-use1",
+		"web load balancer":        "alb-use1",
+		"web egress":               "egress-use1",
+		"web capacity units":       "alb-lcu-use1",
+		"network nat gateway":      "nat-use1",
+		"network nat gateway data": "nat-bytes-use1",
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("skus (-want +got):\n%s", diff)
+	}
+}
+
+// The duration meter needs the invocations to be there; on its own the figure prices nothing.
+func TestFunctionDurationNeedsInvocations(t *testing.T) {
+	doc := estimateUsage(t, "eu-west-2", []ir.Node{functionNode(t, ir.FunctionProps{Size: ir.SizeLarge})}, nil, cost.Usage{"handler": {DurationMs: 300}})
+	if got := doc.Items[0]; got.Note != "" || len(got.Lines) != 0 {
+		t.Errorf("function = %+v", got)
+	}
+	wantOmitted := []cost.Omission{
+		{Name: "handler", Kind: "function", Reason: "requests"},
+		{Name: "handler", Kind: "function", Reason: "duration"},
+	}
+	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+
+	doc = estimateUsage(t, "eu-west-2", []ir.Node{functionNode(t, ir.FunctionProps{Size: ir.SizeLarge})}, nil, cost.Usage{"handler": {Invocations: "1000/day"}})
+	if got := doc.Items[0].Lines; len(got) != 1 || got[0].Label != "requests" || got[0].Quantity != 30417 {
+		t.Errorf("lines = %+v", got)
+	}
+	if len(doc.NotPriced) != 1 || doc.NotPriced[0].Reason != "duration" {
+		t.Errorf("not priced = %+v", doc.NotPriced)
+	}
+}
+
+func TestUsagePastTheFirstTierIsNoted(t *testing.T) {
+	api := ir.Node{ID: "g1", Type: ir.NodeGateway, Name: "api"}
+	doc := estimateUsage(t, "eu-west-2", []ir.Node{api}, nil, cost.Usage{"api": {Requests: "500M/month"}})
+	want := cost.Line{
+		Label: "requests", Quantity: 500000000, Unit: "requests", UnitPrice: 0.00000116, Amount: 580, SKU: "apigw-http-euw2",
+		Note: "past the first tier of 300,000,000 requests, priced at its rate",
+	}
+	if diff := cmp.Diff(want, doc.Items[0].Lines[0]); diff != "" {
+		t.Errorf("line (-want +got):\n%s", diff)
+	}
+
+	handler := functionNode(t, ir.FunctionProps{Size: ir.SizeLarge})
+	doc = estimateUsage(t, "eu-west-2", []ir.Node{handler}, nil, cost.Usage{"handler": {Invocations: "5k/min", DurationMs: 30000}})
+	duration := doc.Items[0].Lines[1]
+	if duration.Quantity != 13140000000 || duration.Note != "past the first tier of 6,000,000,000 GB-s, priced at its rate" {
+		t.Errorf("duration = %+v", duration)
+	}
+}
+
+func TestAnUnreadableRateIsAnError(t *testing.T) {
+	api := ir.Node{ID: "g1", Type: ir.NodeGateway, Name: "api"}
+	p := newProject(t, []ir.Node{api}, nil)
+	_, err := cost.Estimate(p, Cost(), priceFixture(), cost.Usage{"api": {Requests: "lots"}}, time.Now())
+	if err == nil || !strings.Contains(err.Error(), "gateway 'api': requests \"lots\" must be a number per period") {
+		t.Errorf("error = %v", err)
 	}
 }

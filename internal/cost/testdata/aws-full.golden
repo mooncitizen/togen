@@ -1,21 +1,23 @@
 api          gateway       HTTP API
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 orders       function      node, 1024 MB, x86_64
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 worker       function      python, 2048 MB, x86_64
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 mailer       function      go, 512 MB, x86_64
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 web          service       1 vCPU, 2 GB, 2 tasks, public
+  priced on defaults, no usage set
   vcpu            1460 vCPU-h  x  0.0466 USD    67.98
   memory          2920 GB-h    x  0.0051 USD    14.92
   load balancer    730 h       x  0.0265 USD    19.32
                                                102.22
 admin        service       0.25 vCPU, 0.5 GB, 1 task, private
+  priced on defaults, no usage set
   vcpu           182.5 vCPU-h  x  0.0466 USD     8.50
   memory           365 GB-h    x  0.0051 USD     1.87
                                                 10.37
@@ -28,16 +30,16 @@ reports-db   database      db.t4g.micro, mysql 8.0, single-AZ, 20 GB
   storage gp2       20 GB      x  0.1330 USD     2.66
                                                 15.80
 jobs         queue         standard
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 events       queue         FIFO
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 uploads      bucket        standard storage, versioned, private
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 assets       bucket        standard storage, unversioned, public
-  priced at rest, usage not set
+  priced on defaults, no usage set
                                                  0.00
 sessions     cache         cache.t4g.micro, redis 7.1, 1 node
   node             730 h       x  0.0180 USD    13.14
@@ -46,9 +48,11 @@ rate-limits  cache         cache.r7g.large, redis 7.1, 1 node
   node             730 h       x  0.2560 USD   186.88
                                                186.88
 admin        implicit ALB  internal load balancer, routed from api
+  priced on defaults, no usage set
   load balancer    730 h       x  0.0265 USD    19.32
                                                 19.32
 network      implicit VPC
+  priced on defaults, no usage set
   nat gateway      730 h       x  0.0500 USD    36.50
                                                 36.50
 not priced
@@ -60,18 +64,22 @@ not priced
   worker       function      duration
   mailer       function      requests
   mailer       function      duration
-  web          service       load balancer capacity units
+  web          service       egress
+  web          service       capacity units
+  admin        service       egress
   orders-db    database      backups beyond 50 GB
   reports-db   database      backups beyond 20 GB
-  jobs         queue         messages
-  events       queue         messages
+  jobs         queue         requests (3 per message)
+  events       queue         requests (3 per message)
   uploads      bucket        storage
-  uploads      bucket        requests
+  uploads      bucket        put requests (1 in 10)
+  uploads      bucket        get requests (9 in 10)
   uploads      bucket        egress
   assets       bucket        storage
-  assets       bucket        requests
+  assets       bucket        put requests (1 in 10)
+  assets       bucket        get requests (9 in 10)
   assets       bucket        egress
-  admin        implicit ALB  load balancer capacity units
-  network      implicit VPC  nat gateway data processed
+  admin        implicit ALB  capacity units
+  network      implicit VPC  nat gateway data
 
 total  503.38 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote

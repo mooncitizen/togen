@@ -11,6 +11,7 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/style"
 	"github.com/mooncitizen/togen/internal/workspace"
@@ -78,6 +79,7 @@ func Config() map[string]any {
 	theme["default"] = workspace.DefaultTheme
 	keyedBy(styleFields, "kinds", oneOfPattern(ir.NodeTypes), "Style for every node of a type")
 	keyedBy(styleFields, "nodes", kebabPattern, "Style for one node by name")
+	keyedBy(fields, "usage", kebabPattern, "Usage of one node by name, or of the network")
 	return doc
 }
 
@@ -331,7 +333,7 @@ var enumsByType = map[reflect.Type][]any{
 }
 
 func reflected(value any) map[string]any {
-	reflector := &jsonschema.Reflector{DoNotReference: true, ExpandedStruct: true}
+	reflector := &jsonschema.Reflector{DoNotReference: true, ExpandedStruct: true, Mapper: mapped}
 	doc := toMap(reflector.Reflect(value))
 	delete(doc, "$schema")
 	// The reflector derives an $id from the module path. A nested $id resets the
@@ -339,6 +341,14 @@ func reflected(value any) map[string]any {
 	delete(doc, "$id")
 	doc["additionalProperties"] = false
 	return doc
+}
+
+// The reflector sees a rate as a string; the grammar is the cost package's.
+func mapped(t reflect.Type) *jsonschema.Schema {
+	if t == reflect.TypeFor[cost.Rate]() {
+		return &jsonschema.Schema{Type: "string", Pattern: cost.RatePattern}
+	}
+	return nil
 }
 
 func propsSchema(props any) map[string]any {

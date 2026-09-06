@@ -182,11 +182,18 @@ const ec2Slice = `"FormatVersion","v1.0"
 "ZECE57EY4F96YNAQ","OnDemand","GB","0.0500000000","USD","NAT Gateway","EUW2-NatGateway-Bytes","eu-west-2"
 "M2YSHUBETB3JX4M4","OnDemand","Hrs","0.0450000000","USD","NAT Gateway","NatGateway-Hours","us-east-1"
 "KVHMMSJX774M3XRN","OnDemand","Hrs","0.0450000000","USD","NAT Gateway","RegionalNatGateway-Hours","us-east-1"
+"WXH9NW3V2TQ5QCZH","OnDemand","GB","0.0450000000","USD","NAT Gateway","NatGateway-Bytes","us-east-1"
+"6ZFPRA9QCUVHDC5B","OnDemand","GB","0.0450000000","USD","NAT Gateway","RegionalNatGateway-Bytes","us-east-1"
 `
 
 func natLookup(t *testing.T, region string) cost.Lookup {
 	t.Helper()
 	return lookupsFor(t, "AmazonEC2", region)[0]
+}
+
+func natDataLookup(t *testing.T, region string) cost.Lookup {
+	t.Helper()
+	return lookupsFor(t, "AmazonEC2", region)[1]
 }
 
 // The lookups the refresh would run against one service's offer file for a region.
@@ -223,7 +230,9 @@ func scanSlice(t *testing.T, name string, lookups []cost.Lookup) [][]cost.SKU {
 // matchers should pick and the neighbours a loose filter would catch. Fargate has ARM,
 // Windows and ephemeral storage meters in the same family; ElastiCache has Valkey, Memcached,
 // extended support and reserved rows for the same node types; S3 has the annotation volume and
-// request tiers of other storage classes.
+// request tiers of other storage classes; the load balancer file has the reserved and Outposts
+// capacity units; the data transfer file names its region in a From column and has the global
+// free allowance, inbound, cross-zone, CloudFront and inter-region rows next to internet egress.
 func TestScanOfferPicksOneSkuPerLookupInEachService(t *testing.T) {
 	for service, want := range map[string]map[string]string{
 		"AmazonECS": {
@@ -232,6 +241,10 @@ func TestScanOfferPicksOneSkuPerLookupInEachService(t *testing.T) {
 		},
 		"AWSELB": {
 			`AWSELB, productFamily=Load Balancer-Application, usagetype~(EU-|[A-Z]+\d-)?LoadBalancerUsage, termType=OnDemand, regionCode=eu-west-2`: "6AP766DZF74JPTE2",
+			`AWSELB, productFamily=Load Balancer-Application, usagetype~(EU-|[A-Z]+\d-)?LCUUsage, termType=OnDemand, regionCode=eu-west-2`:          "D4JRRS3AFPHRV7RF",
+		},
+		"AWSDataTransfer": {
+			`AWSDataTransfer, productFamily=Data Transfer, transferType=AWS Outbound, toLocation=External, usagetype~(EU-|[A-Z]+\d-)?DataTransfer-Out-Bytes, termType=OnDemand, regionCode=eu-west-2`: "QZ73H5RGR5JYYB4D",
 		},
 		"AmazonElastiCache": {
 			`AmazonElastiCache, productFamily=Cache Instance, instanceType=cache.t4g.micro, cacheEngine=Redis, usagetype~(EU-|[A-Z]+\d-)?NodeUsage:cache\.t4g\.micro, termType=OnDemand, regionCode=eu-west-2`:   "VYC98G9RNMYWYM9D",
@@ -285,12 +298,28 @@ func TestScanOfferKeepsTheFirstTierOfTheS3StorageMeter(t *testing.T) {
 func TestScanOfferPicksTheApplicationLoadBalancerHourWithOrWithoutARegionPrefix(t *testing.T) {
 	for region, want := range map[string]string{"eu-west-2": "6AP766DZF74JPTE2", "us-east-1": "37CUWUT8GSNQEPUV"} {
 		lookups := lookupsFor(t, "AWSELB", region)
-		if len(lookups) != 1 {
-			t.Fatalf("%s: lookups = %d, want 1", region, len(lookups))
+		if len(lookups) != 2 || lookups[0].Label != "load balancer" {
+			t.Fatalf("%s: lookups = %+v, want the hour and the capacity unit", region, lookups)
 		}
 		matched := scanSlice(t, "AWSELB-"+region+".csv", lookups)
 		if len(matched[0]) != 1 || matched[0][0].ID != want {
 			t.Errorf("%s: matched %+v, want %s", region, matched[0], want)
+		}
+	}
+}
+
+func TestScanOfferPicksTheUsedCapacityUnitNotTheReservedOrOutpostsOne(t *testing.T) {
+	for region, want := range map[string]cost.SKU{
+		"eu-west-2": {ID: "D4JRRS3AFPHRV7RF", Unit: "LCU-Hrs", Price: 0.0084},
+		"us-east-1": {ID: "P2XGEJ8N3KU52WA8", Unit: "LCU-Hrs", Price: 0.008},
+	} {
+		matched := scanSlice(t, "AWSELB-"+region+".csv", []cost.Lookup{lookupsFor(t, "AWSELB", region)[1]})
+		if len(matched[0]) != 1 {
+			t.Fatalf("%s: matched %+v", region, matched[0])
+		}
+		got := matched[0][0]
+		if got.ID != want.ID || got.Unit != want.Unit || got.Price != want.Price {
+			t.Errorf("%s: sku = %+v, want %+v", region, got, want)
 		}
 	}
 }
@@ -304,6 +333,34 @@ func TestScanOfferPicksThePlainNatGatewayHourWithOrWithoutARegionPrefix(t *testi
 		if len(matched[0]) != 1 || matched[0][0].ID != want {
 			t.Errorf("%s: matched %+v, want %s", region, matched[0], want)
 		}
+	}
+}
+
+func TestScanOfferPicksThePlainNatGatewayDataMeter(t *testing.T) {
+	for region, want := range map[string]string{"eu-west-2": "ZECE57EY4F96YNAQ", "us-east-1": "WXH9NW3V2TQ5QCZH"} {
+		matched, err := scanOffer(strings.NewReader(ec2Slice), []cost.Lookup{natDataLookup(t, region)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(matched[0]) != 1 || matched[0][0].ID != want || matched[0][0].Unit != "GB" {
+			t.Errorf("%s: matched %+v, want %s", region, matched[0], want)
+		}
+	}
+}
+
+// Internet egress is one sku in four tiers, the first 10 TB at 0.09, and its region is in the
+// From Region Code column.
+func TestScanOfferKeepsTheFirstTierOfTheInternetEgressMeter(t *testing.T) {
+	lookups, matched := scanTestdata(t, "AWSDataTransfer", "eu-west-2")
+	if len(lookups) != 1 {
+		t.Fatalf("lookups = %d, want 1", len(lookups))
+	}
+	want := cost.SKU{ID: "QZ73H5RGR5JYYB4D", Service: "AWSDataTransfer", Unit: "GB", Price: 0.09, UpTo: 10240, Attributes: map[string]string{
+		"productFamily": "Data Transfer", "transferType": "AWS Outbound", "toLocation": "External",
+		"usagetype": "EUW2-DataTransfer-Out-Bytes", "termType": "OnDemand", "regionCode": "eu-west-2",
+	}}
+	if diff := cmp.Diff([]cost.SKU{want}, matched[0]); diff != "" {
+		t.Errorf("egress (-want +got):\n%s", diff)
 	}
 }
 

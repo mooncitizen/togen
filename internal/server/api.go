@@ -80,8 +80,8 @@ func (s *Server) getViews(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, views)
 }
 
-// A missing file is not a problem: it means every default (ADR 0007). Styles
-// keyed by node name are checked against the project when there is one to
+// A missing file is not a problem: it means every default (ADR 0007). Styles and
+// usage keyed by node name are checked against the project when there is one to
 // check against; without it the answer is the configuration alone.
 func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
 	config, note, err := workspace.LoadConfig(s.dir)
@@ -90,7 +90,7 @@ func (s *Server) getConfig(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 	if project, errs, err := workspace.LoadProject(s.dir); err == nil && len(errs) == 0 {
-		if errs := workspace.CheckStyle(config, project); len(errs) > 0 {
+		if errs := workspace.CheckConfig(config, project); len(errs) > 0 {
 			writeErrors(w, http.StatusUnprocessableEntity, errs)
 			return
 		}

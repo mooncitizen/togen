@@ -108,6 +108,7 @@ export type CostLine = {
   unitPrice: number;
   amount: number;
   sku: string;
+  note?: string;
 };
 
 export type CostItem = {

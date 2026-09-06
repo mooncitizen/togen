@@ -3,6 +3,7 @@ package aws
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 
@@ -11,10 +12,11 @@ import (
 )
 
 const (
-	hoursPerMonth = 730
-	// Pay-per-use types cost nothing until they are used, and the usage block is not here yet.
-	atRest  = "priced at rest, usage not set"
-	lcuNote = "load balancer capacity units"
+	hoursPerMonth = cost.HoursPerMonth
+	// A message is sent, received and deleted, each a request.
+	requestsPerMessage = 3
+	// The share of a bucket's requests taken as writes (PUT, COPY, POST, LIST), the rest reads.
+	writeShare = 0.1
 )
 
 var engineNames = map[ir.Engine]string{
@@ -26,34 +28,34 @@ type costMatchers struct{}
 
 func Cost() cost.Matchers { return costMatchers{} }
 
-func (costMatchers) Node(n ir.Node, region string) (cost.Item, bool, error) {
+func (costMatchers) Node(n ir.Node, region string, u cost.NodeUsage) (cost.Item, bool, error) {
 	var item cost.Item
 	var err error
 	switch n.Type {
 	case ir.NodeDatabase:
 		item, err = databaseCost(n, region)
 	case ir.NodeService:
-		item, err = serviceCost(n, region)
+		item, err = serviceCost(n, region, u)
 	case ir.NodeCache:
 		item, err = cacheCost(n, region)
 	case ir.NodeBucket:
-		item, err = bucketCost(n, region)
+		item, err = bucketCost(n, region, u)
 	case ir.NodeFunction:
-		item, err = functionCost(n, region)
+		item, err = functionCost(n, region, u)
 	case ir.NodeGateway:
-		item = gatewayCost(n, region)
+		item, err = gatewayCost(n, region, u)
 	case ir.NodeQueue:
-		item, err = queueCost(n, region)
+		item, err = queueCost(n, region, u)
 	default:
 		return cost.Item{}, false, nil
 	}
 	return item, true, err
 }
 
-func (costMatchers) Implicit(p *ir.Project) []cost.Item {
-	out := routedLoadBalancers(p)
+func (costMatchers) Implicit(p *ir.Project, usage cost.Usage) []cost.Item {
+	out := routedLoadBalancers(p, usage)
 	if needsNetwork(p) {
-		out = append(out, networkCost(p.Region))
+		out = append(out, networkCost(p.Region, usage[cost.NetworkUsage].NatGb))
 	}
 	return out
 }
@@ -99,9 +101,9 @@ func (m costMatchers) Catalogue(region string) ([]cost.Lookup, error) {
 		}
 	}
 
-	items := []cost.Item{networkCost(region)}
+	items := []cost.Item{networkCost(region, 0)}
 	for _, n := range nodes {
-		item, _, err := m.Node(n, region)
+		item, _, err := m.Node(n, region, cost.NodeUsage{})
 		if err != nil {
 			return nil, err
 		}
@@ -173,8 +175,9 @@ func databaseCost(n ir.Node, region string) (cost.Item, error) {
 }
 
 // The task definition sets no runtime platform, so the tasks run on x86 and the ARM meters
-// must not match. A public service also pays for its load balancer's hours.
-func serviceCost(n ir.Node, region string) (cost.Item, error) {
+// must not match. A public service also pays for its load balancer's hours, and its capacity
+// units on what it sends out.
+func serviceCost(n ir.Node, region string, u cost.NodeUsage) (cost.Item, error) {
 	p, err := ir.NodeProps[ir.ServiceProps](n)
 	if err != nil {
 		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
@@ -216,16 +219,17 @@ func serviceCost(n ir.Node, region string) (cost.Item, error) {
 			},
 		},
 	}
+	item.Usage = []cost.Lookup{egressLookup(region, u.EgressGb)}
 	if p.Public {
 		item.Lookups = append(item.Lookups, loadBalancerLookup(region))
-		item.Unpriced = []string{lcuNote}
+		item.Usage = append(item.Usage, capacityUnitsLookup(region, u.EgressGb))
 	}
 	return item, nil
 }
 
 // A private service gets an internal load balancer only when a gateway routes to it, which
 // the node alone cannot tell, so those are priced here: one per service however many routes.
-func routedLoadBalancers(p *ir.Project) []cost.Item {
+func routedLoadBalancers(p *ir.Project, usage cost.Usage) []cost.Item {
 	nodes := make(map[string]ir.Node, len(p.Nodes))
 	for _, n := range p.Nodes {
 		nodes[n.ID] = n
@@ -243,11 +247,11 @@ func routedLoadBalancers(p *ir.Project) []cost.Item {
 		}
 		seen[to.ID] = true
 		out = append(out, cost.Item{
-			Name:     to.Name,
-			Kind:     "implicit ALB",
-			Summary:  "internal load balancer, routed from " + from.Name,
-			Lookups:  []cost.Lookup{loadBalancerLookup(p.Region)},
-			Unpriced: []string{lcuNote},
+			Name:    to.Name,
+			Kind:    "implicit ALB",
+			Summary: "internal load balancer, routed from " + from.Name,
+			Lookups: []cost.Lookup{loadBalancerLookup(p.Region)},
+			Usage:   []cost.Lookup{capacityUnitsLookup(p.Region, usage[to.Name].EgressGb)},
 		})
 	}
 	return out
@@ -263,6 +267,38 @@ func loadBalancerLookup(region string) cost.Lookup {
 		),
 		Quantity: hoursPerMonth,
 		Unit:     "h",
+	}
+}
+
+// A capacity unit is the largest of four dimensions an hour, and the only one a design can say
+// anything about is bytes, at 1 GB an hour per unit, so the egress stands in for all four.
+func capacityUnitsLookup(region string, egressGb float64) cost.Lookup {
+	return cost.Lookup{
+		Label:   "capacity units",
+		Service: "AWSELB",
+		Filters: onDemand(region,
+			cost.Filter{Attribute: "productFamily", Value: "Load Balancer-Application"},
+			regional(`LCUUsage`),
+		),
+		Quantity: egressGb,
+		Unit:     "LCU-h",
+	}
+}
+
+// Data out to the internet is one meter for every service, priced from the region it leaves.
+// The global free allowance is a row of its own with no region, so the filter passes it by.
+func egressLookup(region string, egressGb float64) cost.Lookup {
+	return cost.Lookup{
+		Label:   "egress",
+		Service: "AWSDataTransfer",
+		Filters: onDemand(region,
+			cost.Filter{Attribute: "productFamily", Value: "Data Transfer"},
+			cost.Filter{Attribute: "transferType", Value: "AWS Outbound"},
+			cost.Filter{Attribute: "toLocation", Value: "External"},
+			regional(`DataTransfer-Out-Bytes`),
+		),
+		Quantity: egressGb,
+		Unit:     "GB",
 	}
 }
 
@@ -297,8 +333,8 @@ func cacheCost(n ir.Node, region string) (cost.Item, error) {
 }
 
 // The annotation rows share S3's storage class and request groups, so the usage types say
-// which is meant.
-func bucketCost(n ir.Node, region string) (cost.Item, error) {
+// which is meant. One requests figure covers both request meters, split a tenth writes.
+func bucketCost(n ir.Node, region string, u cost.NodeUsage) (cost.Item, error) {
 	p, err := ir.NodeProps[ir.BucketProps](n)
 	if err != nil {
 		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
@@ -310,11 +346,14 @@ func bucketCost(n ir.Node, region string) (cost.Item, error) {
 	if p.Public {
 		access = "public"
 	}
+	requests, err := u.Requests.PerMonth()
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("bucket '%s': requests %v", n.Name, err)
+	}
 	return cost.Item{
 		Name:    n.Name,
 		Kind:    string(n.Type),
 		Summary: fmt.Sprintf("standard storage, %s, %s", versioning, access),
-		Note:    atRest,
 		Usage: []cost.Lookup{
 			{
 				Label:   "storage",
@@ -325,37 +364,43 @@ func bucketCost(n ir.Node, region string) (cost.Item, error) {
 					cost.Filter{Attribute: "volumeType", Value: "Standard"},
 					regional(`TimedStorage-ByteHrs`),
 				),
-				Unit: "GB",
+				Quantity: u.StorageGb,
+				Unit:     "GB",
 			},
 			{
-				Label:   "put requests",
+				Label:   "put requests (1 in 10)",
 				Service: "AmazonS3",
 				Filters: onDemand(region,
 					cost.Filter{Attribute: "productFamily", Value: "API Request"},
 					cost.Filter{Attribute: "group", Value: "S3-API-Tier1"},
 					regional(`Requests-Tier1`),
 				),
-				Unit: "requests",
+				Quantity: math.Round(requests * writeShare),
+				Unit:     "requests",
 			},
 			{
-				Label:   "get requests",
+				Label:   "get requests (9 in 10)",
 				Service: "AmazonS3",
 				Filters: onDemand(region,
 					cost.Filter{Attribute: "productFamily", Value: "API Request"},
 					cost.Filter{Attribute: "group", Value: "S3-API-Tier2"},
 					regional(`Requests-Tier2`),
 				),
-				Unit: "requests",
+				Quantity: math.Round(requests * (1 - writeShare)),
+				Unit:     "requests",
 			},
+			egressLookup(region, u.EgressGb),
 		},
-		Unpriced: []string{"storage", "requests", "egress"},
 	}, nil
 }
 
 // The hourly usage type carries a region prefix in most files (EUW2-NatGateway-Hours) and none
 // in us-east-1, and the regional variant must not match, hence the pattern. GCP's implicit
 // network carries a Cloud NAT too once a caller needs all-traffic egress; it is not priced yet.
-func networkCost(region string) cost.Item {
+func networkCost(region string, natGb float64) cost.Item {
+	natGateway := func(usage string) cost.Filter {
+		return cost.Filter{Attribute: "usagetype", Value: `(\w+-)?NatGateway-` + usage, Pattern: true}
+	}
 	return cost.Item{
 		Name: networkLabel,
 		Kind: "implicit VPC",
@@ -364,20 +409,32 @@ func networkCost(region string) cost.Item {
 			Service: "AmazonEC2",
 			Filters: []cost.Filter{
 				{Attribute: "productFamily", Value: "NAT Gateway"},
-				{Attribute: "usagetype", Value: `(\w+-)?NatGateway-Hours`, Pattern: true},
+				natGateway("Hours"),
 				{Attribute: "termType", Value: "OnDemand"},
 				{Attribute: "regionCode", Value: region},
 			},
 			Quantity: hoursPerMonth,
 			Unit:     "h",
 		}},
-		Unpriced: []string{"nat gateway data processed"},
+		Usage: []cost.Lookup{{
+			Label:   "nat gateway data",
+			Service: "AmazonEC2",
+			Filters: []cost.Filter{
+				{Attribute: "productFamily", Value: "NAT Gateway"},
+				natGateway("Bytes"),
+				{Attribute: "termType", Value: "OnDemand"},
+				{Attribute: "regionCode", Value: region},
+			},
+			Quantity: natGb,
+			Unit:     "GB",
+		}},
 	}
 }
 
 // The function runs on x86_64, Lambda's default when architectures is not set, so the arm64
-// meters (a fifth cheaper) are not the ones to price.
-func functionCost(n ir.Node, region string) (cost.Item, error) {
+// meters (a fifth cheaper) are not the ones to price. Duration is GB-seconds: every run for
+// its length at the size's memory.
+func functionCost(n ir.Node, region string, u cost.NodeUsage) (cost.Item, error) {
 	p, err := ir.NodeProps[ir.FunctionProps](n)
 	if err != nil {
 		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
@@ -385,6 +442,10 @@ func functionCost(n ir.Node, region string) (cost.Item, error) {
 	memory, ok := lambdaMemory[p.Size]
 	if !ok {
 		return cost.Item{}, fmt.Errorf("function '%s' has an unknown size '%s'", n.Name, p.Size)
+	}
+	invocations, err := u.Invocations.PerMonth()
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("function '%s': invocations %v", n.Name, err)
 	}
 	common := []cost.Filter{
 		{Attribute: "productFamily", Value: "Serverless"},
@@ -395,7 +456,6 @@ func functionCost(n ir.Node, region string) (cost.Item, error) {
 		Name:    n.Name,
 		Kind:    string(n.Type),
 		Summary: fmt.Sprintf("%s, %d MB, x86_64", p.Runtime, int(memory)),
-		Note:    atRest,
 		Usage: []cost.Lookup{
 			{
 				Label:   "requests",
@@ -404,7 +464,8 @@ func functionCost(n ir.Node, region string) (cost.Item, error) {
 					{Attribute: "group", Value: "AWS-Lambda-Requests"},
 					{Attribute: "usagetype", Value: `(\w+-)?Request`, Pattern: true},
 				}, common...),
-				Unit: "requests",
+				Quantity: invocations,
+				Unit:     "requests",
 			},
 			{
 				Label:   "duration",
@@ -413,20 +474,23 @@ func functionCost(n ir.Node, region string) (cost.Item, error) {
 					{Attribute: "group", Value: "AWS-Lambda-Duration"},
 					{Attribute: "usagetype", Value: `(\w+-)?Lambda-GB-Second`, Pattern: true},
 				}, common...),
-				Unit: "GB-s",
+				Quantity: invocations * u.DurationMs / 1000 * memory / 1024,
+				Unit:     "GB-s",
 			},
 		},
-		Unpriced: []string{"requests", "duration"},
 	}, nil
 }
 
 // The resolver makes an HTTP API, whose request meter is a third of the REST API's.
-func gatewayCost(n ir.Node, region string) cost.Item {
+func gatewayCost(n ir.Node, region string, u cost.NodeUsage) (cost.Item, error) {
+	requests, err := u.Requests.PerMonth()
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("gateway '%s': requests %v", n.Name, err)
+	}
 	return cost.Item{
 		Name:    n.Name,
 		Kind:    string(n.Type),
 		Summary: "HTTP API",
-		Note:    atRest,
 		Usage: []cost.Lookup{{
 			Label:   "requests",
 			Service: "AmazonApiGateway",
@@ -436,13 +500,14 @@ func gatewayCost(n ir.Node, region string) cost.Item {
 				{Attribute: "termType", Value: "OnDemand"},
 				{Attribute: "regionCode", Value: region},
 			},
-			Unit: "requests",
+			Quantity: requests,
+			Unit:     "requests",
 		}},
-		Unpriced: []string{"requests", "data transfer"},
-	}
+		Unpriced: []string{"data transfer"},
+	}, nil
 }
 
-func queueCost(n ir.Node, region string) (cost.Item, error) {
+func queueCost(n ir.Node, region string, u cost.NodeUsage) (cost.Item, error) {
 	p, err := ir.NodeProps[ir.QueueProps](n)
 	if err != nil {
 		return cost.Item{}, fmt.Errorf("node '%s' has properties the aws matcher cannot read: %v", n.ID, err)
@@ -451,13 +516,16 @@ func queueCost(n ir.Node, region string) (cost.Item, error) {
 	if p.FIFO {
 		queueType, shown = "FIFO (first-in, first-out)", "FIFO"
 	}
+	messages, err := u.Messages.PerMonth()
+	if err != nil {
+		return cost.Item{}, fmt.Errorf("queue '%s': messages %v", n.Name, err)
+	}
 	return cost.Item{
 		Name:    n.Name,
 		Kind:    string(n.Type),
 		Summary: shown,
-		Note:    atRest,
 		Usage: []cost.Lookup{{
-			Label:   "requests",
+			Label:   fmt.Sprintf("requests (%d per message)", requestsPerMessage),
 			Service: "AWSQueueService",
 			Filters: []cost.Filter{
 				{Attribute: "productFamily", Value: "API Request"},
@@ -465,9 +533,9 @@ func queueCost(n ir.Node, region string) (cost.Item, error) {
 				{Attribute: "termType", Value: "OnDemand"},
 				{Attribute: "regionCode", Value: region},
 			},
-			Unit: "requests",
+			Quantity: messages * requestsPerMessage,
+			Unit:     "requests",
 		}},
-		Unpriced: []string{"messages"},
 	}, nil
 }
 

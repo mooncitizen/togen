@@ -1,46 +1,46 @@
 api        gateway       HTTP API
-  priced at rest, usage not set
-                                                 0.00
+  requests        21900000 requests  x    0.00000116 USD    25.40
+                                                            25.40
 orders     function      node, 512 MB, x86_64
-  priced at rest, usage not set
-                                                 0.00
+  requests         2000000 requests  x     0.0000002 USD     0.40
+  duration          300000 GB-s      x  0.0000166667 USD     5.00
+                                                             5.40
 orders-db  database      db.t4g.micro, postgres 17, single-AZ, 20 GB
-  instance         730 h       x  0.0180 USD    13.14
-  storage gp2       20 GB      x  0.1330 USD     2.66
-                                                15.80
+  instance             730 h         x        0.0180 USD    13.14
+  storage gp2           20 GB        x        0.1330 USD     2.66
+                                                            15.80
 web        service       0.25 vCPU, 0.5 GB, 1 task, public
-  vcpu           182.5 vCPU-h  x  0.0466 USD     8.50
-  memory           365 GB-h    x  0.0051 USD     1.87
-  load balancer    730 h       x  0.0265 USD    19.32
-                                                29.69
+  vcpu               182.5 vCPU-h    x        0.0466 USD     8.50
+  memory               365 GB-h      x        0.0051 USD     1.87
+  load balancer        730 h         x        0.0265 USD    19.32
+  egress               100 GB        x        0.0900 USD     9.00
+  capacity units       100 LCU-h     x        0.0084 USD     0.84
+                                                            39.53
 jobs       queue         standard
-  priced at rest, usage not set
-                                                 0.00
+  priced on defaults, no usage set
+                                                             0.00
 worker     function      node, 512 MB, x86_64
-  priced at rest, usage not set
-                                                 0.00
+  priced on defaults, no usage set
+                                                             0.00
 uploads    bucket        standard storage, versioned, private
-  priced at rest, usage not set
-                                                 0.00
+  storage              200 GB        x        0.0240 USD     4.80
+  egress                40 GB        x        0.0900 USD     3.60
+                                                             8.40
 sessions   cache         cache.t4g.micro, redis 7.1, 1 node
-  node             730 h       x  0.0180 USD    13.14
-                                                13.14
+  node                 730 h         x        0.0180 USD    13.14
+                                                            13.14
 network    implicit VPC
-  nat gateway      730 h       x  0.0500 USD    36.50
-                                                36.50
+  priced on defaults, no usage set
+  nat gateway          730 h         x        0.0500 USD    36.50
+                                                            36.50
 not priced
-  api        gateway       requests
   api        gateway       data transfer
-  orders     function      requests
-  orders     function      duration
   orders-db  database      backups beyond 20 GB
-  web        service       load balancer capacity units
-  jobs       queue         messages
+  jobs       queue         requests (3 per message)
   worker     function      requests
   worker     function      duration
-  uploads    bucket        storage
-  uploads    bucket        requests
-  uploads    bucket        egress
-  network    implicit VPC  nat gateway data processed
+  uploads    bucket        put requests (1 in 10)
+  uploads    bucket        get requests (9 in 10)
+  network    implicit VPC  nat gateway data
 
-total  95.13 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote
+total  144.17 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote

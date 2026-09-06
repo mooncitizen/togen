@@ -3,13 +3,16 @@ package workspace
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
@@ -163,6 +166,12 @@ func TestLoadConfigReportsStyleErrorsWithTheirPaths(t *testing.T) {
 		{"unknown key", "style:\n  colour: red\n", "style"},
 		{"unknown top level key", "provider: aws\n", ConfigName},
 		{"empty targets", "targets: []\n", "targets"},
+		{"usage key the catalogue has not got", "usage:\n  api:\n    calls: 500/min\n", "usage.api"},
+		{"usage node name that is not kebab", "usage:\n  Api:\n    requests: 500/min\n", "usage"},
+		{"rate without a period", "usage:\n  api:\n    requests: 500\n", "usage.api.requests"},
+		{"rate with a period the grammar lacks", "usage:\n  jobs:\n    messages: 5/week\n", "usage.jobs.messages"},
+		{"negative storage", "usage:\n  uploads:\n    storageGb: -1\n", "usage.uploads.storageGb"},
+		{"duration that is not a number", "usage:\n  orders:\n    durationMs: fast\n", "usage.orders.durationMs"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			lines := configErrors(t, c.text)
@@ -173,6 +182,47 @@ func TestLoadConfigReportsStyleErrorsWithTheirPaths(t *testing.T) {
 				t.Errorf("error = %q, want the path %q", got, c.want)
 			}
 		})
+	}
+}
+
+func TestLoadConfigSaysWhatARateMayBe(t *testing.T) {
+	lines := configErrors(t, "usage:\n  orders:\n    invocations: 2000000\n")
+	want := []string{"usage.orders.invocations: " + cost.RateHelp}
+	if diff := cmp.Diff(want, lines); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestLoadConfigReadsAUsageBlock(t *testing.T) {
+	cwd := t.TempDir()
+	writeConfig(t, cwd, `
+usage:
+  api:
+    requests: 500/min
+  orders:
+    invocations: 2M/month
+    durationMs: 300
+  jobs:
+    messages: 100k/day
+  uploads:
+    storageGb: 200
+    egressGb: 40
+    requests: 1M/month
+  web:
+    egressGb: 100
+  network:
+    natGb: 50
+`)
+	want := cost.Usage{
+		"api":     {Requests: "500/min"},
+		"orders":  {Invocations: "2M/month", DurationMs: 300},
+		"jobs":    {Messages: "100k/day"},
+		"uploads": {StorageGb: 200, EgressGb: 40, Requests: "1M/month"},
+		"web":     {EgressGb: 100},
+		"network": {NatGb: 50},
+	}
+	if diff := cmp.Diff(want, loadConfig(t, cwd).Usage); diff != "" {
+		t.Errorf("usage (-want +got):\n%s", diff)
 	}
 }
 
@@ -226,7 +276,93 @@ func styledProject(names ...string) *ir.Project {
 	return project
 }
 
-func TestCheckStyleNamesTheNodesThatDoNotExist(t *testing.T) {
+func typedProject(nodes map[string]ir.NodeType) *ir.Project {
+	project := &ir.Project{Provider: ir.ProviderAWS}
+	for _, name := range slices.Sorted(maps.Keys(nodes)) {
+		project.Nodes = append(project.Nodes, ir.Node{ID: name, Type: nodes[name], Name: name})
+	}
+	return project
+}
+
+func TestCheckConfigPassesEveryUsageKeyOnItsOwnType(t *testing.T) {
+	config := DefaultConfig()
+	config.Usage = cost.Usage{
+		"api":     {Requests: "500/min"},
+		"orders":  {Invocations: "2M/month", DurationMs: 300},
+		"jobs":    {Messages: "100k/day"},
+		"uploads": {StorageGb: 200, EgressGb: 40, Requests: "1M/month"},
+		"web":     {EgressGb: 100},
+		"network": {NatGb: 50},
+	}
+	project := typedProject(map[string]ir.NodeType{
+		"api": ir.NodeGateway, "orders": ir.NodeFunction, "jobs": ir.NodeQueue, "uploads": ir.NodeBucket, "web": ir.NodeService,
+	})
+	if errs := CheckConfig(config, project); len(errs) > 0 {
+		t.Errorf("errors = %v", errs)
+	}
+}
+
+func TestCheckConfigRefusesAUsageKeyOnTheWrongType(t *testing.T) {
+	config := DefaultConfig()
+	config.Usage = cost.Usage{
+		"api":       {Invocations: "2M/month", Requests: "500/min"},
+		"orders":    {Requests: "500/min", DurationMs: 300},
+		"jobs":      {StorageGb: 5, EgressGb: 1},
+		"uploads":   {Messages: "1/min"},
+		"web":       {NatGb: 5},
+		"orders-db": {StorageGb: 50},
+		"sessions":  {Requests: "1/min"},
+		"network":   {Requests: "1/min"},
+	}
+	project := typedProject(map[string]ir.NodeType{
+		"api": ir.NodeGateway, "orders": ir.NodeFunction, "jobs": ir.NodeQueue, "uploads": ir.NodeBucket, "web": ir.NodeService,
+		"orders-db": ir.NodeDatabase, "sessions": ir.NodeCache,
+	})
+	want := ir.Errors{
+		{Path: "usage.api.invocations", Message: "a gateway takes requests only"},
+		{Path: "usage.jobs.storageGb", Message: "a queue takes messages only"},
+		{Path: "usage.jobs.egressGb", Message: "a queue takes messages only"},
+		{Path: "usage.network.requests", Message: "the network takes natGb only"},
+		{Path: "usage.orders.requests", Message: "a function takes invocations, durationMs only"},
+		{Path: "usage.orders-db.storageGb", Message: "a database takes no usage keys"},
+		{Path: "usage.sessions.requests", Message: "a cache takes no usage keys"},
+		{Path: "usage.uploads.messages", Message: "a bucket takes storageGb, egressGb, requests only"},
+		{Path: "usage.web.natGb", Message: "a service takes egressGb only"},
+	}
+	if diff := cmp.Diff(want, CheckConfig(config, project)); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestCheckConfigNamesTheUsedNodesThatDoNotExist(t *testing.T) {
+	config := DefaultConfig()
+	config.Usage = cost.Usage{"api": {Requests: "500/min"}, "archive": {StorageGb: 5}, "network": {NatGb: 5}}
+	want := ir.Errors{{Path: "usage.archive", Message: "there is no node named 'archive'"}}
+	if diff := cmp.Diff(want, CheckConfig(config, typedProject(map[string]ir.NodeType{"api": ir.NodeGateway}))); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+// A node called network shares the entry with the implicit network, so both key sets pass.
+func TestCheckConfigLetsANodeCalledNetworkKeepTheNetworkKeys(t *testing.T) {
+	config := DefaultConfig()
+	config.Usage = cost.Usage{"network": {Requests: "500/min", NatGb: 5}}
+	if errs := CheckConfig(config, typedProject(map[string]ir.NodeType{"network": ir.NodeGateway})); len(errs) > 0 {
+		t.Errorf("errors = %v", errs)
+	}
+}
+
+// The legacy JSON file is read without the schema, so the rate grammar is checked here too.
+func TestCheckConfigRefusesARateTheGrammarCannotRead(t *testing.T) {
+	config := DefaultConfig()
+	config.Usage = cost.Usage{"api": {Requests: "lots"}}
+	want := ir.Errors{{Path: "usage.api.requests", Message: cost.RateHelp}}
+	if diff := cmp.Diff(want, CheckConfig(config, typedProject(map[string]ir.NodeType{"api": ir.NodeGateway}))); diff != "" {
+		t.Errorf("errors (-want +got):\n%s", diff)
+	}
+}
+
+func TestCheckConfigNamesTheStyledNodesThatDoNotExist(t *testing.T) {
 	config := DefaultConfig()
 	config.Style.Nodes = map[string]NodeStyle{
 		"web":       {Color: "#DD344C"},
@@ -237,19 +373,19 @@ func TestCheckStyleNamesTheNodesThatDoNotExist(t *testing.T) {
 		{Path: "style.nodes.archive", Message: "there is no node named 'archive'"},
 		{Path: "style.nodes.orders-db", Message: "there is no node named 'orders-db'"},
 	}
-	if diff := cmp.Diff(want, CheckStyle(config, styledProject("web", "api"))); diff != "" {
+	if diff := cmp.Diff(want, CheckConfig(config, styledProject("web", "api"))); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
 	}
 }
 
-func TestCheckStylePassesKindsAndKnownNodes(t *testing.T) {
+func TestCheckConfigPassesKindsAndKnownNodes(t *testing.T) {
 	config := DefaultConfig()
 	config.Style.Kinds = map[ir.NodeType]NodeStyle{ir.NodeDatabase: {Shape: "cylinder"}}
 	config.Style.Nodes = map[string]NodeStyle{"web": {Color: "#DD344C"}}
-	if errs := CheckStyle(config, styledProject("web")); len(errs) > 0 {
+	if errs := CheckConfig(config, styledProject("web")); len(errs) > 0 {
 		t.Errorf("errors = %v", errs)
 	}
-	if errs := CheckStyle(Config{}, styledProject()); len(errs) > 0 {
+	if errs := CheckConfig(Config{}, styledProject()); len(errs) > 0 {
 		t.Errorf("errors without a style block = %v", errs)
 	}
 }

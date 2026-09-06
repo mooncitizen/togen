@@ -41,7 +41,8 @@ const placed = overviewLayout({
     'service-1': { x: 740, y: 20 },
   });
 
-// The aws-basic golden table, as GET /api/cost sends it.
+// The shape of GET /api/cost: a gateway with a usage line past its first tier, a function on
+// defaults, a database on its fixed meters and the network on defaults.
 const estimate: Cost = {
   provider: 'aws',
   region: 'eu-west-2',
@@ -51,15 +52,24 @@ const estimate: Cost = {
       name: 'api',
       kind: 'gateway',
       summary: 'HTTP API',
-      note: 'priced at rest, usage not set',
-      lines: [],
-      subtotal: 0,
+      lines: [
+        {
+          label: 'requests',
+          quantity: 500000000,
+          unit: 'requests',
+          unitPrice: 0.00000116,
+          amount: 580,
+          sku: 'sku-0',
+          note: 'past the first tier of 300,000,000 requests, priced at its rate',
+        },
+      ],
+      subtotal: 580,
     },
     {
       name: 'orders',
       kind: 'function',
       summary: 'node, 512 MB, x86_64',
-      note: 'priced at rest, usage not set',
+      note: 'priced on defaults, no usage set',
       lines: [],
       subtotal: 0,
     },
@@ -91,6 +101,7 @@ const estimate: Cost = {
       name: 'network',
       kind: 'implicit',
       summary: 'VPC',
+      note: 'priced on defaults, no usage set',
       lines: [
         {
           label: 'nat gateway',
@@ -106,14 +117,13 @@ const estimate: Cost = {
   ],
   notPriced: [
     { name: 'web', kind: 'service', reason: 'no aws prices for this node type yet' },
-    { name: 'api', kind: 'gateway', reason: 'requests' },
     { name: 'api', kind: 'gateway', reason: 'data transfer' },
     { name: 'orders', kind: 'function', reason: 'requests' },
     { name: 'orders', kind: 'function', reason: 'duration' },
     { name: 'orders-db', kind: 'database', reason: 'backups beyond 20 GB' },
-    { name: 'network', kind: 'implicit', reason: 'nat gateway data processed' },
+    { name: 'network', kind: 'implicit', reason: 'nat gateway data' },
   ],
-  total: 52.3,
+  total: 632.3,
   snapshotDate: '2026-09-05',
   note: 'list prices from 2026-09-05, estimate not a quote',
 };
@@ -169,7 +179,7 @@ afterEach(() => {
 test('the pill shows the monthly total and opens the table the CLI prints', async () => {
   const screen = await show();
 
-  await expect.element(screen.getByRole('button', { name: '52.30 USD/mo' })).toBeInTheDocument();
+  await expect.element(screen.getByRole('button', { name: '632.30 USD/mo' })).toBeInTheDocument();
   expect(drawer(screen)).toBeNull();
 
   const panel = await opened(screen);
@@ -183,7 +193,10 @@ test('the pill shows the monthly total and opens the table the CLI prints', asyn
     'api',
     'gateway',
     'HTTP API',
-    'priced at rest, usage not set',
+    '500000000 requests × 0.00000116',
+    '580.00',
+    'past the first tier of 300,000,000 requests, priced at its rate',
+    'priced on defaults, no usage set',
     'node, 512 MB, x86_64',
     'orders-db',
     'database',
@@ -207,14 +220,15 @@ test('the pill shows the monthly total and opens the table the CLI prints', asyn
     'data transfer',
     'duration',
     'backups beyond 20 GB',
-    'nat gateway data processed',
-    '52.30 USD/month',
+    'nat gateway data',
+    '632.30 USD/month',
     'eu-west-2, list prices from 2026-09-05, estimate not a quote',
+    'On defaults, no usage set: orders, network',
   ]) {
     expect(text).toContain(expected);
   }
   expect(text).not.toContain('days old');
-  expect(text.match(/priced at rest, usage not set/g)).toHaveLength(2);
+  expect(text.match(/priced on defaults, no usage set/g)).toHaveLength(2);
 
   await screen.getByRole('button', { name: 'Close cost' }).click();
   await vi.waitFor(() => expect(drawer(screen)).toBeNull());
@@ -261,12 +275,20 @@ test('selecting a node while the drawer is open highlights its rows', async () =
 
   click(screen, 'gateway-1');
 
-  await vi.waitFor(() => expect(highlighted(screen)).toHaveLength(3));
-  const [atRest, requests, transfer] = highlighted(screen);
-  expect(atRest).toContain('priced at rest, usage not set');
-  expect(atRest).toContain('0.00');
-  expect(requests).toContain('requests');
+  await vi.waitFor(() => expect(highlighted(screen)).toHaveLength(2));
+  const [requests, transfer] = highlighted(screen);
+  expect(requests).toContain('500000000 requests × 0.00000116');
+  expect(requests).toContain('580.00');
   expect(transfer).toContain('data transfer');
+
+  click(screen, 'function-1');
+
+  await vi.waitFor(() => expect(highlighted(screen)).toHaveLength(3));
+  const [onDefaults, invocations, duration] = highlighted(screen);
+  expect(onDefaults).toContain('priced on defaults, no usage set');
+  expect(onDefaults).toContain('0.00');
+  expect(invocations).toContain('requests');
+  expect(duration).toContain('duration');
 
   click(screen, 'service-1');
 
@@ -274,19 +296,42 @@ test('selecting a node while the drawer is open highlights its rows', async () =
   expect(highlighted(screen)[0]).toContain('no aws prices for this node type yet');
 });
 
-test('each card carries its subtotal, 0.00 when it is priced at rest, or a dash when it is not priced', async () => {
+test('each card carries its subtotal, 0.00 when it is priced on defaults, or a dash when it is not priced', async () => {
   const screen = await show();
 
   await vi.waitFor(() => expect(badge(screen, 'database-1')).toBe('15.80'));
-  expect(badge(screen, 'gateway-1')).toBe('0.00');
+  expect(badge(screen, 'gateway-1')).toBe('580.00');
   expect(badge(screen, 'function-1')).toBe('0.00');
   expect(badge(screen, 'service-1')).toBe('–');
+});
+
+test('a bad usage entry in togen.yml reaches the panel as the config check does', async () => {
+  const screen = await show();
+  await opened(screen);
+
+  refuse((call) =>
+    call.path === '/api/cost'
+      ? invalid([
+          { path: 'usage.api.invocations', message: 'a gateway takes requests only' },
+          { path: 'usage.archive', message: "there is no node named 'archive'" },
+        ])
+      : undefined,
+  );
+  socket()?.onmessage?.({ data: JSON.stringify({ event: 'project-changed' }) });
+
+  await expect
+    .element(screen.getByText('usage.api.invocations: a gateway takes requests only'))
+    .toBeInTheDocument();
+  await expect
+    .element(screen.getByText("usage.archive: there is no node named 'archive'"))
+    .toBeInTheDocument();
+  expect(drawer(screen)!.textContent).not.toContain('USD');
 });
 
 test('a project the studio cannot price lists why, and the last total goes with it', async () => {
   const screen = await show();
   await opened(screen);
-  await expect.element(screen.getByText('52.30 USD/month')).toBeInTheDocument();
+  await expect.element(screen.getByText('632.30 USD/month')).toBeInTheDocument();
 
   refuse((call) =>
     call.path === '/api/cost'
@@ -307,7 +352,7 @@ test('a project the studio cannot price lists why, and the last total goes with 
 
 test('a project-changed event refetches the estimate', async () => {
   const screen = await show();
-  await expect.element(screen.getByRole('button', { name: '52.30 USD/mo' })).toBeInTheDocument();
+  await expect.element(screen.getByRole('button', { name: '632.30 USD/mo' })).toBeInTheDocument();
 
   serveCost({ ...estimate, total: 60.1 });
   socket()?.onmessage?.({ data: JSON.stringify({ event: 'project-changed' }) });
@@ -318,7 +363,7 @@ test('a project-changed event refetches the estimate', async () => {
 
 test('an edit moves the number once its save has landed', async () => {
   const screen = await show();
-  await expect.element(screen.getByRole('button', { name: '52.30 USD/mo' })).toBeInTheDocument();
+  await expect.element(screen.getByRole('button', { name: '632.30 USD/mo' })).toBeInTheDocument();
   click(screen, 'database-1');
 
   serveCost({ ...estimate, total: 70.88 });

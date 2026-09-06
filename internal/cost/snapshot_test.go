@@ -34,7 +34,7 @@ func TestLoadReadsAWellFormedSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Provider != "aws" || s.Date != "2026-09-05" || len(s.SKUs) != 8 {
+	if s.Provider != "aws" || s.Date != "2026-09-05" || len(s.SKUs) != 9 {
 		t.Errorf("snapshot = %+v", s)
 	}
 	if diff := cmp.Diff([]string{"eu-west-2", "us-east-1"}, s.Regions()); diff != "" {
@@ -100,6 +100,7 @@ func TestBundledCarriesAnAwsSnapshotAndNothingForGcp(t *testing.T) {
 	for _, region := range []string{"eu-west-2", "us-east-1", "ap-northeast-3"} {
 		if _, err := s.Find(Lookup{Label: "nat", Service: "AmazonEC2", Filters: []Filter{
 			{Attribute: "productFamily", Value: "NAT Gateway"},
+			{Attribute: "usagetype", Value: `(\w+-)?NatGateway-Hours`, Pattern: true},
 			{Attribute: "regionCode", Value: region},
 		}}); err != nil {
 			t.Error(err)

@@ -15,20 +15,22 @@ import (
 )
 
 // The matchers name attributes the way the JSON offer files do; the CSV heads its columns
-// differently.
-var columns = map[string]string{
-	"productFamily":    "Product Family",
-	"termType":         "TermType",
-	"regionCode":       "Region Code",
-	"usagetype":        "usageType",
-	"instanceType":     "Instance Type",
-	"databaseEngine":   "Database Engine",
-	"deploymentOption": "Deployment Option",
-	"volumeType":       "Volume Type",
-	"group":            "Group",
-	"queueType":        "Queue Type",
-	"cacheEngine":      "Cache Engine",
-	"storageClass":     "Storage Class",
+// differently, and the data transfer file names the region it is priced from.
+var columns = map[string][]string{
+	"productFamily":    {"Product Family"},
+	"termType":         {"TermType"},
+	"regionCode":       {"Region Code", "From Region Code"},
+	"usagetype":        {"usageType"},
+	"instanceType":     {"Instance Type"},
+	"databaseEngine":   {"Database Engine"},
+	"deploymentOption": {"Deployment Option"},
+	"volumeType":       {"Volume Type"},
+	"group":            {"Group"},
+	"queueType":        {"Queue Type"},
+	"cacheEngine":      {"Cache Engine"},
+	"storageClass":     {"Storage Class"},
+	"transferType":     {"Transfer Type"},
+	"toLocation":       {"To Location"},
 }
 
 func fetchOffer(ctx context.Context, client *http.Client, url string, lookups []cost.Lookup) outcome {
@@ -104,13 +106,18 @@ func scanOffer(r io.Reader, lookups []cost.Lookup) ([][]cost.SKU, error) {
 	predicates := make([]func(map[string]string) bool, len(lookups))
 	for i, l := range lookups {
 		for _, f := range l.Filters {
-			column, ok := columns[f.Attribute]
+			names, ok := columns[f.Attribute]
 			if !ok {
 				return nil, fmt.Errorf("the refresh does not know which column holds %s", f.Attribute)
 			}
-			index, ok := at[column]
+			index, ok := -1, false
+			for _, name := range names {
+				if index, ok = at[name]; ok {
+					break
+				}
+			}
 			if !ok {
-				return nil, fmt.Errorf("the offer file has no %s column (for %s)", column, f.Attribute)
+				return nil, fmt.Errorf("the offer file has no %s column (for %s)", strings.Join(names, " or "), f.Attribute)
 			}
 			attributes[f.Attribute] = index
 		}

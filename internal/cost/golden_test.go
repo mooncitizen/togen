@@ -18,7 +18,8 @@ import (
 var update = flag.Bool("update", false, "rewrite the golden files")
 
 // A price refresh that moves a number shows up here as a diff to review. aws-full has every
-// node type, so a matcher that stops picking one sku fails here as well as in the refresh.
+// node type, so a matcher that stops picking one sku fails here as well as in the refresh;
+// aws-basic carries a usage block, so its table has the usage lines.
 func TestExampleTablesMatchTheGoldens(t *testing.T) {
 	snapshot, err := cost.Bundled(ir.ProviderAWS)
 	if err != nil {
@@ -26,11 +27,19 @@ func TestExampleTablesMatchTheGoldens(t *testing.T) {
 	}
 	for _, example := range []string{"aws-basic", "aws-full"} {
 		t.Run(example, func(t *testing.T) {
-			project, errs, err := workspace.Validate(filepath.Join("..", "..", "examples", example))
+			dir := filepath.Join("..", "..", "examples", example)
+			project, errs, err := workspace.Validate(dir)
 			if err != nil || len(errs) > 0 {
 				t.Fatalf("examples/%s: %v %v", example, err, errs)
 			}
-			doc, err := cost.Estimate(project, aws.Cost(), snapshot, snapshot.Taken())
+			config, _, err := workspace.LoadConfig(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if errs := workspace.CheckConfig(config, project); len(errs) > 0 {
+				t.Fatalf("examples/%s/togen.yml: %v", example, errs)
+			}
+			doc, err := cost.Estimate(project, aws.Cost(), snapshot, config.Usage, snapshot.Taken())
 			if err != nil {
 				t.Fatal(err)
 			}

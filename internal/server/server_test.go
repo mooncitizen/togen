@@ -1112,9 +1112,9 @@ func TestGetCostReturnsTheEstimate(t *testing.T) {
 	if diff := cmp.Diff([]string{"api", "handler", "main-db", "network"}, names); diff != "" {
 		t.Fatalf("items (-want +got):\n%s", diff)
 	}
-	for _, atRest := range doc.Items[:2] {
-		if atRest.Note != "priced at rest, usage not set" || len(atRest.Lines) != 0 || atRest.Subtotal != 0 {
-			t.Errorf("%s = %+v", atRest.Name, atRest)
+	for _, onDefaults := range doc.Items[:2] {
+		if onDefaults.Note != "priced on defaults, no usage set" || len(onDefaults.Lines) != 0 || onDefaults.Subtotal != 0 {
+			t.Errorf("%s = %+v", onDefaults.Name, onDefaults)
 		}
 	}
 	if storage := doc.Items[2].Lines[1]; storage.Label != "storage gp2" || storage.Quantity != 50 {
@@ -1129,10 +1129,55 @@ func TestGetCostReturnsTheEstimate(t *testing.T) {
 		{Name: "handler", Kind: "function", Reason: "requests"},
 		{Name: "handler", Kind: "function", Reason: "duration"},
 		{Name: "main-db", Kind: "database", Reason: "backups beyond 50 GB"},
-		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data processed"},
+		{Name: "network", Kind: "implicit VPC", Reason: "nat gateway data"},
 	}
 	if diff := cmp.Diff(wantOmitted, doc.NotPriced); diff != "" {
 		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+}
+
+func TestGetCostPricesTheUsageBlock(t *testing.T) {
+	dir, front, _ := harness(t)
+	project := exampleProject()
+	project["nodes"] = append(project["nodes"].([]any), map[string]any{"id": "n3", "type": "database", "name": "main-db"})
+	writeDoc(t, workspace.ProjectPath(dir), project)
+	writeConfig(t, dir, "usage:\n  api:\n    requests: 500/min\n  network:\n    natGb: 50\n")
+	code, raw := send(t, front, http.MethodGet, "/api/cost", nil)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %s", code, raw)
+	}
+	var doc cost.Document
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatalf("parse %s: %v", raw, err)
+	}
+	api := doc.Items[0]
+	if api.Note != "" || len(api.Lines) != 1 || api.Lines[0].Quantity != 21900000 || api.Lines[0].Unit != "requests" || api.Subtotal <= 0 {
+		t.Errorf("api = %+v", api)
+	}
+	if handler := doc.Items[1]; handler.Note != "priced on defaults, no usage set" {
+		t.Errorf("handler = %+v", handler)
+	}
+	network := doc.Items[len(doc.Items)-1]
+	if network.Name != "network" || network.Note != "" || len(network.Lines) != 2 || network.Lines[1].Label != "nat gateway data" || network.Lines[1].Quantity != 50 {
+		t.Errorf("network = %+v", network)
+	}
+}
+
+func TestGetCostAndConfigReportABadUsageEntry(t *testing.T) {
+	dir, front, _ := harness(t)
+	writeConfig(t, dir, "usage:\n  api:\n    requests: 500/min\n    natGb: 5\n  worker:\n    invocations: 1/min\n")
+	want := []string{
+		"usage.api.natGb: a gateway takes requests only",
+		"usage.worker: there is no node named 'worker'",
+	}
+	for _, path := range []string{"/api/cost", "/api/config"} {
+		code, raw := send(t, front, http.MethodGet, path, nil)
+		if code != http.StatusUnprocessableEntity {
+			t.Fatalf("%s: code = %d, body = %s", path, code, raw)
+		}
+		if diff := cmp.Diff(want, errorLines(t, raw)); diff != "" {
+			t.Errorf("%s errors (-want +got):\n%s", path, diff)
+		}
 	}
 }
 

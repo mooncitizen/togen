@@ -23,10 +23,10 @@ func TestCostPrintsATableForAValidProject(t *testing.T) {
 	}
 	wantAtRest := []string{
 		"api gateway HTTP API",
-		"priced at rest, usage not set",
+		"priced on defaults, no usage set",
 		"0.00",
 		"handler function node, 512 MB, x86_64",
-		"priced at rest, usage not set",
+		"priced on defaults, no usage set",
 		"0.00",
 		"main-db database db.t4g.micro, postgres 17, single-AZ, 20 GB",
 	}
@@ -76,7 +76,7 @@ func TestCostPrintsTheDocumentAsJSON(t *testing.T) {
 	if len(doc.Items) != 4 || doc.Items[0].Name != "api" || doc.Items[1].Name != "handler" || doc.Items[2].Name != "main-db" || doc.Items[3].Name != "network" {
 		t.Fatalf("items = %+v", doc.Items)
 	}
-	if api := doc.Items[0]; api.Note != "priced at rest, usage not set" || len(api.Lines) != 0 || api.Subtotal != 0 {
+	if api := doc.Items[0]; api.Note != "priced on defaults, no usage set" || len(api.Lines) != 0 || api.Subtotal != 0 {
 		t.Errorf("api = %+v", api)
 	}
 	if db := doc.Items[2]; db.Note != "" || len(db.Lines) != 2 {
@@ -87,6 +87,64 @@ func TestCostPrintsTheDocumentAsJSON(t *testing.T) {
 	}
 	if doc.Note != "list prices from "+doc.SnapshotDate+", estimate not a quote" {
 		t.Errorf("note = %q", doc.Note)
+	}
+}
+
+func TestCostPricesTheUsageBlock(t *testing.T) {
+	cwd := generateCwd(t)
+	writeFileText(t, workspace.ConfigPath(cwd), "usage:\n  api:\n    requests: 500/min\n  handler:\n    invocations: 2M/month\n    durationMs: 300\n")
+	result := Cost(cwd, true)
+	if result.Code != 0 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	var doc cost.Document
+	if err := json.Unmarshal([]byte(strings.Join(result.Lines, "\n")), &doc); err != nil {
+		t.Fatal(err)
+	}
+	api, handler := doc.Items[0], doc.Items[1]
+	if api.Note != "" || len(api.Lines) != 1 || api.Lines[0].Label != "requests" || api.Lines[0].Quantity != 21900000 || api.Subtotal <= 0 {
+		t.Errorf("api = %+v", api)
+	}
+	if handler.Note != "" || len(handler.Lines) != 2 || handler.Lines[1].Label != "duration" || handler.Lines[1].Quantity != 300000 {
+		t.Errorf("handler = %+v", handler)
+	}
+	if doc.Items[3].Note != "priced on defaults, no usage set" {
+		t.Errorf("network = %+v", doc.Items[3])
+	}
+	var reasons []string
+	for _, o := range doc.NotPriced {
+		reasons = append(reasons, o.Name+" "+o.Reason)
+	}
+	if diff := cmp.Diff([]string{"api data transfer", "main-db backups beyond 20 GB", "network nat gateway data"}, reasons); diff != "" {
+		t.Errorf("not priced (-want +got):\n%s", diff)
+	}
+
+	table := Cost(cwd, false)
+	var requests string
+	for _, line := range table.Lines {
+		if strings.HasPrefix(line, "  requests") {
+			requests = strings.Join(strings.Fields(line), " ")
+			break
+		}
+	}
+	if requests != "requests 21900000 requests x 0.00000116 USD 25.40" {
+		t.Errorf("requests line = %q", requests)
+	}
+}
+
+func TestCostReportsABadUsageEntry(t *testing.T) {
+	cwd := generateCwd(t)
+	writeFileText(t, workspace.ConfigPath(cwd), "usage:\n  api:\n    invocations: 2M/month\n  archive:\n    storageGb: 5\n")
+	result := Cost(cwd, false)
+	if result.Code != 1 {
+		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
+	}
+	want := []string{
+		"usage.api.invocations: a gateway takes requests only",
+		"usage.archive: there is no node named 'archive'",
+	}
+	if diff := cmp.Diff(want, result.Lines); diff != "" {
+		t.Errorf("lines (-want +got):\n%s", diff)
 	}
 }
 
