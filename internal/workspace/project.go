@@ -6,12 +6,14 @@ import (
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
 	"github.com/mooncitizen/togen/internal/resolve/aws"
+	"github.com/mooncitizen/togen/internal/resolve/azure"
 	"github.com/mooncitizen/togen/internal/resolve/gcp"
 )
 
 var resolvers = map[ir.CloudProvider]func() resolve.Provider{
-	ir.ProviderAWS: aws.New,
-	ir.ProviderGCP: gcp.New,
+	ir.ProviderAWS:   aws.New,
+	ir.ProviderGCP:   gcp.New,
+	ir.ProviderAzure: azure.New,
 }
 
 func LoadProject(cwd string) (*ir.Project, ir.Errors, error) {
