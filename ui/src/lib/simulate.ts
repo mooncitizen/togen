@@ -39,6 +39,7 @@ function arcs(project: Project, sim: Simulation): Arc[] {
 
 const settleTolerance = 1e-9;
 const settleSweeps = 20000;
+const settleWindow = 1000;
 const runawayFactor = 1e12;
 
 function settledAt(was: number, now: number): boolean {
@@ -57,13 +58,21 @@ function settledAt(was: number, now: number): boolean {
 //
 // The Go engine returns an error when a loop does not settle. This function cannot throw: the
 // studio calls it on every drag while the graph may be mid-edit, and a blank canvas is worse than
-// an approximate one. So the two failures part company here. A runaway (a rate that is not finite,
-// or past the injected total times runawayFactor, the rule Go uses) has no drawable answer at all
-// and comes back as zeros, with the validation message the project carries for the cycle telling
-// the story. A loop that is merely still shrinking when the sweeps run out comes back as the last
-// iterate: the sweep climbs towards the fixed point from below, so that is an underestimate of the
-// real rates rather than a fiction. A loop at exactly 1 grows too slowly to trip the runaway test
-// inside the budget and lands in that second case, drawn as the rates it has reached so far.
+// an approximate one. So the two engines agree on which loops are divergent and part company only
+// on what they do about it. There are three outcomes.
+//
+// Settled: the rates, bit for bit what Go returns.
+//
+// Divergent: zeros. A rate that is not finite or past the injected total times runawayFactor, and
+// also a loop that fails Go's contraction window, which is what catches a gain of exactly 1: the
+// biggest change of any sweep in a window of settleWindow sweeps has to keep shrinking from one
+// window to the next, and at gain 1 the rates climb by a constant amount for ever, so it does not.
+// Neither has a drawable answer, and the validation message the project carries for the cycle
+// tells the story.
+//
+// Still contracting when the sweeps run out: the last iterate. The sweep climbs towards the fixed
+// point from below, so that is an underestimate of the real rates rather than a fiction. Go's
+// budget is larger and it errors here instead, but the classification above is the same in both.
 export function run(project: Project, sim: Simulation, injection: Record<string, number>): SimResult {
   const all = arcs(project, sim);
   const incoming = new Map<string, Arc[]>();
@@ -95,41 +104,57 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
   }
   let next: Record<string, number> = {};
 
-  let ranAway = false;
-  for (let sweep = 0; sweep < settleSweeps; sweep++) {
+  let divergent = false;
+  let thisWindow = 0;
+  let lastWindow = 0;
+  for (let sweep = 1; sweep <= settleSweeps; sweep++) {
     let settled = true;
-    let diverged = false;
+    let biggest = 0;
     for (const id of ids) {
       let rate = entry[id] ?? 0;
       for (const arc of incoming.get(id) ?? []) {
         rate += (nodes[arc.from] ?? 0) * arc.per;
       }
       if (!Number.isFinite(rate) || Math.abs(rate) > runaway) {
-        diverged = true;
+        divergent = true;
         break;
       }
       if (!settledAt(nodes[id], rate)) {
         settled = false;
       }
+      const change = Math.abs(rate - nodes[id]);
+      if (change > biggest) {
+        biggest = change;
+      }
       next[id] = rate;
     }
-    if (diverged) {
-      ranAway = true;
+    if (divergent) {
       break;
     }
     [nodes, next] = [next, nodes];
     if (settled) {
       break;
     }
+    if (biggest > thisWindow) {
+      thisWindow = biggest;
+    }
+    if (sweep % settleWindow === 0) {
+      if (lastWindow > 0 && thisWindow >= lastWindow) {
+        divergent = true;
+        break;
+      }
+      lastWindow = thisWindow;
+      thisWindow = 0;
+    }
   }
 
   const outNodes: Record<string, number> = {};
   const outEdges: Record<string, number> = {};
   for (const id of ids) {
-    outNodes[id] = ranAway ? 0 : (nodes[id] ?? 0);
+    outNodes[id] = divergent ? 0 : (nodes[id] ?? 0);
   }
   for (const arc of all) {
-    outEdges[arc.edge] = ranAway ? 0 : (outNodes[arc.from] ?? 0) * arc.per;
+    outEdges[arc.edge] = divergent ? 0 : (outNodes[arc.from] ?? 0) * arc.per;
   }
   return { nodes: outNodes, edges: outEdges };
 }

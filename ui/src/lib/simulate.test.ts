@@ -71,10 +71,40 @@ test('a runaway loop draws nothing', () => {
   expect(roundTheLoop(2).edges['edge-1']).toBe(0);
 });
 
+// A gain of exactly 1 climbs by a constant every sweep, so it never trips the runaway ceiling
+// inside the budget. Go's contraction window classifies it as divergent, and so does this.
+test('a loop at gain exactly one draws nothing', () => {
+  expect(roundTheLoop(1).nodes['service-1']).toBe(0);
+  expect(roundTheLoop(1).nodes['service-2']).toBe(0);
+  expect(roundTheLoop(1).edges['edge-1']).toBe(0);
+  expect(roundTheLoop(1).edges['edge-2']).toBe(0);
+});
+
 test('a loop too slow to settle draws the last iterate, not zero', () => {
   const got = roundTheLoop(0.9999).nodes['service-1'];
   expect(got).toBeGreaterThan(0);
   expect(got).toBeLessThan(10000);
+});
+
+// Go's value at this gain, from a two-node loop injected with 1: still contracting when the
+// sweeps run out, so this is an underestimate that climbs towards it, not a blank canvas.
+test('a slow but contracting loop stays close to the Go value', () => {
+  const got = roundTheLoop(0.999).nodes['service-1'];
+  expect(got).toBeGreaterThan(0);
+  expect(Math.abs(got - 999.99900139806812) / 999.99900139806812).toBeLessThan(1e-3);
+});
+
+test('converging loops agree with Go', () => {
+  const want: Record<number, number> = {
+    0.5: 1.9999999981373549,
+    0.9: 9.9999999115532976,
+    0.99: 99.999990126131593,
+    0.995: 199.99996034521365,
+  };
+  for (const [gain, value] of Object.entries(want)) {
+    const got = roundTheLoop(Number(gain)).nodes['service-1'];
+    expect(Math.abs(got - value) / value).toBeLessThan(1e-6);
+  }
 });
 
 const sim = {
