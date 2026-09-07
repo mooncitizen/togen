@@ -143,6 +143,34 @@ export function monthly(sim: Simulation): Record<string, number> {
   return out;
 }
 
+const displayPeriods: [string, number][] = [
+  ['min', perMonth.min],
+  ['hour', perMonth.hour],
+  ['day', perMonth.day],
+  ['month', perMonth.month],
+];
+
+// The inverse of parseRate: a per-second figure back into "800/min" or "2M/month", picking
+// the smallest period that keeps the number at least one, and a k/M suffix once it is large.
+export function rateLabel(perSecond: number): string {
+  if (!Number.isFinite(perSecond) || perSecond <= 0) {
+    return '0/min';
+  }
+  const perMonthTotal = perSecond * secondsPerMonth;
+  const [period, count] =
+    displayPeriods.find(([, count]) => perMonthTotal / count >= 1) ??
+    displayPeriods[displayPeriods.length - 1];
+  const value = perMonthTotal / count;
+  const [suffix, factor] = value >= 1e6 ? ['M', 1e6] : value >= 1e3 ? ['k', 1e3] : ['', 1];
+  const scaled = value / factor;
+  const digits = scaled >= 100 ? 0 : scaled >= 10 ? 1 : 2;
+  return `${trimmed(scaled.toFixed(digits))}${suffix}/${period}`;
+}
+
+function trimmed(text: string): string {
+  return text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text;
+}
+
 // Rates per second at one scenario: an id that matches no burst gives the flat rate,
 // otherwise the burst that multiplies its own source.
 export function instant(sim: Simulation, scenario: string): Record<string, number> {

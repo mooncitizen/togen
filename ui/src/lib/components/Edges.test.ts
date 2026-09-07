@@ -317,13 +317,14 @@ test('ANY and a named method are mutually exclusive, and none at all leaves the 
   });
 });
 
-test('an edge that is not a route has nothing to set', async () => {
+test('an edge that is not a route has nothing to set beyond its fan-out', async () => {
   const screen = await show();
 
   await clickEdge(screen, 'edge-2');
 
   expect(panel(screen)?.querySelector('header span')?.textContent).toBe('reads');
-  expect(panel(screen)?.querySelectorAll('input')).toHaveLength(0);
+  expect(panel(screen)?.querySelectorAll('input')).toHaveLength(1);
+  await expect.element(screen.getByLabelText('Calls per request')).toBeInTheDocument();
   await expect.element(screen.getByText('orders → orders-db')).toBeInTheDocument();
 });
 
