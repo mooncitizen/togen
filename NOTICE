@@ -1,0 +1,20 @@
+Togen
+Copyright 2026 Paul <paul@gitglue.com>
+
+Licensed under the Apache License, Version 2.0. See LICENSE.
+
+Togen writes a provenance line into every file it generates. That line is the
+credit the project asks for from anyone who ships the generated code.
+
+The studio bundles the providers' own architecture icon sets, each used under
+its vendor's terms. The full notice for each is beside the files it covers, at
+ui/icons/<vendor>/NOTICE.md, and the studio's About panel shows all three.
+
+  AWS Architecture Icons
+    (c) Amazon Web Services. See ui/icons/aws/NOTICE.md.
+
+  Google Cloud architecture icons
+    (c) Google LLC. See ui/icons/gcp/NOTICE.md.
+
+  Azure architecture icons
+    (c) Microsoft Corporation. See ui/icons/azure/NOTICE.md.
