@@ -28,3 +28,4 @@ jobs:
       - run: nix develop -c just ui-check
       - run: nix develop -c just ui-test
       - run: nix develop -c just build
+      - run: nix develop -c goreleaser check
