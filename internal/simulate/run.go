@@ -41,13 +41,21 @@ func arcs(project *ir.Project, sim Simulation) []arc {
 
 const (
 	settleTolerance = 1e-9
-	settleSweeps    = 500
+	settleSweeps    = 200000
+	settleWindow    = 1000
+	runawayFactor   = 1e12
 )
 
 // Reversing 'consumes' can make a loop out of edges the IR is right to allow, because a queue
-// decouples the two halves of an async cycle. So the rates are found by sweeping to a fixed
-// point rather than by sorting: every arc multiplies by a non-negative fan-out, so a loop whose
-// gain is below 1 converges on its geometric sum and one at or above 1 grows without limit.
+// decouples the two halves of an async cycle. So the rates are found by sweeping to a fixed point
+// rather than by sorting. Each sweep reads only the previous sweep's rates, so the answer and the
+// number of sweeps do not depend on the order the nodes were declared in.
+//
+// Every arc multiplies by a non-negative fan-out, so the sweep contracts, and the rates settle on
+// their geometric sum, exactly when the fan-outs round every loop multiply out to less than 1. A
+// loop at 1 or more is caught two ways: it runs away past a huge multiple of the injected traffic
+// (or to Inf, or to NaN once Inf meets Inf), or, at exactly 1, the change per sweep stops
+// shrinking from one window of sweeps to the next.
 func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Result, error) {
 	as := arcs(project, sim)
 	incoming := map[string][]arc{}
@@ -56,40 +64,157 @@ func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Res
 		incoming[a.to] = append(incoming[a.to], a)
 		outgoing[a.from] = append(outgoing[a.from], a)
 	}
-	order := ordered(project, incoming, outgoing)
 
 	entry := map[string]float64{}
+	injected := 0.0
 	for _, s := range sim.Sources {
 		entry[s.Target] += injection[s.ID]
+		injected += math.Abs(injection[s.ID])
 	}
+	runaway := injected * runawayFactor
 
+	ids := make([]string, 0, len(project.Nodes))
 	nodes := make(map[string]float64, len(project.Nodes))
 	for _, n := range project.Nodes {
+		if _, seen := nodes[n.ID]; !seen {
+			ids = append(ids, n.ID)
+		}
 		nodes[n.ID] = 0
 	}
+	next := make(map[string]float64, len(nodes))
 
-	var moving []string
-	for sweep := 0; sweep < settleSweeps; sweep++ {
-		moving = moving[:0]
-		for _, id := range order {
+	moved, movedBefore := map[string]bool{}, map[string]bool{}
+	var thisWindow, lastWindow float64
+	for sweep := 1; sweep <= settleSweeps; sweep++ {
+		settled := true
+		biggest := 0.0
+		for _, id := range ids {
 			rate := entry[id]
 			for _, a := range incoming[id] {
 				rate += nodes[a.from] * a.per
 			}
-			if !settledAt(nodes[id], rate) {
-				moving = append(moving, id)
+			if math.IsNaN(rate) || math.Abs(rate) > runaway {
+				return Result{}, amplifying(ids, outgoing, moving(moved, movedBefore))
 			}
-			nodes[id] = rate
+			if !settledAt(nodes[id], rate) {
+				settled = false
+				moved[id] = true
+			}
+			if change := math.Abs(rate - nodes[id]); change > biggest {
+				biggest = change
+			}
+			next[id] = rate
 		}
-		if len(moving) == 0 {
+		nodes, next = next, nodes
+		if settled {
 			edges := make(map[string]float64, len(as))
 			for _, a := range as {
 				edges[a.edge] = nodes[a.from] * a.per
 			}
 			return Result{Nodes: nodes, Edges: edges}, nil
 		}
+		if biggest > thisWindow {
+			thisWindow = biggest
+		}
+		if sweep%settleWindow == 0 {
+			if lastWindow > 0 && thisWindow >= lastWindow {
+				return Result{}, amplifying(ids, outgoing, moving(moved, movedBefore))
+			}
+			lastWindow, thisWindow = thisWindow, 0
+			moved, movedBefore = map[string]bool{}, moved
+		}
 	}
-	return Result{}, fmt.Errorf("the traffic through %s keeps growing every time it is worked out, because those nodes feed each other round a loop that amplifies: each pass sends back at least as much as it received. Give one edge on the loop a fan-out below 1 so the loop dies away", list(moving))
+	return Result{}, fmt.Errorf("the traffic through %s has still not settled after %d passes: the fan-outs round that loop multiply out to just under 1, so the traffic takes an impractical number of passes to die away. Lower the fan-out on one of the loop's edges", list(loopNodes(ids, outgoing, moving(moved, movedBefore))), settleSweeps)
+}
+
+func moving(moved, before map[string]bool) map[string]bool {
+	if len(moved) > 0 {
+		return moved
+	}
+	return before
+}
+
+func amplifying(ids []string, outgoing map[string][]arc, moved map[string]bool) error {
+	return fmt.Errorf("the traffic through %s keeps growing every time it is worked out, because those nodes feed each other round a loop whose fan-outs multiply out to 1 or more, so each pass round the loop sends back at least as much as it received. Lower the fan-out on one of the loop's edges until the fan-outs round the loop multiply out to less than 1", list(loopNodes(ids, outgoing, moved)))
+}
+
+// The nodes still moving include everything downstream of the loop, so name the loop itself: the
+// strongly connected components, of more than one node or with a self-arc, that the movers sit in.
+func loopNodes(ids []string, outgoing map[string][]arc, moved map[string]bool) []string {
+	var out []string
+	for _, comp := range components(ids, outgoing) {
+		if !cyclic(comp, outgoing) {
+			continue
+		}
+		for _, id := range comp {
+			if moved[id] {
+				out = append(out, comp...)
+				break
+			}
+		}
+	}
+	if len(out) == 0 {
+		for id := range moved {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+func cyclic(comp []string, outgoing map[string][]arc) bool {
+	if len(comp) > 1 {
+		return true
+	}
+	for _, a := range outgoing[comp[0]] {
+		if a.to == comp[0] {
+			return true
+		}
+	}
+	return false
+}
+
+func components(ids []string, outgoing map[string][]arc) [][]string {
+	index := map[string]int{}
+	low := map[string]int{}
+	stacked := map[string]bool{}
+	var stack []string
+	var out [][]string
+	seen := 0
+	var visit func(string)
+	visit = func(id string) {
+		index[id], low[id] = seen, seen
+		seen++
+		stack = append(stack, id)
+		stacked[id] = true
+		for _, a := range outgoing[id] {
+			if _, been := index[a.to]; !been {
+				visit(a.to)
+				low[id] = min(low[id], low[a.to])
+			} else if stacked[a.to] {
+				low[id] = min(low[id], index[a.to])
+			}
+		}
+		if low[id] != index[id] {
+			return
+		}
+		var comp []string
+		for {
+			top := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			stacked[top] = false
+			comp = append(comp, top)
+			if top == id {
+				break
+			}
+		}
+		out = append(out, comp)
+	}
+	for _, id := range ids {
+		if _, been := index[id]; !been {
+			visit(id)
+		}
+	}
+	return out
 }
 
 func settledAt(was, now float64) bool {
@@ -111,39 +236,6 @@ func list(ids []string) string {
 		return strings.Join(out, "")
 	}
 	return strings.Join(out[:len(out)-1], ", ") + " and " + out[len(out)-1]
-}
-
-// Sweeping in topological order settles a graph with no loop in a single pass. Nodes left over
-// are the ones on a loop, and they follow in the order they were declared.
-func ordered(project *ir.Project, incoming, outgoing map[string][]arc) []string {
-	left := make(map[string]int, len(project.Nodes))
-	var queue []string
-	for _, n := range project.Nodes {
-		left[n.ID] = len(incoming[n.ID])
-		if left[n.ID] == 0 {
-			queue = append(queue, n.ID)
-		}
-	}
-	out := make([]string, 0, len(project.Nodes))
-	placed := make(map[string]bool, len(project.Nodes))
-	for len(queue) > 0 {
-		id := queue[0]
-		queue = queue[1:]
-		out = append(out, id)
-		placed[id] = true
-		for _, a := range outgoing[id] {
-			left[a.to]--
-			if left[a.to] == 0 {
-				queue = append(queue, a.to)
-			}
-		}
-	}
-	for _, n := range project.Nodes {
-		if !placed[n.ID] {
-			out = append(out, n.ID)
-		}
-	}
-	return out
 }
 
 func Monthly(sim Simulation) (map[string]float64, error) {

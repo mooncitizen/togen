@@ -2,6 +2,8 @@ package simulate
 
 import (
 	"math"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -70,18 +72,31 @@ func TestRunConsumesPullsFromTheQueue(t *testing.T) {
 	near(t, got.Edges["edge-4"], 500, "consumes edge")
 }
 
-func TestRunRefusesALoopThatDoesNotDieAway(t *testing.T) {
-	p := project()
-	p.Edges = append(p.Edges, ir.Edge{ID: "edge-3", From: "service-1", To: "gateway-1", Relation: ir.RelCalls})
-	_, err := Run(p, sound(), map[string]float64{"mobile": 1000})
+// The error should name the loop and nothing else, so a database hanging off it stays unnamed.
+func namesExactly(t *testing.T, err error, loop ...string) {
+	t.Helper()
 	if err == nil {
-		t.Fatal("a loop of gain 1 never settles, so it should be refused")
+		t.Fatal("expected a refusal")
 	}
-	for _, id := range []string{"gateway-1", "service-1"} {
+	named := map[string]bool{}
+	for _, id := range loop {
+		named[id] = true
 		if !strings.Contains(err.Error(), id) {
 			t.Errorf("the error should name '%s': %v", id, err)
 		}
 	}
+	for _, id := range []string{"gateway-1", "service-1", "database-1", "queue-1", "function-1", "function-2", "bucket-1"} {
+		if !named[id] && strings.Contains(err.Error(), id) {
+			t.Errorf("'%s' is not on the loop, so the error should not name it: %v", id, err)
+		}
+	}
+}
+
+func TestRunRefusesALoopThatDoesNotDieAway(t *testing.T) {
+	p := project()
+	p.Edges = append(p.Edges, ir.Edge{ID: "edge-3", From: "service-1", To: "gateway-1", Relation: ir.RelCalls})
+	_, err := Run(p, sound(), map[string]float64{"mobile": 1000})
+	namesExactly(t, err, "gateway-1", "service-1")
 }
 
 // The aws-basic shape: a queue decouples an async loop the IR allows.
@@ -129,17 +144,70 @@ func TestRunSettlesAQueueFeedbackLoop(t *testing.T) {
 }
 
 func TestRunRefusesAQueueLoopThatAmplifies(t *testing.T) {
-	_, err := Run(feedback(), feedbackSim(1), map[string]float64{"mobile": 1000})
-	if err == nil {
-		t.Fatal("a loop that returns every request should be refused")
-	}
-	for _, id := range []string{"function-1", "queue-1", "function-2", "service-1"} {
-		if !strings.Contains(err.Error(), id) {
-			t.Errorf("the error should name '%s': %v", id, err)
+	for _, per := range []float64{1, 1.0000001, 1.5, 40} {
+		_, err := Run(feedback(), feedbackSim(per), map[string]float64{"mobile": 1000})
+		namesExactly(t, err, "function-1", "queue-1", "function-2", "service-1")
+		if err != nil && !strings.Contains(err.Error(), "fan-out") {
+			t.Errorf("the error should say how to damp the loop: %v", err)
 		}
 	}
-	if !strings.Contains(err.Error(), "fan-out below 1") {
-		t.Errorf("the error should say how to damp the loop: %v", err)
+}
+
+// The loop is function-1 -> queue-1 -> function-2 -> service-1 -> function-1, and only the
+// publishes edge carries a fan-out, so the gain round the loop is that fan-out and
+// function-1 = 1000 / (1 - gain), everything else on the loop being gain times that.
+func TestRunSettlesLoopsCloseToGainOne(t *testing.T) {
+	for _, c := range []struct{ gain, head float64 }{
+		{0.9, 10000},         // 1000 / 0.10
+		{0.97, 100000.0 / 3}, // 1000 / 0.03 = 33333.333...
+		{0.99, 100000},       // 1000 / 0.01
+	} {
+		got, err := Run(feedback(), feedbackSim(c.gain), map[string]float64{"mobile": 1000})
+		if err != nil {
+			t.Fatalf("gain %v converges on %v, so it should not be refused: %v", c.gain, c.head, err)
+		}
+		near(t, got.Nodes["function-1"], c.head, "function-1")
+		for _, id := range []string{"queue-1", "function-2", "service-1"} {
+			near(t, got.Nodes[id], c.gain*c.head, id)
+		}
+	}
+}
+
+// A gain this close to 1 does converge, but only after millions of passes, so the sweep budget
+// runs out. That refusal has to name the loop too, and say something true about why.
+func TestRunGivesUpOnALoopThatSettlesTooSlowly(t *testing.T) {
+	_, err := Run(feedback(), feedbackSim(0.9999), map[string]float64{"mobile": 1000})
+	namesExactly(t, err, "function-1", "queue-1", "function-2", "service-1")
+	if err != nil && !strings.Contains(err.Error(), "just under 1") {
+		t.Errorf("the error should say the loop is only just damped: %v", err)
+	}
+}
+
+// The whole point of sweeping from the previous pass's rates: project.json's node order is
+// cosmetic, and the studio reorders it freely, so it must move neither the rates nor the verdict.
+func TestRunDoesNotDependOnNodeOrder(t *testing.T) {
+	reversed := func(p *ir.Project) *ir.Project {
+		slices.Reverse(p.Nodes)
+		return p
+	}
+	for _, gain := range []float64{0.2, 0.9, 0.96, 0.97, 0.99, 1, 2} {
+		forward, ferr := Run(feedback(), feedbackSim(gain), map[string]float64{"mobile": 1000})
+		back, berr := Run(reversed(feedback()), feedbackSim(gain), map[string]float64{"mobile": 1000})
+		if (ferr == nil) != (berr == nil) {
+			t.Fatalf("gain %v: reversing the nodes changed the verdict: %v then %v", gain, ferr, berr)
+		}
+		if ferr != nil {
+			if ferr.Error() != berr.Error() {
+				t.Errorf("gain %v: reversing the nodes changed the refusal:\n%v\n%v", gain, ferr, berr)
+			}
+			continue
+		}
+		for id, want := range forward.Nodes {
+			near(t, back.Nodes[id], want, "gain "+strconv.FormatFloat(gain, 'g', -1, 64)+" node "+id)
+		}
+		for id, want := range forward.Edges {
+			near(t, back.Edges[id], want, "gain "+strconv.FormatFloat(gain, 'g', -1, 64)+" edge "+id)
+		}
 	}
 }
 
