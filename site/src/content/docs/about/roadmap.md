@@ -1,9 +1,9 @@
 ---
 title: Roadmap
-description: What Togen does today, what it does not, and what is deliberately absent.
+description: What Togen does today, what it does not, and what is not there yet.
 ---
 
-This page is a status report, checked against the code rather than written from memory. No dates: things land when they are ready.
+No dates: things land when they are ready.
 
 ## What is there
 
@@ -17,11 +17,11 @@ Only one is implemented: `internal/emit` has a single package, `hcl`, and it is 
 
 `togen cost` bundles real list prices for AWS and Azure. Run against `examples/azure-full`, it prices compute, storage and cache down to a total in USD a month, with a `not priced` section for meters like egress and backups that are not modelled yet. AWS is priced the same way; see [cost estimates](/togen/guides/cost-estimates/) for the AWS worked example and what its lines mean.
 
-GCP is not priced yet. Run against `examples/gcp-full`, every node comes back `no gcp prices are bundled yet` and the total is `0.00 USD/month`. The resolver builds GCP resources correctly, `togen generate` and `togen validate` both work against a GCP project; it is only the cost matcher in `internal/resolve/gcp/cost.go` that has not been written.
+GCP is not priced yet. Run against `examples/gcp-full`, every node comes back `no gcp prices are bundled yet` and the total is `0.00 USD/month`. The resolver builds GCP resources correctly, `togen generate` and `togen validate` both work against a GCP project, and the cost matchers in `internal/resolve/gcp/cost.go` cover every node type. What is missing is the price snapshot: `internal/cost/prices` bundles `aws.json` and `azure.json` only, and building the GCP one needs a Cloud Billing Catalog API key.
 
-## What is deliberately absent
+## What is not there yet
 
-Terraform import, bringing existing cloud resources into a Togen sketch, does not exist and is not planned as a near-term feature. Togen generates a starting repository; reconciling it with resources that already exist is a different problem with different failure modes, and folding it in would blur what a sketch means.
+Terraform import, bringing existing cloud resources into a Togen sketch, is drawn on the first-run screen and badged "Coming later". It is not there yet and has no date. Reconciling a generated repository with resources that already exist is a different problem with different failure modes, so it lands as its own thing rather than as a corner of generation.
 
 There is no telemetry, no account, and no network call at generate time; see [why Togen](/togen/about/why-togen/) for why that is a design choice rather than a gap.
 

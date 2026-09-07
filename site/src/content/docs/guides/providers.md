@@ -11,7 +11,7 @@ Togen's examples cover the same sketches on different providers, so what one pro
 
 ## Google Cloud
 
-`examples/gcp-full` is the same sketch as `aws-full` on Google Cloud: the same nodes, properties and edges, so what one provider does with a pairing can be read beside the other.
+`examples/gcp-full` is the same sketch as `aws-full` on Google Cloud: the same nodes, properties and edges.
 
 ![The same sketch drawn on the GCP canvas](/togen/images/canvas-gcp.png)
 
@@ -23,10 +23,8 @@ Togen's examples cover the same sketches on different providers, so what one pro
 
 ![The same sketch drawn on the Azure canvas](/togen/images/canvas-azure.png)
 
-`examples/azure-full` is `aws-full` on Azure: the same fourteen nodes and twenty-four edges, with the three differences the Azure resolver asks for.
+`examples/azure-full` is `aws-full` on Azure: the same fourteen nodes and twenty-four edges. `diff examples/aws-full/togen/project.json examples/azure-full/togen/project.json` shows the provider, the region and one sketch difference, the MySQL version, which is `8.0.21` because that is the one Azure Database for MySQL offers.
 
-- the MySQL version is `8.0.21`, the one Azure Database for MySQL offers
-- the `fifo` queue moves the Service Bus namespace to the Standard tier, since Basic has no sessions
-- the mailer calls the admin service rather than the worker, because a `calls` URL on Azure is a Terraform reference to the target, and the AWS loop of calls would be a cycle
+The `events` queue carries `fifo` in both examples, and on Azure that is what moves the Service Bus namespace to the Standard tier, since Basic has no sessions.
 
-`just acceptance` generates and validates it with the other four, and `togen cost` prices it: 912.79 USD a month in `uksouth`, most of it the zone redundant Postgres server and the large cache's two Standard C3 nodes.
+`just acceptance` generates and validates it with the other five, and `togen cost` prices it: 912.79 USD a month in `uksouth`, most of it the zone redundant Postgres server and the large cache's two Standard C3 nodes.

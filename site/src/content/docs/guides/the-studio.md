@@ -9,7 +9,7 @@ description: A tour of the studio's layout, from the top bar to the inspector.
 
 The studio is four parts:
 
-- a top bar naming the project, its provider, region and environment, with the cost pill, the scenario selector when the project has a simulation, the status pill and the Generate button on the right
+- a top bar naming the project, its provider, region and environment, with the cost pill, the scenario selector when the project has a simulation, the status pill and the Export and Generate buttons on the right
 - a rail on the left with the views list and the palette
 - the canvas
 - an inspector on the right that opens on selection

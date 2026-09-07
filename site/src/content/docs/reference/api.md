@@ -3,9 +3,11 @@ title: Studio API
 description: The HTTP API togen studio serves, for anyone scripting against it.
 ---
 
-`togen studio` serves the canvas and a JSON API on the port it printed, bound to `127.0.0.1` only. There is no authentication: anything that can reach the port can read and write the project. Do not point `--port` at anything other than loopback.
+`togen studio` serves the canvas and a JSON API on the port it printed. The bind address is `127.0.0.1` and is not configurable; `--port` chooses the port alone. There is no authentication: anything that can reach the port can read and write the project.
 
-Every error response is `{ "error": "..." }` or, for a validation failure, `{ "errors": [...] }` in the same shape `togen validate` prints.
+Every `PUT` and `POST` under `/api/` goes through an origin check first. A request whose `Origin` header names a different host, or whose `Sec-Fetch-Site` is anything but `same-origin` or `none`, is refused with `403` and `{ "error": "cross-origin request refused" }`. Both headers are set by the browser and cannot be forged by a page, so this stops a page on another origin writing to the studio through the loopback port. A request with neither header, which is curl and most HTTP clients, passes; the check is a guard against browsers, not an authentication.
+
+Every other error response is `{ "error": "..." }` or, for a validation failure, `{ "errors": [...] }` in the same shape `togen validate` prints.
 
 ## Project
 
@@ -13,7 +15,7 @@ Every error response is `{ "error": "..." }` or, for a validation failure, `{ "e
 
 `PUT /api/project` replaces it. The body is checked the way `togen validate` checks it; a project that does not resolve is refused with `422` and the file is left as it was. `204` on success.
 
-`POST /api/project/init` creates `togen/` and `togen.yml` from a sketch (name, provider, region, environment and nodes) or a bundled example (`{ "example": "aws-full" }`). `409` if `togen/` already exists. `422` if the example name is not one `GET /api/examples` lists, or the sketch does not resolve. `201` with `{ "written": [...] }` on success.
+`POST /api/project/init` creates `togen/` and `togen.yml` from a sketch (`name`, `provider`, `region` and `environment`, the four `togen init` takes, and no nodes) or a bundled example (`{ "example": "aws-full" }`). `409` if `togen/` already exists. `422` if the example name is not one `GET /api/examples` lists, or the sketch does not resolve. `201` with `{ "written": [...] }` on success.
 
 `GET /api/examples` lists the bundled examples as `{ "examples": [...] }`.
 
