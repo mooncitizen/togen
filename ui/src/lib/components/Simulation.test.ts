@@ -56,14 +56,18 @@ test('a loop that never settles flags the rates as divergent', async () => {
   expect(store.rates.nodes['function-1']).toBeCloseTo(1.25, 6);
 });
 
-test('the scenario changes the rates and nothing else', async () => {
+test('the scenario changes the rates and leaves the cost alone', async () => {
   const store = await storeWith(gatewayServiceDatabase());
   store.addSource();
   store.updateSource('source-1', { target: 'gateway-1', rate: '60/min' });
   store.addBurst();
   store.updateBurst('burst-1', { source: 'source-1', multiplier: 4, minutes: 10, timesPerMonth: 1 });
+  // Every burst is priced whatever the selector says, so the estimate must not move with it.
+  const priced = store.cost;
   store.setScenario('burst-1');
   expect(store.rates.nodes['gateway-1']).toBeCloseTo(4, 6);
+  expect(store.cost).toBe(priced);
   store.setScenario('');
   expect(store.rates.nodes['gateway-1']).toBeCloseTo(1, 6);
+  expect(store.cost).toBe(priced);
 });
