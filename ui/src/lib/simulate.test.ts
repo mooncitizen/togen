@@ -3,12 +3,16 @@ import { describe, expect, test } from 'vitest';
 import { instant, monthly, rateLabel, run, secondsPerMonth } from './simulate.ts';
 import type { Project } from './types.ts';
 
+// The two engines express the same verdict differently: Go refuses with an error, this one
+// returns zeros with the divergent flag set. A case marked refused asserts whichever of those
+// the runner reading it is written in.
 type Case = {
   name: string;
+  refused?: boolean;
   project: Project;
   simulation: Parameters<typeof run>[1];
   injection: Record<string, number>;
-  expect: { nodes: Record<string, number>; edges: Record<string, number> };
+  expect?: { nodes: Record<string, number>; edges: Record<string, number> };
 };
 
 const cases = Object.values(
@@ -29,10 +33,16 @@ describe('the shared cases', () => {
   for (const held of cases) {
     test(held.name, () => {
       const got = run(held.project, held.simulation, held.injection);
-      for (const [id, want] of Object.entries(held.expect.nodes)) {
+      if (held.refused) {
+        expect(got.divergent).toBe(true);
+        expect(Object.values(got.nodes).every((rate) => rate === 0)).toBe(true);
+        expect(Object.values(got.edges).every((rate) => rate === 0)).toBe(true);
+        return;
+      }
+      for (const [id, want] of Object.entries(held.expect?.nodes ?? {})) {
         near(got.nodes[id], want);
       }
-      for (const [id, want] of Object.entries(held.expect.edges)) {
+      for (const [id, want] of Object.entries(held.expect?.edges ?? {})) {
         near(got.edges[id], want);
       }
     });

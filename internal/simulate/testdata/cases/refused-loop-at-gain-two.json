@@ -1,0 +1,25 @@
+{
+  "name": "a call loop that doubles every time round",
+  "refused": true,
+  "project": {
+    "version": 1,
+    "name": "shop",
+    "provider": "aws",
+    "region": "eu-west-2",
+    "environment": "dev",
+    "nodes": [
+      { "id": "service-1", "type": "service", "name": "orders" },
+      { "id": "service-2", "type": "service", "name": "billing" }
+    ],
+    "edges": [
+      { "id": "edge-1", "from": "service-1", "to": "service-2", "relation": "calls" },
+      { "id": "edge-2", "from": "service-2", "to": "service-1", "relation": "calls" }
+    ]
+  },
+  "simulation": {
+    "version": 1,
+    "sources": [{ "id": "mobile", "name": "Mobile app", "target": "service-1", "rate": "800/min" }],
+    "edges": { "edge-1": 2, "edge-2": 1 }
+  },
+  "injection": { "mobile": 1000 }
+}

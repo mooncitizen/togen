@@ -10,8 +10,12 @@ import (
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
+// The two engines express the same verdict differently: Go refuses with an error, the studio
+// returns zeros with the divergent flag set. A case marked refused asserts whichever of those
+// the runner reading it is written in.
 type fixture struct {
 	Name       string             `json:"name"`
+	Refused    bool               `json:"refused"`
 	Project    ir.Project         `json:"project"`
 	Simulation Simulation         `json:"simulation"`
 	Injection  map[string]float64 `json:"injection"`
@@ -43,6 +47,12 @@ func TestSharedCases(t *testing.T) {
 				t.Fatalf("the case itself is invalid: %v", errs)
 			}
 			got, err := Run(&f.Project, f.Simulation, f.Injection)
+			if f.Refused {
+				if err == nil {
+					t.Fatalf("the case expects a refusal, got %+v", got)
+				}
+				return
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
