@@ -69,23 +69,25 @@ func usageFor(cwd string, project *ir.Project, config Config) (cost.Usage, bool,
 	return cost.Merge(simulate.Usage(project, sim, monthly, result), config.Usage), true, nil
 }
 
-func Simulate(cwd string) (simulate.Document, error) {
+// The second return says whether the project carries a simulation at all, so a caller can say
+// there is nothing to simulate rather than print a table of zeros.
+func Simulate(cwd string) (simulate.Document, bool, error) {
 	project, errs, err := Validate(cwd)
 	if err != nil {
-		return simulate.Document{}, err
+		return simulate.Document{}, false, err
 	}
 	if len(errs) > 0 {
-		return simulate.Document{}, errs
+		return simulate.Document{}, false, errs
 	}
 	sim, err := LoadSimulation(cwd)
 	if err != nil {
-		return simulate.Document{}, err
+		return simulate.Document{}, false, err
 	}
 	monthly, result, err := simulateSweep(sim, project)
 	if err != nil {
-		return simulate.Document{}, err
+		return simulate.Document{}, false, err
 	}
-	return simulate.Describe(project, sim, monthly, result), nil
+	return simulate.Describe(project, sim, monthly, result), !sim.IsEmpty(), nil
 }
 
 func simulateSweep(sim simulate.Simulation, project *ir.Project) (map[string]float64, simulate.Result, error) {

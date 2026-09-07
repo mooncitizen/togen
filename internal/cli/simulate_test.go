@@ -66,3 +66,18 @@ func TestSimulateRefusesABrokenFile(t *testing.T) {
 		t.Fatalf("want a non-zero code, got %v", got.Lines)
 	}
 }
+
+func TestSimulateSaysThereIsNoSimulation(t *testing.T) {
+	cwd := generateCwd(t)
+	got := Simulate(cwd, false)
+	if got.Code != 0 {
+		t.Fatalf("code %d: %v", got.Code, got.Lines)
+	}
+	line := strings.Join(got.Lines, "\n")
+	if !strings.Contains(line, "no togen/simulation.json") {
+		t.Fatalf("it should say there is nothing to simulate: %v", got.Lines)
+	}
+	if strings.Contains(line, "nodes") {
+		t.Fatalf("no table of zeros: %v", got.Lines)
+	}
+}
