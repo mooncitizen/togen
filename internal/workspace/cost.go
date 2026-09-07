@@ -51,8 +51,9 @@ func Cost(cwd string) (cost.Document, string, error) {
 	return doc, note, err
 }
 
-// A broken or absent simulation is not a broken estimate: the hand-written block stands
-// on its own, as it did before ADR 0011.
+// An absent simulation is not a broken estimate: the hand-written block stands on its own, as it
+// did before ADR 0011. A simulation that is present but broken refuses, naming the file, rather
+// than pricing a total the user's file does not describe.
 func usageFor(cwd string, project *ir.Project, config Config) (cost.Usage, bool, error) {
 	sim, err := LoadSimulation(cwd)
 	if err != nil {

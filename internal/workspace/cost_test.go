@@ -3,6 +3,7 @@ package workspace
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -123,5 +124,19 @@ func TestCostPricesTheSimulation(t *testing.T) {
 	}
 	if simulated.Total <= plain.Total {
 		t.Fatalf("traffic should cost more than none: %v vs %v", simulated.Total, plain.Total)
+	}
+}
+
+func TestCostRefusesABrokenSimulation(t *testing.T) {
+	dir := t.TempDir()
+	copyExample(t, "aws-basic", dir)
+
+	if err := os.WriteFile(SimulationPath(dir), []byte("{not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Cost(dir); err == nil {
+		t.Fatal("a broken simulation should not be priced")
+	} else if !strings.Contains(err.Error(), "togen/simulation.json") {
+		t.Fatalf("the error should name the file: %v", err)
 	}
 }
