@@ -146,12 +146,16 @@ export function save(blob: Blob, name: string): void {
 
 // The handles, the box selection and a connection being dragged are the
 // editor's; a card outside the view is on the canvas only while the view
-// editor is open.
+// editor is open; the particle overlay is a live animation with no still
+// frame worth keeping, so a picture shows the rate labels only.
 function keep(node: Node, nodes: Set<string>): boolean {
   if (!(node instanceof Element)) {
     return true;
   }
   if (editing.some((name) => node.classList.contains(name))) {
+    return false;
+  }
+  if (node.hasAttribute('data-particle') || node.hasAttribute('data-particles')) {
     return false;
   }
   return !node.classList.contains(nodeClass) || nodes.has(node.getAttribute('data-id') ?? '');

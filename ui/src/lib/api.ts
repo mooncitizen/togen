@@ -6,6 +6,7 @@ import type {
   InitRequest,
   Layout,
   Project,
+  Simulation,
   ValidationError,
   Views,
   Workspace,
@@ -45,6 +46,14 @@ export function getViews(): Promise<Views> {
 
 export function putViews(views: Views): Promise<void> {
   return write('/api/views', views);
+}
+
+export function getSimulation(): Promise<Simulation> {
+  return read<Simulation>('/api/simulation');
+}
+
+export function putSimulation(simulation: Simulation): Promise<void> {
+  return write('/api/simulation', simulation);
 }
 
 export function getConfig(): Promise<Config> {

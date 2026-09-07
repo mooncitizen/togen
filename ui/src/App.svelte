@@ -8,6 +8,7 @@
   import FirstRun from './lib/components/FirstRun.svelte';
   import Inspector from './lib/components/Inspector.svelte';
   import Rail from './lib/components/Rail.svelte';
+  import SimulationPanel from './lib/components/SimulationPanel.svelte';
   import TopBar from './lib/components/TopBar.svelte';
   import ViewEditor from './lib/components/ViewEditor.svelte';
   import { Store, setStore } from './lib/store.svelte.ts';
@@ -22,7 +23,12 @@
     void store.load();
     const detach = theme.attach();
     const stop = events((name) => {
-      if (name === 'project-changed' || name === 'layout-changed' || name === 'views-changed') {
+      if (
+        name === 'project-changed' ||
+        name === 'layout-changed' ||
+        name === 'views-changed' ||
+        name === 'simulation-changed'
+      ) {
         store.reload();
       }
       if (name === 'config-changed') {
@@ -47,6 +53,8 @@
         <Canvas />
         {#if store.editing}
           <ViewEditor />
+        {:else if store.simulationOpen}
+          <SimulationPanel />
         {:else if store.costOpen}
           <CostPanel />
         {:else}

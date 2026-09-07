@@ -8,6 +8,7 @@ import (
 	"github.com/mooncitizen/togen/internal/resolve/aws"
 	"github.com/mooncitizen/togen/internal/resolve/azure"
 	"github.com/mooncitizen/togen/internal/resolve/gcp"
+	"github.com/mooncitizen/togen/internal/simulate"
 )
 
 var costMatchers = map[ir.CloudProvider]cost.Matchers{
@@ -41,6 +42,65 @@ func Cost(cwd string) (cost.Document, string, error) {
 	if snapshot == nil {
 		matchers = nil
 	}
-	doc, err := cost.Estimate(project, matchers, snapshot, config.Usage, time.Now())
+	usage, simulated, err := usageFor(cwd, project, config)
+	if err != nil {
+		return cost.Document{}, note, err
+	}
+	doc, err := cost.Estimate(project, matchers, snapshot, usage, time.Now())
+	doc.Simulated = simulated
 	return doc, note, err
+}
+
+// An absent simulation is not a broken estimate: the hand-written block stands on its own, as it
+// did before ADR 0011. A simulation that is present but broken refuses, naming the file, rather
+// than pricing a total the user's file does not describe.
+func usageFor(cwd string, project *ir.Project, config Config) (cost.Usage, bool, error) {
+	sim, err := LoadSimulation(cwd)
+	if err != nil {
+		return nil, false, err
+	}
+	if sim.IsEmpty() {
+		return config.Usage, false, nil
+	}
+	monthly, result, err := simulateSweep(sim, project)
+	if err != nil {
+		return nil, false, err
+	}
+	return cost.Merge(simulate.Usage(project, sim, monthly, result), config.Usage), true, nil
+}
+
+// The second return says whether the project carries a simulation at all, so a caller can say
+// there is nothing to simulate rather than print a table of zeros.
+func Simulate(cwd string) (simulate.Document, bool, error) {
+	project, errs, err := Validate(cwd)
+	if err != nil {
+		return simulate.Document{}, false, err
+	}
+	if len(errs) > 0 {
+		return simulate.Document{}, false, errs
+	}
+	sim, err := LoadSimulation(cwd)
+	if err != nil {
+		return simulate.Document{}, false, err
+	}
+	monthly, result, err := simulateSweep(sim, project)
+	if err != nil {
+		return simulate.Document{}, false, err
+	}
+	return simulate.Describe(project, sim, monthly, result), !sim.IsEmpty(), nil
+}
+
+func simulateSweep(sim simulate.Simulation, project *ir.Project) (map[string]float64, simulate.Result, error) {
+	if errs := simulate.Validate(sim, project); len(errs) > 0 {
+		return nil, simulate.Result{}, errs
+	}
+	monthly, err := simulate.Monthly(sim)
+	if err != nil {
+		return nil, simulate.Result{}, err
+	}
+	result, err := simulate.Run(project, sim, monthly)
+	if err != nil {
+		return nil, simulate.Result{}, err
+	}
+	return monthly, result, nil
 }

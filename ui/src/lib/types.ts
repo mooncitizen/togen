@@ -94,6 +94,39 @@ export type Config = {
   deprecated?: string;
 };
 
+export type Source = {
+  id: string;
+  name: string;
+  target: string;
+  rate: string;
+  bytesPerRequest?: number;
+};
+
+export type Burst = {
+  id: string;
+  name: string;
+  source: string;
+  multiplier: number;
+  minutes: number;
+  timesPerMonth: number;
+};
+
+export type Simulation = {
+  version: number;
+  sources: Source[];
+  bursts?: Burst[];
+  edges?: Record<string, number>;
+};
+
+// stillSettling is set when the sweep budget ran out before the loop reached a fixed
+// point: the rates are the last iterate, not the settled answer, and read low.
+export type SimResult = {
+  nodes: Record<string, number>;
+  edges: Record<string, number>;
+  divergent?: boolean;
+  stillSettling?: boolean;
+};
+
 export type ValidationError = {
   path: string;
   nodeId?: string;

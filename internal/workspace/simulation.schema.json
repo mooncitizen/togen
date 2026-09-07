@@ -1,0 +1,119 @@
+{
+  "$id": "https://togen.dev/schema/simulation.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bursts": {
+      "description": "Multipliers laid over a source for a while",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Stable identifier the studio selects by",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "minutes": {
+            "description": "How long one occurrence lasts",
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "multiplier": {
+            "description": "How many times the baseline the burst reaches",
+            "minimum": 1,
+            "type": "number"
+          },
+          "name": {
+            "description": "Name of the scenario",
+            "minLength": 1,
+            "type": "string"
+          },
+          "source": {
+            "description": "Id of the source this multiplies",
+            "minLength": 1,
+            "type": "string"
+          },
+          "timesPerMonth": {
+            "description": "How often it happens in a month",
+            "exclusiveMinimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "multiplier",
+          "minutes",
+          "timesPerMonth"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "edges": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "number"
+      },
+      "description": "Calls an edge makes per request at its source node, when it is not 1",
+      "type": "object"
+    },
+    "sources": {
+      "description": "Where load enters the system",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "bytesPerRequest": {
+            "description": "Average response size, the only source of derived egress",
+            "minimum": 0,
+            "type": "number"
+          },
+          "id": {
+            "description": "Stable identifier a burst points at",
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "name": {
+            "description": "Who this load is, shown in the studio",
+            "minLength": 1,
+            "type": "string"
+          },
+          "rate": {
+            "description": "Requests this source makes, such as 800/min",
+            "pattern": "^[0-9]+(\\.[0-9]+)?[kM]?/(min|hour|day|month)$",
+            "type": "string"
+          },
+          "target": {
+            "description": "Id of the gateway, service or function the load enters at",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "target",
+          "rate"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "version": {
+      "description": "File format version",
+      "minimum": 1,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "version",
+    "sources"
+  ],
+  "title": "Togen simulation",
+  "type": "object"
+}

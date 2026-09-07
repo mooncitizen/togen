@@ -11,10 +11,11 @@ import (
 
 // The packages that validate cannot embed from schema/, so they keep a copy.
 var embedCopies = map[string]string{
-	"project.schema.json": "internal/ir/project.schema.json",
-	"togen.schema.json":   "internal/workspace/togen.schema.json",
-	"views.schema.json":   "internal/workspace/views.schema.json",
-	"layout.schema.json":  "internal/workspace/layout.schema.json",
+	"project.schema.json":    "internal/ir/project.schema.json",
+	"togen.schema.json":      "internal/workspace/togen.schema.json",
+	"views.schema.json":      "internal/workspace/views.schema.json",
+	"simulation.schema.json": "internal/workspace/simulation.schema.json",
+	"layout.schema.json":     "internal/workspace/layout.schema.json",
 }
 
 // Same for the examples the studio offers, which go:embed cannot reach in examples/.
@@ -36,6 +37,33 @@ func main() {
 	if err := copyExamples(); err != nil {
 		log.Fatal(err)
 	}
+	if err := copyDir("internal/simulate/testdata/cases", "ui/src/lib/testdata/cases"); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// The UI tests run in a real browser, so they cannot read internal/ themselves.
+func copyDir(src, dst string) error {
+	if err := os.RemoveAll(dst); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return err
+	}
+	entries, err := filepath.Glob(filepath.Join(src, "*.json"))
+	if err != nil {
+		return err
+	}
+	for _, path := range entries {
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(dst, filepath.Base(path)), b, 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Only the project files are copied, never the infra/ a generate left behind.

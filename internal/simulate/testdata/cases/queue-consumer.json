@@ -1,0 +1,33 @@
+{
+  "name": "a worker pulls half the orders off a queue",
+  "project": {
+    "version": 1,
+    "name": "shop",
+    "provider": "aws",
+    "region": "eu-west-2",
+    "environment": "dev",
+    "nodes": [
+      { "id": "gateway-1", "type": "gateway", "name": "edge" },
+      { "id": "service-1", "type": "service", "name": "orders" },
+      { "id": "database-1", "type": "database", "name": "orders-db" },
+      { "id": "queue-1", "type": "queue", "name": "orders-q" },
+      { "id": "function-1", "type": "function", "name": "worker" }
+    ],
+    "edges": [
+      { "id": "edge-1", "from": "gateway-1", "to": "service-1", "relation": "routes" },
+      { "id": "edge-2", "from": "service-1", "to": "database-1", "relation": "writes" },
+      { "id": "edge-3", "from": "service-1", "to": "queue-1", "relation": "publishes" },
+      { "id": "edge-4", "from": "function-1", "to": "queue-1", "relation": "consumes" }
+    ]
+  },
+  "simulation": {
+    "version": 1,
+    "sources": [{ "id": "mobile", "name": "Mobile app", "target": "gateway-1", "rate": "800/min" }],
+    "edges": { "edge-2": 3, "edge-3": 0.5 }
+  },
+  "injection": { "mobile": 1000 },
+  "expect": {
+    "nodes": { "queue-1": 500, "function-1": 500 },
+    "edges": { "edge-4": 500 }
+  }
+}

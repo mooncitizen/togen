@@ -14,6 +14,7 @@ import (
 
 	"github.com/mooncitizen/togen/internal/examples"
 	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/simulate"
 	"github.com/mooncitizen/togen/internal/workspace"
 )
 
@@ -189,6 +190,37 @@ func (s *Server) putViews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.saveJSON(w, workspace.ViewsPath(s.dir), views)
+}
+
+func (s *Server) getSimulation(w http.ResponseWriter, _ *http.Request) {
+	sim, err := workspace.LoadSimulation(s.dir)
+	if err != nil {
+		writeRefusal(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, sim)
+}
+
+func (s *Server) putSimulation(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readBody(w, r)
+	if !ok {
+		return
+	}
+	sim, err := workspace.ParseSimulation(raw)
+	if err != nil {
+		writeRefusal(w, err)
+		return
+	}
+	project, errs, err := workspace.LoadProject(s.dir)
+	if err != nil || len(errs) > 0 {
+		writeErrors(w, http.StatusUnprocessableEntity, ir.Errors{{Message: "the simulation cannot be checked without a valid project"}})
+		return
+	}
+	if errs := simulate.Validate(sim, project); len(errs) > 0 {
+		writeErrors(w, http.StatusUnprocessableEntity, errs)
+		return
+	}
+	s.saveJSON(w, workspace.SimulationPath(s.dir), sim)
 }
 
 func (s *Server) postGenerate(w http.ResponseWriter, r *http.Request) {

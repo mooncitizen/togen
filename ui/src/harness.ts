@@ -3,6 +3,7 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
+import { Store, storeContext } from './lib/store.svelte.ts';
 import type {
   Config,
   Cost,
@@ -11,6 +12,7 @@ import type {
   Layout,
   Position,
   Project,
+  Simulation,
   Viewport,
   Views,
   Workspace,
@@ -25,6 +27,7 @@ type Served = {
   views: Views;
   workspace: Workspace;
   examples: Example[];
+  simulation: Simulation;
 };
 
 let made: Call[] = [];
@@ -61,6 +64,8 @@ export const overviewOnly: Views = {
 
 export const shopDir: Workspace = { dir: '/home/paul/code/shop', name: 'shop' };
 
+export const noSimulation: Simulation = { version: 1, sources: [] };
+
 export const bundled: Example[] = [
   { id: 'aws-basic', description: 'One of every node type, wired up with the defaults' },
   { id: 'aws-full', description: 'Every node type, relation and property this milestone supports' },
@@ -81,8 +86,9 @@ export function serve(
   layout: Layout,
   config: Config = defaults,
   views: Views = overviewOnly,
+  simulation: Simulation = noSimulation,
 ) {
-  install({ project, layout, config, views, workspace: shopDir, examples: bundled });
+  install({ project, layout, config, views, workspace: shopDir, examples: bundled, simulation });
 }
 
 // A directory with no togen/ yet: the project and the layout answer 404 until
@@ -92,7 +98,48 @@ export function serveEmpty(
   examples: Example[] = bundled,
   config: Config = defaults,
 ) {
-  install({ project: null, layout: null, config, views: overviewOnly, workspace, examples });
+  install({
+    project: null,
+    layout: null,
+    config,
+    views: overviewOnly,
+    workspace,
+    examples,
+    simulation: noSimulation,
+  });
+}
+
+// A store loaded against a bare project, the way a test that only cares
+// about the simulation wants one: no layout on disk yet, dagre places it.
+export async function storeWith(project: Project): Promise<Store> {
+  reset();
+  serve(project, overviewLayout({}));
+  const store = new Store();
+  await store.load();
+  return store;
+}
+
+export { storeContext };
+
+// gateway-1 routes to service-1, which reads database-1: the shortest path
+// with a fan-out edge worth multiplying.
+export function gatewayServiceDatabase(): Project {
+  return {
+    version: 1,
+    name: 'shop',
+    provider: 'aws',
+    region: 'eu-west-2',
+    environment: 'dev',
+    nodes: [
+      { id: 'gateway-1', type: 'gateway', name: 'api' },
+      { id: 'service-1', type: 'service', name: 'web', properties: { image: 'nginx:1.27' } },
+      { id: 'database-1', type: 'database', name: 'orders-db', properties: { engine: 'postgres' } },
+    ],
+    edges: [
+      { id: 'edge-1', from: 'gateway-1', to: 'service-1', relation: 'routes' },
+      { id: 'edge-2', from: 'service-1', to: 'database-1', relation: 'reads' },
+    ],
+  };
 }
 
 function install(served: Served) {
@@ -133,6 +180,9 @@ function install(served: Served) {
       }
       if (call.path === '/api/views') {
         return json(served.views);
+      }
+      if (call.path === '/api/simulation') {
+        return json(served.simulation);
       }
       if (call.path === '/api/workspace') {
         return json(served.workspace);

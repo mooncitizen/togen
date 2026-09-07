@@ -4,11 +4,12 @@ import "path/filepath"
 
 const ConfigName = "togen.yml"
 
-func TogenDir(cwd string) string    { return filepath.Join(cwd, "togen") }
-func ProjectPath(cwd string) string { return filepath.Join(TogenDir(cwd), "project.json") }
-func LayoutPath(cwd string) string  { return filepath.Join(TogenDir(cwd), "layout.json") }
-func ViewsPath(cwd string) string   { return filepath.Join(TogenDir(cwd), "views.json") }
-func ConfigPath(cwd string) string  { return filepath.Join(cwd, ConfigName) }
+func TogenDir(cwd string) string       { return filepath.Join(cwd, "togen") }
+func ProjectPath(cwd string) string    { return filepath.Join(TogenDir(cwd), "project.json") }
+func LayoutPath(cwd string) string     { return filepath.Join(TogenDir(cwd), "layout.json") }
+func ViewsPath(cwd string) string      { return filepath.Join(TogenDir(cwd), "views.json") }
+func SimulationPath(cwd string) string { return filepath.Join(TogenDir(cwd), "simulation.json") }
+func ConfigPath(cwd string) string     { return filepath.Join(cwd, ConfigName) }
 
 // What a project is made of, in the order they are written and reported.
 var ProjectFiles = []string{"togen/project.json", "togen/layout.json", ConfigName}

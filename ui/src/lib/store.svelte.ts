@@ -1,5 +1,5 @@
 import { getContext, setContext } from 'svelte';
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
+import type { BuiltInEdge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
 
 import {
   ApiError,
@@ -8,18 +8,22 @@ import {
   getCost,
   getLayout,
   getProject,
+  getSimulation,
   getViews,
   getWorkspace,
   initProject,
   putLayout,
   putProject,
+  putSimulation,
   putViews,
 } from './api.ts';
 import { defaultProperties } from './catalogue.ts';
 import { subtotalOf } from './cost.ts';
 import { autoLayout } from './layout.ts';
+import { instant, rateLabel, run, secondsPerMonth } from './simulate.ts';
 import { resolveStyle, type Resolved } from './style.ts';
 import type {
+  Burst,
   Config,
   Cost,
   Edge,
@@ -31,7 +35,10 @@ import type {
   Position,
   Project,
   Relation,
+  SimResult,
+  Simulation,
   Sketch,
+  Source,
   ValidationError,
   View,
   ViewLayout,
@@ -72,6 +79,7 @@ const noticeDelay = 6000;
 const historyLimit = 100;
 const origin: Position = { x: 0, y: 0 };
 const overview: View = { id: overviewId, name: 'Overview', nodes: '*' };
+const entryTypes: NodeType[] = ['gateway', 'service', 'function'];
 
 // Positions and the viewport are separate state so that panning the canvas
 // does not touch the nodes: Svelte Flow re-measures and briefly hides any node
@@ -83,6 +91,9 @@ export class Store {
   configError = $state.raw<string | null>(null);
   views = $state.raw<View[]>([overview]);
   activeView = $state.raw<string>(overviewId);
+  simulation = $state.raw<Simulation>({ version: 1, sources: [] });
+  simulationOpen = $state(false);
+  scenario = $state.raw<string>('');
   editing = $state(false);
   cost = $state.raw<Cost | null>(null);
   costErrors = $state.raw<ValidationError[]>([]);
@@ -140,6 +151,7 @@ export class Store {
     const styled = (node: Node) => resolveStyle(node, this.config, project.provider);
     return project.nodes.flatMap((node) => {
       const errors = counted[node.id] ?? 0;
+      const rate = this.simulating ? (this.rates.nodes[node.id] ?? 0) : null;
       if (visible.has(node.id)) {
         return [
           this.#card(
@@ -149,6 +161,7 @@ export class Store {
             styled(node),
             subtotalOf(this.cost, node),
             false,
+            rate,
           ),
         ];
       }
@@ -163,6 +176,7 @@ export class Store {
           styled(node),
           subtotalOf(this.cost, node),
           true,
+          rate,
         ),
       ];
     });
@@ -177,10 +191,35 @@ export class Store {
         id: edge.id,
         source: edge.from,
         target: edge.to,
-        label: edge.relation,
+        label: this.simulating ? edgeLabel(edge, this.simulation, this.rates) : edge.relation,
         selected: edge.id === this.selectedEdgeId,
         class: edge.id in counted ? 'togen-edge-error' : undefined,
+        type: 'smoothstep',
+        pathOptions: { borderRadius: 4 },
       }));
+  });
+
+  readonly simulating: boolean = $derived(this.simulation.sources.length > 0);
+
+  // Per second, for the chips and the particles. The engine only ever sees a rate a
+  // month, so the scenario rate is scaled up and the result divided back down.
+  readonly rates: SimResult = $derived.by(() => {
+    const project = this.project;
+    if (project === null || !this.simulating) {
+      return { nodes: {}, edges: {} };
+    }
+    const perSecond = instant(this.simulation, this.scenario);
+    const injection: Record<string, number> = {};
+    for (const [id, rate] of Object.entries(perSecond)) {
+      injection[id] = rate * secondsPerMonth;
+    }
+    const result = run(project, this.simulation, injection);
+    return {
+      nodes: divided(result.nodes),
+      edges: divided(result.edges),
+      divergent: result.divergent,
+      stillSettling: result.stillSettling,
+    };
   });
 
   // The studio draws one view at a time; the entries of the others ride along
@@ -200,6 +239,7 @@ export class Store {
   #timer: ReturnType<typeof setTimeout> | undefined;
   #nodeTimer: ReturnType<typeof setTimeout> | undefined;
   #viewTimer: ReturnType<typeof setTimeout> | undefined;
+  #simTimer: ReturnType<typeof setTimeout> | undefined;
   #costTimer: ReturnType<typeof setTimeout> | undefined;
   #costSeq = 0;
   #noticeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -208,6 +248,7 @@ export class Store {
   #stale = false;
   #saved: Project | null = null;
   #savedViews: View[] = [overview];
+  #savedSimulation: Simulation = { version: 1, sources: [] };
   #edited = new Set<string>();
   #editedEdges = new Set<string>();
   #coalescing: string | null = null;
@@ -233,6 +274,7 @@ export class Store {
     this.#forget();
     void this.loadCost();
     const sound = await this.#readViews();
+    await this.#readSimulation();
     const found = await this.#readLayout();
     this.ready = true;
     if (!found) {
@@ -332,6 +374,82 @@ export class Store {
 
   toggleCost(open: boolean = !this.costOpen): void {
     this.costOpen = open;
+  }
+
+  toggleSimulation(open = !this.simulationOpen): void {
+    this.simulationOpen = open;
+  }
+
+  setScenario(id: string): void {
+    this.scenario = id === this.scenario ? '' : id;
+  }
+
+  addSource(): string {
+    const id = numberedId('source', this.simulation.sources);
+    const target = this.project?.nodes.find((node) => entryTypes.includes(node.type))?.id ?? '';
+    const source: Source = { id, name: 'New source', target, rate: '60/min' };
+    this.simulation = { ...this.simulation, sources: [...this.simulation.sources, source] };
+    this.#saveSimulationSoon();
+    return id;
+  }
+
+  updateSource(id: string, patch: Partial<Source>): void {
+    this.simulation = {
+      ...this.simulation,
+      sources: this.simulation.sources.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+    };
+    this.#saveSimulationSoon();
+  }
+
+  removeSource(id: string): void {
+    this.simulation = {
+      ...this.simulation,
+      sources: this.simulation.sources.filter((s) => s.id !== id),
+      bursts: (this.simulation.bursts ?? []).filter((b) => b.source !== id),
+    };
+    if (!(this.simulation.bursts ?? []).some((b) => b.id === this.scenario)) {
+      this.scenario = '';
+    }
+    this.#saveSimulationSoon();
+  }
+
+  addBurst(): string {
+    const bursts = this.simulation.bursts ?? [];
+    const id = numberedId('burst', bursts);
+    const source = this.simulation.sources[0]?.id ?? '';
+    const burst: Burst = { id, name: 'New burst', source, multiplier: 2, minutes: 15, timesPerMonth: 1 };
+    this.simulation = { ...this.simulation, bursts: [...bursts, burst] };
+    this.#saveSimulationSoon();
+    return id;
+  }
+
+  updateBurst(id: string, patch: Partial<Burst>): void {
+    const bursts = this.simulation.bursts ?? [];
+    this.simulation = {
+      ...this.simulation,
+      bursts: bursts.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+    };
+    this.#saveSimulationSoon();
+  }
+
+  removeBurst(id: string): void {
+    const bursts = this.simulation.bursts ?? [];
+    this.simulation = { ...this.simulation, bursts: bursts.filter((b) => b.id !== id) };
+    if (this.scenario === id) {
+      this.scenario = '';
+    }
+    this.#saveSimulationSoon();
+  }
+
+  setFanOut(edgeId: string, per: number | undefined): void {
+    const edges = { ...(this.simulation.edges ?? {}) };
+    if (per === undefined || per === 1) {
+      delete edges[edgeId];
+    } else {
+      edges[edgeId] = per;
+    }
+    this.simulation = { ...this.simulation, edges };
+    this.#saveSimulationSoon();
   }
 
   // A file event during a save would fetch back the version the save has not
@@ -941,6 +1059,7 @@ export class Store {
     style: Resolved,
     subtotal: number | null,
     dimmed: boolean,
+    rate: number | null,
   ): FlowNode {
     const selected = node.id === this.selectedNodeId;
     const editing = this.editing;
@@ -957,6 +1076,7 @@ export class Store {
       subtotal,
       dimmed,
       editing,
+      rate,
     ]
       .map(String)
       .join('|');
@@ -972,7 +1092,7 @@ export class Store {
       selectable: !editing,
       draggable: !dimmed,
       connectable: !dimmed,
-      data: { name: node.name, type: node.type, errors, style, subtotal, dimmed },
+      data: { name: node.name, type: node.type, errors, style, subtotal, dimmed, rate },
     };
     this.#cards.set(node.id, { key, card });
     return card;
@@ -1003,6 +1123,22 @@ export class Store {
       this.editing = false;
     }
     return sound;
+  }
+
+  // No simulation.json yet reads back as an empty simulation from the API, not a
+  // 404, so this only has to cope with the file being unreadable.
+  async #readSimulation(): Promise<void> {
+    let simulation: Simulation;
+    try {
+      // An empty simulation.json still comes back with a Go zero value for sources
+      // (null, not []), so this is not just the network failure path.
+      simulation = normalised(await getSimulation());
+    } catch (failure) {
+      this.#report(failure);
+      simulation = { version: 1, sources: [] };
+    }
+    this.#savedSimulation = simulation;
+    this.simulation = simulation;
   }
 
   // A missing or broken layout file (404, or 422 from a hand-edited file) is
@@ -1108,6 +1244,27 @@ export class Store {
     this.#savedViews = views;
   }
 
+  #saveSimulationSoon(): void {
+    clearTimeout(this.#simTimer);
+    this.#simTimer = setTimeout(() => this.#saveSimulationNow(), saveDelay);
+  }
+
+  #saveSimulationNow(): void {
+    this.#simTimer = undefined;
+    void this.#queue(() => this.#putSimulation(this.simulation));
+  }
+
+  // A refused simulation goes back to the last one the studio accepted.
+  async #putSimulation(simulation: Simulation): Promise<void> {
+    try {
+      await putSimulation(simulation);
+    } catch (failure) {
+      this.simulation = this.#savedSimulation;
+      throw failure;
+    }
+    this.#savedSimulation = simulation;
+  }
+
   // Generate reads the files on disk, so anything the debounce is still holding
   // goes now rather than after it.
   #flush(): void {
@@ -1116,6 +1273,7 @@ export class Store {
       this.#saveProjectNow();
     }
     this.#flushViews();
+    this.#flushSimulation();
     this.#flushLayout();
   }
 
@@ -1123,6 +1281,13 @@ export class Store {
     if (this.#viewTimer !== undefined) {
       clearTimeout(this.#viewTimer);
       this.#saveViewsNow();
+    }
+  }
+
+  #flushSimulation(): void {
+    if (this.#simTimer !== undefined) {
+      clearTimeout(this.#simTimer);
+      this.#saveSimulationNow();
     }
   }
 
@@ -1192,6 +1357,7 @@ export class Store {
       this.#timer !== undefined ||
       this.#nodeTimer !== undefined ||
       this.#viewTimer !== undefined ||
+      this.#simTimer !== undefined ||
       this.#running > 0
     );
   }
@@ -1213,6 +1379,11 @@ export function setStore(store: Store): void {
 
 export function getStore(): Store {
   return getContext<Store>(key);
+}
+
+// For a test that mounts one component instead of the whole app.
+export function storeContext(store: Store): Map<unknown, unknown> {
+  return new Map([[key, store]]);
 }
 
 export function errorLines(error: ApiError): string[] {
@@ -1400,6 +1571,20 @@ function free(taken: Set<number>): number {
   return index;
 }
 
+// Sources and bursts number the same way nodes and edges do, from 1, rather
+// than the unsuffixed-first scheme freeId uses for view ids.
+function numberedId(slug: string, items: { id: string }[]): string {
+  const pattern = new RegExp(`^${slug}-(\\d+)$`);
+  const taken = new Set<number>();
+  for (const item of items) {
+    const match = pattern.exec(item.id);
+    if (match !== null) {
+      taken.add(Number(match[1]));
+    }
+  }
+  return `${slug}-${free(taken)}`;
+}
+
 function round(position: Position): Position {
   return { x: Math.round(position.x), y: Math.round(position.y) };
 }
@@ -1414,4 +1599,23 @@ function round3(viewport: Viewport): Viewport {
 
 function sameViewport(a: Viewport, b: Viewport): boolean {
   return a.x === b.x && a.y === b.y && a.zoom === b.zoom;
+}
+
+function normalised(simulation: Simulation): Simulation {
+  return { ...simulation, sources: simulation.sources ?? [] };
+}
+
+function divided(rates: Record<string, number>): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [id, rate] of Object.entries(rates)) {
+    out[id] = rate / secondsPerMonth;
+  }
+  return out;
+}
+
+function edgeLabel(edge: Edge, sim: Simulation, rates: SimResult): string {
+  const per = sim.edges?.[edge.id] ?? 1;
+  const rate = rateLabel(rates.edges[edge.id] ?? 0);
+  const fan = per === 1 ? '' : ` x${per}`;
+  return rate === '' ? `${edge.relation}${fan}` : `${rate}${fan}`;
 }

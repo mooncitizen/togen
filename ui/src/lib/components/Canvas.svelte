@@ -19,6 +19,7 @@
   import Boundaries from './Boundaries.svelte';
   import ExportDialog from './ExportDialog.svelte';
   import NodeCard from './NodeCard.svelte';
+  import Particles from './Particles.svelte';
   import RelationMenu from './RelationMenu.svelte';
   import ViewsIcon from './ViewsIcon.svelte';
 
@@ -205,6 +206,9 @@
         <Background />
         <Controls />
         <MiniMap />
+        {#if store.simulating}
+          <Particles />
+        {/if}
       </SvelteFlow>
     {/key}
     {#if store.project !== null}

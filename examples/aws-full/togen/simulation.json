@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "sources": [
+    { "id": "web", "name": "Web traffic", "target": "gateway-1", "rate": "800/min", "bytesPerRequest": 4096 },
+    { "id": "admin", "name": "Admin console", "target": "service-2", "rate": "40/min" }
+  ],
+  "bursts": [
+    { "id": "launch", "name": "Product launch", "source": "web", "multiplier": 4, "minutes": 30, "timesPerMonth": 2 }
+  ],
+  "edges": {
+    "edge-9": 0.8,
+    "edge-12": 0.2,
+    "edge-14": 0.3,
+    "edge-18": 0.5,
+    "edge-22": 0.5
+  }
+}

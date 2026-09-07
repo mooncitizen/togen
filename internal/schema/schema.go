@@ -119,6 +119,62 @@ func viewSchema() map[string]any {
 	}
 }
 
+func Simulation() map[string]any {
+	return map[string]any{
+		"$schema":              "https://json-schema.org/draft/2020-12/schema",
+		"$id":                  "https://togen.dev/schema/simulation.schema.json",
+		"title":                "Togen simulation",
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"version", "sources"},
+		"properties": map[string]any{
+			"version": map[string]any{"type": "integer", "minimum": 1, "description": "File format version"},
+			"sources": map[string]any{"type": "array", "items": sourceSchema(), "description": "Where load enters the system"},
+			"bursts":  map[string]any{"type": "array", "items": burstSchema(), "description": "Multipliers laid over a source for a while"},
+			"edges": map[string]any{
+				"type":                 "object",
+				"description":          "Calls an edge makes per request at its source node, when it is not 1",
+				"additionalProperties": map[string]any{"type": "number", "minimum": 0},
+			},
+		},
+	}
+}
+
+func sourceSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"id", "name", "target", "rate"},
+		"properties": map[string]any{
+			"id":     described(kebab(32), "Stable identifier a burst points at"),
+			"name":   described(nonEmptyString(), "Who this load is, shown in the studio"),
+			"target": described(nonEmptyString(), "Id of the gateway, service or function the load enters at"),
+			"rate": map[string]any{
+				"type":        "string",
+				"pattern":     cost.RatePattern,
+				"description": "Requests this source makes, such as 800/min",
+			},
+			"bytesPerRequest": map[string]any{"type": "number", "minimum": 0, "description": "Average response size, the only source of derived egress"},
+		},
+	}
+}
+
+func burstSchema() map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"id", "name", "source", "multiplier", "minutes", "timesPerMonth"},
+		"properties": map[string]any{
+			"id":            described(kebab(32), "Stable identifier the studio selects by"),
+			"name":          described(nonEmptyString(), "Name of the scenario"),
+			"source":        described(nonEmptyString(), "Id of the source this multiplies"),
+			"multiplier":    map[string]any{"type": "number", "minimum": 1, "description": "How many times the baseline the burst reaches"},
+			"minutes":       map[string]any{"type": "number", "exclusiveMinimum": 0, "description": "How long one occurrence lasts"},
+			"timesPerMonth": map[string]any{"type": "number", "exclusiveMinimum": 0, "description": "How often it happens in a month"},
+		},
+	}
+}
+
 // Version 1 keeps nodes and viewport at the top; version 2 has them per view.
 func Layout() map[string]any {
 	position := map[string]any{
@@ -272,6 +328,7 @@ func Write(dir string) error {
 		{"project.schema.json", Project()},
 		{"togen.schema.json", Config()},
 		{"views.schema.json", Views()},
+		{"simulation.schema.json", Simulation()},
 		{"layout.schema.json", Layout()},
 		{"relations.json", Relations()},
 		{"engines.json", Engines()},

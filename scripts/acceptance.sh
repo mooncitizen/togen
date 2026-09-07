@@ -41,4 +41,28 @@ for example in "$root"/examples/*/; do
   ) || { echo "FAILED: $name"; status=1; }
   rm -rf "$work"
 done
+
+echo "== aws-full simulate"
+work="$(mktemp -d)"
+temp_dirs+=("$work")
+cp -R "$root"/examples/aws-full/. "$work"
+(
+  cd "$work" && "$bin" simulate --json > simulate.json || { cat simulate.json; exit 1; }
+  # queue-1 (jobs) has no direct source injection: its rate only exists because
+  # the propagation sweep ran and resolved the function-1/function-3/function-2/
+  # service-1 loop with the right damping before feeding function-1 into it.
+  if ! grep -A4 '"id": "queue-1"' simulate.json | grep -q '"ratePerMonth": [1-9]'; then
+    echo "togen simulate did not propagate load through the loop to queue-1"
+    cat simulate.json
+    exit 1
+  fi
+  "$bin" cost > cost.txt || { cat cost.txt; exit 1; }
+  if ! grep -q 'usage derived from togen/simulation.json' cost.txt; then
+    echo "togen cost did not report usage derived from the example's simulation"
+    cat cost.txt
+    exit 1
+  fi
+) || { echo "FAILED: aws-full simulate"; status=1; }
+rm -rf "$work"
+
 exit $status

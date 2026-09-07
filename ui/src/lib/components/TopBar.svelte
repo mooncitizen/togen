@@ -19,6 +19,9 @@
   const estimate = $derived(
     store.cost === null ? dash : `${money(store.cost.total)} ${store.cost.currency}/mo`,
   );
+  const scenarioName = $derived(
+    store.simulation.bursts?.find((b) => b.id === store.scenario)?.name ?? 'Baseline',
+  );
 
   let open = $state(false);
 
@@ -151,6 +154,27 @@
       title="Monthly estimate"
       onclick={() => store.toggleCost()}>{estimate}</button
     >
+    <button
+      class="inline-flex h-[26px] shrink-0 items-center rounded-full border bg-raised px-2.5 font-mono text-xs hover:border-border-strong {store.simulationOpen
+        ? 'border-accent'
+        : 'border-border'}"
+      aria-pressed={store.simulationOpen}
+      title="Simulation"
+      onclick={() => store.toggleSimulation()}>{scenarioName}</button
+    >
+    {#if (store.simulation.bursts?.length ?? 0) > 0}
+      <select
+        class="h-[26px] shrink-0 rounded-full border border-border bg-raised px-2 font-mono text-xs hover:border-border-strong"
+        aria-label="Scenario"
+        value={store.scenario}
+        onchange={(event) => store.setScenario(event.currentTarget.value)}
+      >
+        <option value="">Baseline</option>
+        {#each store.simulation.bursts ?? [] as burst (burst.id)}
+          <option value={burst.id}>{burst.name}</option>
+        {/each}
+      </select>
+    {/if}
     {#if status.lines.length > 0}
       <button
         class="inline-flex h-[26px] min-w-0 items-center gap-1.5 rounded-full border border-border bg-raised px-2.5 text-xs hover:border-border-strong"

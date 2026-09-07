@@ -1,0 +1,46 @@
+{
+  "name": "a worker calls back into the service it was queued from",
+  "project": {
+    "version": 1,
+    "name": "shop",
+    "provider": "aws",
+    "region": "eu-west-2",
+    "environment": "dev",
+    "nodes": [
+      { "id": "gateway-1", "type": "gateway", "name": "edge" },
+      { "id": "service-1", "type": "service", "name": "orders" },
+      { "id": "database-1", "type": "database", "name": "orders-db" },
+      { "id": "queue-1", "type": "queue", "name": "retries" },
+      { "id": "function-1", "type": "function", "name": "retrier" }
+    ],
+    "edges": [
+      { "id": "edge-1", "from": "gateway-1", "to": "service-1", "relation": "routes" },
+      { "id": "edge-2", "from": "service-1", "to": "database-1", "relation": "writes" },
+      { "id": "edge-3", "from": "service-1", "to": "queue-1", "relation": "publishes" },
+      { "id": "edge-4", "from": "function-1", "to": "queue-1", "relation": "consumes" },
+      { "id": "edge-5", "from": "function-1", "to": "service-1", "relation": "calls" }
+    ]
+  },
+  "simulation": {
+    "version": 1,
+    "sources": [{ "id": "mobile", "name": "Mobile app", "target": "gateway-1", "rate": "800/min" }],
+    "edges": { "edge-2": 3, "edge-3": 0.5, "edge-4": 1, "edge-5": 1 }
+  },
+  "injection": { "mobile": 1000 },
+  "expect": {
+    "nodes": {
+      "gateway-1": 1000,
+      "service-1": 2000,
+      "database-1": 6000,
+      "queue-1": 1000,
+      "function-1": 1000
+    },
+    "edges": {
+      "edge-1": 1000,
+      "edge-2": 6000,
+      "edge-3": 1000,
+      "edge-4": 1000,
+      "edge-5": 1000
+    }
+  }
+}
