@@ -61,8 +61,16 @@ func TestUICopyIsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	uiDir := filepath.Join("..", "..", "ui", "src", "lib", "testdata", "cases")
+	theirs, err := filepath.Glob(filepath.Join(uiDir, "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ours) != len(theirs) {
+		t.Fatalf("%s holds %d cases against our %d, run just generate", uiDir, len(theirs), len(ours))
+	}
 	for _, path := range ours {
-		copied := filepath.Join("..", "..", "ui", "src", "lib", "testdata", "cases", filepath.Base(path))
+		copied := filepath.Join(uiDir, filepath.Base(path))
 		want, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

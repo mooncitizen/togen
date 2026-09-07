@@ -13,11 +13,9 @@ const perMonth: Record<string, number> = {
 const scale: Record<string, number> = { '': 1, k: 1e3, M: 1e6 };
 const rateForm = /^[0-9]+(\.[0-9]+)?[kM]?\/(min|hour|day|month)$/;
 
-// The same normalisation the Go side does, so a rate means one thing (ADR 0009).
+// The same normalisation the Go side does, so a rate means one thing (ADR 0009). Go returns an
+// error on a rate it cannot read; here a half-typed rate is normal, so it reads as zero instead.
 export function parseRate(text: string): number {
-  if (text === '') {
-    return 0;
-  }
   if (!rateForm.test(text)) {
     return 0;
   }
@@ -40,7 +38,7 @@ function arcs(project: Project, sim: Simulation): Arc[] {
 }
 
 const settleTolerance = 1e-9;
-const settleSweeps = 2000;
+const settleSweeps = 20000;
 const runawayFactor = 1e12;
 
 function settledAt(was: number, now: number): boolean {
@@ -57,17 +55,25 @@ function settledAt(was: number, now: number): boolean {
 // reads only the previous sweep's rates, which is what makes the answer independent of node
 // order. This mirrors that.
 //
-// The Go engine refuses a loop that does not settle (gain 1 or more, or one still shrinking too
-// slowly to be practical) by returning an error. This function cannot do that: the studio calls
-// it on every drag while the graph may be mid-edit, and a blank canvas is worse than a wrong one.
-// So an unsettled graph comes back as zeros here instead of throwing; the validation message the
-// project already carries for a cycle tells the story instead. The fixture cases are all acyclic,
-// so this difference never touches them.
+// The Go engine returns an error when a loop does not settle. This function cannot throw: the
+// studio calls it on every drag while the graph may be mid-edit, and a blank canvas is worse than
+// an approximate one. So the two failures part company here. A runaway (a rate that is not finite,
+// or past the injected total times runawayFactor, the rule Go uses) has no drawable answer at all
+// and comes back as zeros, with the validation message the project carries for the cycle telling
+// the story. A loop that is merely still shrinking when the sweeps run out comes back as the last
+// iterate: the sweep climbs towards the fixed point from below, so that is an underestimate of the
+// real rates rather than a fiction. A loop at exactly 1 grows too slowly to trip the runaway test
+// inside the budget and lands in that second case, drawn as the rates it has reached so far.
 export function run(project: Project, sim: Simulation, injection: Record<string, number>): SimResult {
   const all = arcs(project, sim);
   const incoming = new Map<string, Arc[]>();
   for (const arc of all) {
-    incoming.set(arc.to, [...(incoming.get(arc.to) ?? []), arc]);
+    const at = incoming.get(arc.to);
+    if (at) {
+      at.push(arc);
+    } else {
+      incoming.set(arc.to, [arc]);
+    }
   }
 
   const entry: Record<string, number> = {};
@@ -89,7 +95,7 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
   }
   let next: Record<string, number> = {};
 
-  let settledOk = false;
+  let ranAway = false;
   for (let sweep = 0; sweep < settleSweeps; sweep++) {
     let settled = true;
     let diverged = false;
@@ -108,11 +114,11 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
       next[id] = rate;
     }
     if (diverged) {
+      ranAway = true;
       break;
     }
     [nodes, next] = [next, nodes];
     if (settled) {
-      settledOk = true;
       break;
     }
   }
@@ -120,10 +126,10 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
   const outNodes: Record<string, number> = {};
   const outEdges: Record<string, number> = {};
   for (const id of ids) {
-    outNodes[id] = settledOk ? (nodes[id] ?? 0) : 0;
+    outNodes[id] = ranAway ? 0 : (nodes[id] ?? 0);
   }
   for (const arc of all) {
-    outEdges[arc.edge] = settledOk ? (outNodes[arc.from] ?? 0) * arc.per : 0;
+    outEdges[arc.edge] = ranAway ? 0 : (outNodes[arc.from] ?? 0) * arc.per;
   }
   return { nodes: outNodes, edges: outEdges };
 }
