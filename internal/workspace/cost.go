@@ -74,3 +74,29 @@ func usageFor(cwd string, project *ir.Project, config Config) (cost.Usage, bool,
 	}
 	return cost.Merge(simulate.Usage(project, sim, monthly, result), config.Usage), true, nil
 }
+
+func Simulate(cwd string) (simulate.Document, error) {
+	project, errs, err := Validate(cwd)
+	if err != nil {
+		return simulate.Document{}, err
+	}
+	if len(errs) > 0 {
+		return simulate.Document{}, errs
+	}
+	sim, err := LoadSimulation(cwd)
+	if err != nil {
+		return simulate.Document{}, err
+	}
+	if errs := simulate.Validate(sim, project); len(errs) > 0 {
+		return simulate.Document{}, errs
+	}
+	monthly, err := simulate.Monthly(sim)
+	if err != nil {
+		return simulate.Document{}, err
+	}
+	result, err := simulate.Run(project, sim, monthly)
+	if err != nil {
+		return simulate.Document{}, err
+	}
+	return simulate.Describe(project, sim, monthly, result), nil
+}

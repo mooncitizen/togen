@@ -73,6 +73,17 @@ func newRootCommand() *cobra.Command {
 	}
 	costCmd.Flags().BoolVar(&asJSON, "json", false, "print the estimate as JSON")
 
+	var simulateJSON bool
+	simulateCmd := &cobra.Command{
+		Use:   "simulate",
+		Short: "Show the load togen/simulation.json puts on every node and edge",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return run(func(cwd string) cli.Result { return cli.Simulate(cwd, simulateJSON) })
+		},
+	}
+	simulateCmd.Flags().BoolVar(&simulateJSON, "json", false, "print the rates as JSON")
+
 	var port int
 	var noOpen bool
 	studioCmd := &cobra.Command{
@@ -92,7 +103,7 @@ func newRootCommand() *cobra.Command {
 	studioCmd.Flags().IntVar(&port, "port", 3000, "port to listen on, 0 for any free port")
 	studioCmd.Flags().BoolVar(&noOpen, "no-open", false, "do not open a browser")
 
-	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, studioCmd)
+	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, simulateCmd, studioCmd)
 	return root
 }
 

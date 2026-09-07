@@ -74,6 +74,8 @@ not priced
 total  144.17 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote
 ```
 
+`togen simulate` shows the load `togen/simulation.json` puts on every node and edge. `--json` prints the same as a document.
+
 `examples/aws-full` is the larger sketch: every node type, every relation and every property this milestone supports, all in one project. It is what `just acceptance` generates and validates alongside `aws-basic`, so a change that breaks a pairing shows up there rather than in someone's real project. It deploys a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches, wired together with routes, calls, reads, writes, publishes and consumes.
 
 `examples/gcp-full` is the same sketch as `aws-full` on Google Cloud: the same nodes, properties and edges, so what one provider does with a pairing can be read beside the other. `web` calling the private `admin` service is the one that shows Cloud Run's rule: the caller's egress all goes through the VPC, which brings a Cloud NAT with it. `just acceptance` validates it with the `google` and `random` providers, and `togen cost` reports no gcp prices bundled until someone with a Cloud Billing Catalog API key runs the refresh.
