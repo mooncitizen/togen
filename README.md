@@ -1,130 +1,192 @@
 # Togen
 
-Sketch a system as boxes and edges, get a starting infrastructure repo. Local, deterministic, no accounts needed to generate.
+Sketch a system as boxes and edges, get a starting infrastructure repository.
+Local, deterministic, no account needed.
 
-Status: milestone one. AWS, Terraform HCL, seven node types.
+[![ci](https://github.com/mooncitizen/togen/actions/workflows/ci.yml/badge.svg)](https://github.com/mooncitizen/togen/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/mooncitizen/togen)](https://github.com/mooncitizen/togen/releases)
+[![licence](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
+[![docs](https://img.shields.io/badge/docs-mooncitizen.github.io%2Ftogen-blue)](https://mooncitizen.github.io/togen)
 
-## Try it
+[![The Togen studio](docs/images/studio-dark.png)](https://mooncitizen.github.io/togen)
+
+## What it does
+
+You draw the system: a gateway in front of some functions, a database, a
+queue, a bucket. Togen resolves that into a provider's idea of the same
+system and writes plain Terraform into your repository. There is no runtime
+and nothing to keep installed; delete Togen and the code still works.
+
+It runs on your machine: no account, no sign-in, no network call when it
+generates, including the cost estimate, which is priced from a snapshot
+bundled in the binary. AWS, Google Cloud and Azure. Seven node types.
+Terraform HCL.
+
+## Install
+
+Download a binary from
+[releases](https://github.com/mooncitizen/togen/releases):
 
 ```bash
-nix develop
-just build
-cd examples/aws-basic
-../../bin/togen generate
+curl -fsSL https://github.com/mooncitizen/togen/releases/latest/download/togen_$(uname -s | tr A-Z a-z)_$(uname -m | sed s/x86_64/amd64/).tar.gz | tar xz togen
+sudo install -m 0755 togen /usr/local/bin/togen
+togen --version
 ```
 
-Output lands in `infra/hcl/`. `terraform init -backend=false && terraform validate` in there should pass.
+Or with Go, if you only want the CLI:
 
-`terraform plan` needs the deployment package for each function on disk at `functions/<name>.zip` (the path is a variable, so point it wherever your build puts it). `terraform validate` does not.
+```bash
+go install github.com/mooncitizen/togen/cmd/togen@latest
+```
 
-`togen studio --port 3000` serves the canvas and its JSON API on 127.0.0.1 and opens a browser (`--no-open` if you would rather it did not). The studio is a top bar naming the project, its provider, region and environment, with the status pill and the Generate button on the right; a rail on the left with the views list and the palette; the canvas; and an inspector on the right that opens on selection. It is dark by default and `style.theme` in `togen.yml` picks `dark`, `light` or `system` (the OS setting); the toggle in the top bar overrides that for the session. Drag a type from the palette onto the canvas to add a node, and drag nodes around to arrange them: both save to `togen/`, and a project with no saved positions is laid out left to right on first load. Click a node to open the inspector on the right and set its name and properties; edits save shortly after you stop typing. Its Style tab shows the colour, icon and shape the node is drawn with, where each comes from (a node override, a kind override or the provider scheme) and the `togen.yml` snippets that would override them, each with a copy button. Drag from the right of one node to the left of another to connect them: one legal relation is applied straight away, several offer a small menu, and a pair the relation table has nothing for is refused with the reason. Click an edge to set a route's path and methods, and delete the selected node or edge from the inspector or with the delete key while the canvas has focus. Nodes and palette tiles carry the provider's own architecture icons (AWS, Google Cloud and Azure), bundled under each vendor's terms, which About in the rail footer lists. The studio starts with or without a project: in a directory with no `togen/`, `GET /api/project` answers 404 until `POST /api/project/init` creates one, from `{name, provider, region, environment}` as `togen init` would or from a bundled example (`{example: "aws-basic"}`; `GET /api/examples` lists them). It refuses with 409 when `togen/` is already there and leaves an existing `togen.yml` alone. The canvas also draws the network the resolver will create (the VPC, VNet or VPC network, and on Azure the resource group around everything) as a dashed boundary round the nodes that need it, labelled implicit because it is worked out from the view and never stored. Export in the top bar renders the open view to a PNG or JPEG in the browser from the same drawing the canvas shows, boundary, labels and icons included, at 1x, 2x or 3x, on the theme's ground, on white (which takes the light palette), or for PNG on nothing at all, with the view's name in the corner unless you turn it off; the dialog previews the picture, states its size in pixels, and saves the file through the browser as `<project>-<view>.png` or `.jpg`. The studio starts with or without a project. In a directory with no `togen/` it opens on a first-run screen that names the directory and offers three choices: a new sketch (project name, environment, provider with its palette, and region, then an empty canvas), one of the bundled examples, or importing existing Terraform, which is drawn but comes later. Underneath, `GET /api/project` answers 404 until `POST /api/project/init` creates one, from `{name, provider, region, environment}` as `togen init` would or from a bundled example (`{example: "aws-basic"}`; `GET /api/examples` lists them, `GET /api/workspace` names the directory).
+`go install` cannot embed the studio's canvas, since `internal/server/dist/`
+is built by pnpm and not checked in: `togen studio` from that build serves a
+placeholder listing the API instead. Use a release binary for the studio.
 
-Configuration is `togen.yml` at the root of the project, next to `togen/`. It holds `version`, the `targets` to generate, the `outDir` they land in, an optional `style` block (a `theme`, colours, icons and shapes per node type under `kinds` and per node name under `nodes`) and an optional `usage` block, the expected monthly usage per node name that `togen cost` prices on. `togen init` writes it with both blocks commented out. Every key has a default, so a project without the file generates the same as one with `targets: [hcl]` and `outDir: infra`. The studio reads it and never writes it: it shows what style applies to a selection and the YAML that would override it, for you to paste. Configuration used to live in `togen/togen.json`, which is still read with a deprecation message; `togen init --migrate` rewrites it as `togen.yml`.
+Or from source, which needs [nix](https://nixos.org):
 
-`togen/views.json` names the views of a project: each has an id, a name and the node ids it shows, or `"*"` for all of them, and every project has `overview`. A project without the file has the overview alone, and neither `togen validate` nor `togen generate` reads it. `togen/layout.json` is version 2, with the positions and viewport of each view under `views` by view id; a version 1 file is read as the overview and written back as version 2 on the studio's next save. The API serves them at `/api/views`. In the studio the rail lists the views with how many nodes each shows; click one to open it, the plus button to add one, and the pencil to edit it in place of the inspector: rename it, tick the nodes it shows (grouped by type, with the rest dimmed on the canvas while you choose), or delete it, except the overview, which always shows everything. The canvas names the open view and counts its nodes, draws an edge only when both ends are in the view, and saves positions and the viewport per view, placing a node that has none by auto-layout. Undo and redo cover creating, renaming, deleting and changing the membership of a view.
+```bash
+git clone https://github.com/mooncitizen/togen.git
+cd togen
+nix develop -c just build
+```
 
-`togen cost` prints a monthly estimate of the project from a snapshot of list prices bundled in the binary, so it works offline like everything else. On AWS the databases, services (Fargate tasks, and the load balancer of a public or routed one) and caches are priced on their fixed meters, and the implicit network brings the NAT gateway. On Azure it is the flexible servers' compute and storage, the Container Apps vCPU and memory of the replicas at `minReplicas`, and the cache's node hours; there is no NAT gateway and the virtual network is free, so the one implicit charge is the Service Bus Standard base unit a `fifo` queue brings. What a node does is the `usage` block in `togen.yml`, keyed by node name, and each node type takes a fixed set of keys: a gateway `requests`; a function `invocations` and `durationMs`; a queue `messages`; a bucket `storageGb`, `egressGb` and `requests`; a service `egressGb` and `requests`; and the implicit network, under `network`, `natGb`. A key a provider's matchers have no meter for prices nothing there: a service's `requests` is a Container Apps meter on Azure and nothing on AWS, and a gateway's `requests` the other way round. The rates (`requests`, `invocations`, `messages`) are a number per period, `500/min`, `20k/day` or `2M/month`, normalised to a 730 hour month and rounded to a whole count; the rest are plain numbers, gigabytes a month or milliseconds a run. Each figure becomes a line at the snapshot's rate: Lambda requests and GB-seconds (invocations by run time by the size's memory), API Gateway requests, SQS requests at three a message, S3 GB-months, requests (a tenth as writes) and internet egress, a service's egress and its load balancer's capacity units on that egress, and the NAT gateway's data; on Azure, Functions executions and GB-seconds, Service Bus operations at three a message, blob GB-months and operations on the same tenth split, Container Apps requests, and the Bandwidth egress meter. A node with no entry is priced on defaults and says so: `priced on defaults, no usage set` under it, with the meters it did not price under `not priced`, so a zero is never mistaken for free. A line whose quantity outgrows the first price tier says so beneath it. A key that is not the node type's, or a node the project has not got, fails `togen validate`, `togen cost` and the studio's config check with the path (`usage.api.invocations: a gateway takes requests only`). Unit prices print to four places, or as many as a rate below a hundredth of a cent needs, so a Lambda request reads as `0.0000002`. A node type with no matcher yet is listed under `not priced` rather than silently counted as free, and the last line says which snapshot the prices came from. All three providers have matchers for every node type, but only the AWS and Azure snapshots are bundled: `internal/cost/prices/gcp.json` needs a Cloud Billing Catalog API key to build, so until someone with one runs the refresh a GCP project prices nothing and the last line says no gcp prices are bundled yet. `--json` prints the same as a document. For `examples/aws-basic`, whose `togen.yml` sets usage for the gateway, one function, the bucket and the service:
+## Sixty seconds
+
+```bash
+mkdir demo && cd demo
+togen init --name demo --provider aws
+togen studio
+```
+
+The studio opens on an empty canvas. Drag a gateway and a function out of the
+palette, drag from the right of the gateway to the left of the function to
+route between them, then press Generate.
+
+```bash
+cd infra/hcl
+terraform init -backend=false && terraform validate
+```
+
+`terraform plan` additionally wants each function's deployment package on
+disk at `functions/<name>.zip`. The path is a variable, so point it wherever
+your build puts it.
+
+Slower version: [quickstart](https://mooncitizen.github.io/togen/getting-started/quickstart/).
+
+## What it generates
+
+```hcl
+# Generated by Togen - https://github.com/mooncitizen/togen
+
+# network
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "shop-dev-vpc"
+  }
+}
+```
+
+The start of `examples/aws-basic`'s `infra/hcl/main.tf`, generated by the
+binary this README was written against. The rest is ordinary Terraform.
+
+## The studio
+
+![The inspector](docs/images/inspector.png)
+
+Click a node to set its name and properties, in a form built from the schema
+so it always matches what the resolver understands. Drag between two nodes to
+connect them: a pairing the relation table has no meaning for is refused,
+with the reason. Views let you show a slice of a large project, and Export
+renders the open view to a PNG or a JPEG.
+
+More at [the studio](https://mooncitizen.github.io/togen/guides/the-studio/).
+
+## Simulation
+
+A sketch is a shape, not a load. `togen simulate` and the studio's canvas take
+a description of traffic, sources injecting requests, an optional burst for a
+launch or a sale, and the fan-out on edges that are not one call in for one
+call out, and turn it into a rate for every node and edge. It lives at
+`togen/simulation.json`, which the studio writes as you edit traffic on the
+canvas: a scenario selector for baseline and each burst, and animated
+particles showing which paths carry the load.
+
+With a simulation present, `togen cost` prices usage from the rates it works
+out, though anything set by hand in `togen.yml`'s `usage` block still wins
+field by field.
+
+## What it will cost
+
+```bash
+togen cost
+```
 
 ```
 api        gateway       HTTP API
   requests        21900000 requests  x    0.00000116 USD    25.40
                                                             25.40
-orders     function      node, 512 MB, x86_64
-  requests         2000000 requests  x     0.0000002 USD     0.40
-  duration          300000 GB-s      x  0.0000166667 USD     5.00
-                                                             5.40
 orders-db  database      db.t4g.micro, postgres 17, single-AZ, 20 GB
   instance             730 h         x        0.0180 USD    13.14
   storage gp2           20 GB        x        0.1330 USD     2.66
                                                             15.80
-web        service       0.25 vCPU, 0.5 GB, 1 task, public
-  vcpu               182.5 vCPU-h    x        0.0466 USD     8.50
-  memory               365 GB-h      x        0.0051 USD     1.87
-  load balancer        730 h         x        0.0265 USD    19.32
-  egress               100 GB        x        0.0900 USD     9.00
-  capacity units       100 LCU-h     x        0.0084 USD     0.84
-                                                            39.53
-jobs       queue         standard
-  priced on defaults, no usage set
-                                                             0.00
-worker     function      node, 512 MB, x86_64
-  priced on defaults, no usage set
-                                                             0.00
-uploads    bucket        standard storage, versioned, private
-  storage              200 GB        x        0.0240 USD     4.80
-  egress                40 GB        x        0.0900 USD     3.60
-                                                             8.40
-sessions   cache         cache.t4g.micro, redis 7.1, 1 node
-  node                 730 h         x        0.0180 USD    13.14
-                                                            13.14
-network    implicit VPC
-  priced on defaults, no usage set
-  nat gateway          730 h         x        0.0500 USD    36.50
-                                                            36.50
+...
 not priced
   api        gateway       data transfer
-  orders-db  database      backups beyond 20 GB
-  jobs       queue         requests (3 per message)
-  worker     function      requests
-  worker     function      duration
-  uploads    bucket        put requests (1 in 10)
-  uploads    bucket        get requests (9 in 10)
   network    implicit VPC  nat gateway data
+  ...
 
 total  144.17 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a quote
 ```
 
-`togen simulate` shows the load `togen/simulation.json` puts on every node and edge. `--json` prints the same as a document.
+That is `examples/aws-basic`, trimmed. The figures come from a price snapshot
+bundled in the binary, so it works offline. A meter that cannot be sized is
+listed under `not priced` rather than counted as free, and the last line
+names the snapshot. It is an estimate, never a quote.
 
-## Simulation
+## Status
 
-A simulation is a description of the traffic a sketch carries: one or more sources injecting requests at a gateway, service or function, an optional burst laid over a source for part of the month, and the fan-out on any edge that is not a straight one call in for one call out. It lives at `togen/simulation.json`, next to `project.json`, and the studio writes it as you edit traffic on the canvas; a project with no file has no simulation and behaves as it always did. When it is there, `togen cost` prices every node's usage from the rates it works out, but anything set by hand in the `usage` block of `togen.yml` still wins field by field, so a simulated `requests` figure is only a starting point you can override. `togen simulate` prints the same rates as a table or, with `--json`, a document. `examples/aws-full/togen/simulation.json` is the worked example:
+Milestone one. AWS, Google Cloud and Azure resolvers, Terraform HCL output,
+seven node types: gateway, function, service, database, queue, bucket, cache.
 
-```json
-{
-  "version": 1,
-  "sources": [
-    { "id": "web", "name": "Web traffic", "target": "gateway-1", "rate": "800/min", "bytesPerRequest": 4096 },
-    { "id": "admin", "name": "Admin console", "target": "service-2", "rate": "40/min" }
-  ],
-  "bursts": [
-    { "id": "launch", "name": "Product launch", "source": "web", "multiplier": 4, "minutes": 30, "timesPerMonth": 2 }
-  ],
-  "edges": {
-    "edge-9": 0.8,
-    "edge-12": 0.2,
-    "edge-14": 0.3,
-    "edge-18": 0.5,
-    "edge-22": 0.5
-  }
-}
-```
+`togen cost` bundles real prices for AWS and Azure. Google Cloud is not
+priced yet: every node returns `no gcp prices are bundled yet` and totals
+`0.00 USD/month`.
 
-`edge-12` and `edge-22` are not there for realism alone: `orders` publishing to `jobs` and `orders` calling `mailer` sit on the project's two loops (through `worker` and `web` back to `orders`), and at the default fan-out of 1 both loops amplify without limit. Damping `edge-12` to 0.2 (one publish in five enqueues a job) and `edge-22` to 0.5 (half the calls take that branch) is what makes the sweep settle at all; the rest of the fan-outs above just describe cache hit rates and how much of each request reaches a downstream edge.
+`targets` in `togen.yml` documents `hcl`, `pulumi` and `cdktf`, but only `hcl`
+is implemented; the other two fail rather than silently falling back.
+Terraform import, bringing existing cloud resources into a Togen sketch, is
+drawn on the studio's first-run screen and badged "coming later", but is not
+built. The [roadmap](https://mooncitizen.github.io/togen/about/roadmap/) is
+honest about the rest.
 
-`examples/aws-full` is the larger sketch: every node type, every relation and every property this milestone supports, all in one project. It is what `just acceptance` generates and validates alongside `aws-basic`, so a change that breaks a pairing shows up there rather than in someone's real project. It deploys a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches, wired together with routes, calls, reads, writes, publishes and consumes.
+## Documentation
 
-`examples/gcp-full` is the same sketch as `aws-full` on Google Cloud: the same nodes, properties and edges, so what one provider does with a pairing can be read beside the other. `web` calling the private `admin` service is the one that shows Cloud Run's rule: the caller's egress all goes through the VPC, which brings a Cloud NAT with it. `just acceptance` validates it with the `google` and `random` providers, and `togen cost` reports no gcp prices bundled until someone with a Cloud Billing Catalog API key runs the refresh.
+[mooncitizen.github.io/togen](https://mooncitizen.github.io/togen) has
+guides for [configuration](https://mooncitizen.github.io/togen/guides/configuration/),
+[providers](https://mooncitizen.github.io/togen/guides/providers/) and
+[views](https://mooncitizen.github.io/togen/guides/views/); reference for the
+[CLI](https://mooncitizen.github.io/togen/reference/cli/), the
+[project files](https://mooncitizen.github.io/togen/reference/project-files/)
+and the [node catalogue](https://mooncitizen.github.io/togen/reference/catalogue/);
+and [why Togen](https://mooncitizen.github.io/togen/about/why-togen/) exists.
 
-`examples/azure-basic` is the first Azure sketch: a gateway routing to a function that reads a database, publishes to a queue and writes to a bucket, which becomes a resource group, a Linux Function App on a consumption plan with its storage account, a virtual network with a Postgres flexible server on a delegated subnet behind a private DNS zone, an administrator password from the `random` provider, a Service Bus namespace with a queue the app is a Data Sender on, a second storage account with a private container the app is a Blob Data Contributor on, and outputs carrying the app's URL, the server's FQDN, the namespace and the container's account. `just acceptance` validates it with the `azurerm` and `random` providers alongside the AWS examples, and it grows as the Azure resolver does.
+## Contributing
 
-`examples/azure-full` is `aws-full` on Azure: the same fourteen nodes and twenty-four edges, with the three differences the Azure resolver asks for. The MySQL version is `8.0.21`, the one Azure Database for MySQL offers, the `fifo` queue moves the Service Bus namespace to the Standard tier, since Basic has no sessions, and the mailer calls the admin service rather than the worker, because a `calls` URL on Azure is a Terraform reference to the target and the AWS loop of calls would be a cycle. `just acceptance` generates and validates it with the other four, and `togen cost` prices it: 912.79 USD a month in `uksouth`, most of it the zone redundant Postgres server and the large cache's two Standard C3 nodes.
+[CONTRIBUTING.md](CONTRIBUTING.md). Issues and pull requests welcome.
 
-## Develop
+## Licence
 
-- `just check` runs `gofmt`, `go vet` and the unit tests. No Node needed.
-- `just generate` regenerates the JSON schema and the data files under `schema/` from the Go types, and refreshes the copies the binary embeds, the examples included.
-- `just acceptance` builds the binary, generates every example, runs `togen cost` in it, and runs `terraform validate` and `terraform fmt -check`. Needs terraform on the path, which the nix shell provides.
-- `just refresh-prices` rebuilds `internal/cost/prices/aws.json` from the AWS Price List, streaming about 4.5 GB, and `just refresh-prices --provider azure` rebuilds `internal/cost/prices/azure.json` from the Azure Retail Prices API, a few megabytes. Either fails if a matcher no longer picks exactly one SKU in some region. `--check` compares without writing; a weekly workflow runs all three. After a refresh, `go test ./internal/cost -run Golden -update` accepts the new numbers in the golden tables and the diff is the review.
-- `just refresh-prices --provider gcp` builds `internal/cost/prices/gcp.json` from the Cloud Billing Catalog API. That API refuses unregistered callers, so it needs an API key from a Google Cloud project with the Cloud Billing API enabled, in `GCP_BILLING_API_KEY`; without it the command prints one line and exits non-zero, and the key is never committed. The weekly workflow skips GCP when the `GCP_BILLING_API_KEY` secret is absent and says so.
-- `just ui` builds the canvas and copies it into `internal/server/dist/`, which is what `just build` embeds.
-- `just ui-test` runs the component tests in a headless chromium that the nix shell provides.
-- `just ui-check` runs `svelte-check` over the canvas.
-- `just ui-dev` serves the canvas with hot reload and proxies `/api` to a studio running on port 3000; start that one with `just studio`, or `just studio aws-full 3001` for the other example on another port.
-- `just` on its own lists every recipe. They run from the repository root wherever you are.
+[Apache-2.0](LICENSE). Free to use, commercially included.
 
-The canvas imports `schema/project.schema.json` at build time, so the palette lists whatever node types the schema has and the inspector builds each node's form from that type's properties: toggles, selects, numbers, text and a key value editor for `env`, with the schema description as help text and the default as the placeholder. Database versions come from `schema/engines.json` for the project's provider, and `schema/styles.json` is the built-in style per provider, the colour, icon id and shape of every node type, listed in `docs/catalogue/styles.md`. Only what you set is written, so a field left empty stays out of the file. Connections consult `schema/relations.json`, and every change is validated in the browser with ajv against the same schema and the same rules as the CLI: the top bar counts the problems and expands to the lines the CLI would print, and the node each one names gets a red badge, or the edge a red stroke. It talks to the studio over `/api` and reloads when the websocket says a file changed on disk. Generate writes the target files and lists them in the bar, or marks the nodes and edges the studio refused. Undo and redo, the buttons or Mod+Z and Shift+Mod+Z outside a text field, cover changes to the project, not the layout. Database versions come from `schema/engines.json` for the project's provider, and `schema/regions.json` lists each provider's regions with their display names, the default first.
-
-The Go side lives under `internal/`. `ir` is the schema and resource graph, `resolve/aws` turns a project into resources and holds the cost matchers beside them, `cost` owns the price snapshot, the lookup and the estimate, `emit/hcl` prints the resources, `workspace` reads and writes the project files, validates `togen.yml` against `schema/togen.schema.json` and runs the pipeline, `server` is the studio API, and `cli` ties it together. The canvas is `ui/`, a Svelte 5 app with its own `package.json`.
-
-`togen studio` serves whatever is in `internal/server/dist/`, embedded at build time. That directory is empty in a fresh checkout, so a plain `go build` gets `internal/server/placeholder/` instead, a page that lists the endpoints.
+Every file Togen generates opens with a line naming the project. Leaving it
+in place is the only credit asked for.
