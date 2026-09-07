@@ -2,6 +2,7 @@ package simulate
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/mooncitizen/togen/internal/ir"
@@ -69,11 +70,76 @@ func TestRunConsumesPullsFromTheQueue(t *testing.T) {
 	near(t, got.Edges["edge-4"], 500, "consumes edge")
 }
 
-func TestRunRefusesACycle(t *testing.T) {
+func TestRunRefusesALoopThatDoesNotDieAway(t *testing.T) {
 	p := project()
 	p.Edges = append(p.Edges, ir.Edge{ID: "edge-3", From: "service-1", To: "gateway-1", Relation: ir.RelCalls})
-	if _, err := Run(p, sound(), map[string]float64{"mobile": 1000}); err == nil {
-		t.Fatal("want a cycle error")
+	_, err := Run(p, sound(), map[string]float64{"mobile": 1000})
+	if err == nil {
+		t.Fatal("a loop of gain 1 never settles, so it should be refused")
+	}
+	for _, id := range []string{"gateway-1", "service-1"} {
+		if !strings.Contains(err.Error(), id) {
+			t.Errorf("the error should name '%s': %v", id, err)
+		}
+	}
+}
+
+// The aws-basic shape: a queue decouples an async loop the IR allows.
+func feedback() *ir.Project {
+	return &ir.Project{
+		Version: ir.Version, Name: "shop", Provider: ir.ProviderAWS, Region: "eu-west-2", Environment: "dev",
+		Nodes: []ir.Node{
+			{ID: "gateway-1", Type: ir.NodeGateway, Name: "api"},
+			{ID: "function-1", Type: ir.NodeFunction, Name: "orders"},
+			{ID: "queue-1", Type: ir.NodeQueue, Name: "jobs"},
+			{ID: "function-2", Type: ir.NodeFunction, Name: "worker"},
+			{ID: "service-1", Type: ir.NodeService, Name: "web"},
+		},
+		Edges: []ir.Edge{
+			{ID: "edge-1", From: "gateway-1", To: "function-1", Relation: ir.RelRoutes},
+			{ID: "edge-2", From: "function-1", To: "queue-1", Relation: ir.RelPublishes},
+			{ID: "edge-3", From: "function-2", To: "queue-1", Relation: ir.RelConsumes},
+			{ID: "edge-4", From: "function-2", To: "service-1", Relation: ir.RelCalls},
+			{ID: "edge-5", From: "service-1", To: "function-1", Relation: ir.RelCalls},
+		},
+	}
+}
+
+func feedbackSim(per float64) Simulation {
+	return Simulation{
+		Version: Version,
+		Sources: []Source{{ID: "mobile", Name: "Mobile app", Target: "gateway-1", Rate: "800/min"}},
+		Edges:   map[string]float64{"edge-2": per},
+	}
+}
+
+func TestRunSettlesAQueueFeedbackLoop(t *testing.T) {
+	got, err := Run(feedback(), feedbackSim(0.2), map[string]float64{"mobile": 1000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 1000 * (1 + 0.2 + 0.04 + ...) = 1000 / (1 - 0.2) = 1250.
+	near(t, got.Nodes["function-1"], 1250, "function-1")
+	near(t, got.Nodes["queue-1"], 250, "queue-1")
+	near(t, got.Nodes["function-2"], 250, "function-2")
+	near(t, got.Nodes["service-1"], 250, "service-1")
+	near(t, got.Edges["edge-2"], 250, "publishes")
+	near(t, got.Edges["edge-3"], 250, "consumes")
+	near(t, got.Edges["edge-5"], 250, "calls back")
+}
+
+func TestRunRefusesAQueueLoopThatAmplifies(t *testing.T) {
+	_, err := Run(feedback(), feedbackSim(1), map[string]float64{"mobile": 1000})
+	if err == nil {
+		t.Fatal("a loop that returns every request should be refused")
+	}
+	for _, id := range []string{"function-1", "queue-1", "function-2", "service-1"} {
+		if !strings.Contains(err.Error(), id) {
+			t.Errorf("the error should name '%s': %v", id, err)
+		}
+	}
+	if !strings.Contains(err.Error(), "fan-out below 1") {
+		t.Errorf("the error should say how to damp the loop: %v", err)
 	}
 }
 

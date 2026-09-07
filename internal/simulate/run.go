@@ -2,6 +2,9 @@ package simulate
 
 import (
 	"fmt"
+	"math"
+	"slices"
+	"strings"
 
 	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
@@ -36,6 +39,15 @@ func arcs(project *ir.Project, sim Simulation) []arc {
 	return out
 }
 
+const (
+	settleTolerance = 1e-9
+	settleSweeps    = 500
+)
+
+// Reversing 'consumes' can make a loop out of edges the IR is right to allow, because a queue
+// decouples the two halves of an async cycle. So the rates are found by sweeping to a fixed
+// point rather than by sorting: every arc multiplies by a non-negative fan-out, so a loop whose
+// gain is below 1 converges on its geometric sum and one at or above 1 grows without limit.
 func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Result, error) {
 	as := arcs(project, sim)
 	incoming := map[string][]arc{}
@@ -44,10 +56,7 @@ func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Res
 		incoming[a.to] = append(incoming[a.to], a)
 		outgoing[a.from] = append(outgoing[a.from], a)
 	}
-	order, err := ordered(project, incoming, outgoing)
-	if err != nil {
-		return Result{}, err
-	}
+	order := ordered(project, incoming, outgoing)
 
 	entry := map[string]float64{}
 	for _, s := range sim.Sources {
@@ -55,21 +64,58 @@ func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Res
 	}
 
 	nodes := make(map[string]float64, len(project.Nodes))
-	edges := make(map[string]float64, len(as))
-	for _, id := range order {
-		rate := entry[id]
-		for _, a := range incoming[id] {
-			rate += nodes[a.from] * a.per
+	for _, n := range project.Nodes {
+		nodes[n.ID] = 0
+	}
+
+	var moving []string
+	for sweep := 0; sweep < settleSweeps; sweep++ {
+		moving = moving[:0]
+		for _, id := range order {
+			rate := entry[id]
+			for _, a := range incoming[id] {
+				rate += nodes[a.from] * a.per
+			}
+			if !settledAt(nodes[id], rate) {
+				moving = append(moving, id)
+			}
+			nodes[id] = rate
 		}
-		nodes[id] = rate
-		for _, a := range outgoing[id] {
-			edges[a.edge] = rate * a.per
+		if len(moving) == 0 {
+			edges := make(map[string]float64, len(as))
+			for _, a := range as {
+				edges[a.edge] = nodes[a.from] * a.per
+			}
+			return Result{Nodes: nodes, Edges: edges}, nil
 		}
 	}
-	return Result{Nodes: nodes, Edges: edges}, nil
+	return Result{}, fmt.Errorf("the traffic through %s keeps growing every time it is worked out, because those nodes feed each other round a loop that amplifies: each pass sends back at least as much as it received. Give one edge on the loop a fan-out below 1 so the loop dies away", list(moving))
 }
 
-func ordered(project *ir.Project, incoming, outgoing map[string][]arc) ([]string, error) {
+func settledAt(was, now float64) bool {
+	change := math.Abs(now - was)
+	if scale := math.Abs(now); scale > 1e-12 {
+		change /= scale
+	}
+	return change < settleTolerance
+}
+
+func list(ids []string) string {
+	out := slices.Clone(ids)
+	slices.Sort(out)
+	out = slices.Compact(out)
+	for i, id := range out {
+		out[i] = "'" + id + "'"
+	}
+	if len(out) < 2 {
+		return strings.Join(out, "")
+	}
+	return strings.Join(out[:len(out)-1], ", ") + " and " + out[len(out)-1]
+}
+
+// Sweeping in topological order settles a graph with no loop in a single pass. Nodes left over
+// are the ones on a loop, and they follow in the order they were declared.
+func ordered(project *ir.Project, incoming, outgoing map[string][]arc) []string {
 	left := make(map[string]int, len(project.Nodes))
 	var queue []string
 	for _, n := range project.Nodes {
@@ -79,10 +125,12 @@ func ordered(project *ir.Project, incoming, outgoing map[string][]arc) ([]string
 		}
 	}
 	out := make([]string, 0, len(project.Nodes))
+	placed := make(map[string]bool, len(project.Nodes))
 	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]
 		out = append(out, id)
+		placed[id] = true
 		for _, a := range outgoing[id] {
 			left[a.to]--
 			if left[a.to] == 0 {
@@ -90,14 +138,12 @@ func ordered(project *ir.Project, incoming, outgoing map[string][]arc) ([]string
 			}
 		}
 	}
-	if len(out) < len(project.Nodes) {
-		for _, n := range project.Nodes {
-			if left[n.ID] > 0 {
-				return nil, fmt.Errorf("the edges into '%s' go round in a circle, so there is no traffic to work out", n.ID)
-			}
+	for _, n := range project.Nodes {
+		if !placed[n.ID] {
+			out = append(out, n.ID)
 		}
 	}
-	return out, nil
+	return out
 }
 
 func Monthly(sim Simulation) (map[string]float64, error) {

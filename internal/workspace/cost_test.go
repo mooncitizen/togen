@@ -37,6 +37,22 @@ func gatewayID(t *testing.T, dir string) string {
 	return ""
 }
 
+// One request in five enqueues a job, which damps the async loop the queue closes.
+func publishID(t *testing.T, dir string) string {
+	t.Helper()
+	project, _, err := Validate(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range project.Edges {
+		if e.Relation == ir.RelPublishes {
+			return e.ID
+		}
+	}
+	t.Fatalf("examples/%s has no publishes edge", filepath.Base(dir))
+	return ""
+}
+
 // The matchers a snapshot would be looked up with, once one is bundled. Until then Cost passes
 // no matchers so the estimate says no prices are bundled, which the cli and server tests cover.
 func TestCostMatchersPriceAGcpProjectWhenASnapshotIsThere(t *testing.T) {
@@ -80,10 +96,7 @@ func TestCostMatchersPriceAGcpProjectWhenASnapshotIsThere(t *testing.T) {
 
 func TestCostPricesTheSimulation(t *testing.T) {
 	dir := t.TempDir()
-	// aws-basic has a call cycle between its compute nodes (gateway -> function-1 -> queue-1
-	// -> function-2 -> service-1 -> function-1), which the topological sort in simulate.Run
-	// cannot order; azure-basic has a straight line from its gateway, so it can be simulated.
-	copyExample(t, "azure-basic", dir)
+	copyExample(t, "aws-basic", dir)
 
 	plain, _, err := Cost(dir)
 	if err != nil {
@@ -96,6 +109,7 @@ func TestCostPricesTheSimulation(t *testing.T) {
 	sim := simulate.Simulation{
 		Version: simulate.Version,
 		Sources: []simulate.Source{{ID: "mobile", Name: "Mobile app", Target: gatewayID(t, dir), Rate: "800/min"}},
+		Edges:   map[string]float64{publishID(t, dir): 0.2},
 	}
 	if err := WriteSimulation(dir, sim); err != nil {
 		t.Fatal(err)
