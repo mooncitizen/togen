@@ -94,9 +94,10 @@ ui-dev: ui-deps
 screenshots: build
     pnpm --dir ui exec node scripts/screenshots.mjs
 
-# Run the studio inside an example project, for instance `just studio aws-full 3001`.
 # Depends on build: a binary embedding a canvas from an older branch serves that
 # older canvas, and nothing on screen says so.
+#
+# Run the studio inside an example project, for instance `just studio aws-full 3001`.
 studio example='aws-basic' port='3000' *flags='': build
     cd examples/{{example}} && ../../bin/togen studio --port {{port}} {{flags}}
 
