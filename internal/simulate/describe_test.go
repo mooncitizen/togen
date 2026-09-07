@@ -1,6 +1,10 @@
 package simulate
 
-import "testing"
+import (
+	"slices"
+	"strings"
+	"testing"
+)
 
 func TestDescribeNamesTheUsageField(t *testing.T) {
 	result := Result{
@@ -20,7 +24,18 @@ func TestDescribeNamesTheUsageField(t *testing.T) {
 	if doc.Edges[1].Per != 3 || doc.Edges[1].RatePerMonth != 3000 {
 		t.Fatalf("edge-2: %+v", doc.Edges[1])
 	}
-	if len(doc.Table()) == 0 {
-		t.Fatal("the table should have lines")
+	table := doc.Table()
+	want := []string{
+		"nodes",
+		"  edge       gateway             1000 /month  requests",
+		"  orders     service             1000 /month  requests",
+		"  orders-db  database            3000 /month",
+		"",
+		"edges",
+		"  edge routes orders  x1            1000 /month",
+		"  orders writes orders-db  x3            3000 /month",
+	}
+	if !slices.Equal(table, want) {
+		t.Fatalf("table:\n%s\nwant:\n%s", strings.Join(table, "\n"), strings.Join(want, "\n"))
 	}
 }

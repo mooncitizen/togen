@@ -22,12 +22,12 @@ func Usage(project *ir.Project, sim Simulation, monthly map[string]float64, resu
 			continue
 		}
 		entry := usage[n.Name]
-		switch n.Type {
-		case ir.NodeGateway, ir.NodeService, ir.NodeBucket:
+		switch usageField(n.Type) {
+		case "requests":
 			entry.Requests = perMonth(rate)
-		case ir.NodeFunction:
+		case "invocations":
 			entry.Invocations = perMonth(rate)
-		case ir.NodeQueue:
+		case "messages":
 			entry.Messages = perMonth(rate)
 		default:
 			continue
