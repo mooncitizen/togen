@@ -14,3 +14,8 @@ ui/.vitest/
 internal/server/dist/*
 !internal/server/dist/.gitkeep
 /dist/
+site/dist/
+site/.astro/
+site/node_modules/
+site/public/images/
+site/src/content/docs/reference/catalogue/
