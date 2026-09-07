@@ -5,6 +5,8 @@
 </script>
 
 <script lang="ts">
+  import { ViewportPortal } from '@xyflow/svelte';
+
   import { getStore } from '../store.svelte.ts';
 
   const store = getStore();
@@ -25,19 +27,74 @@
       .filter((edge) => edge.share > 0);
   });
 
-  function pathFor(id: string): string | null {
-    const selector = `.svelte-flow__edge[data-id="${id}"] path.svelte-flow__edge-path`;
-    return document.querySelector(selector)?.getAttribute('d') ?? null;
+  let paths = $state.raw<Record<string, string>>({});
+
+  // Held outside the reactive graph so the effect below never reads what it writes.
+  let last: Record<string, string> = {};
+
+  function read(): void {
+    const next: Record<string, string> = {};
+    for (const edge of document.querySelectorAll('.svelte-flow__edges .svelte-flow__edge')) {
+      const id = edge.getAttribute('data-id');
+      const d = edge.querySelector('path.svelte-flow__edge-path')?.getAttribute('d') ?? null;
+      if (id !== null && d !== null) {
+        next[id] = d;
+      }
+    }
+    const ids = Object.keys(next);
+    if (
+      ids.length === Object.keys(last).length &&
+      ids.every((id) => last[id] === next[id])
+    ) {
+      return;
+    }
+    last = next;
+    paths = next;
   }
+
+  // Svelte Flow paints the edges after this overlay mounts, and redraws them on every
+  // node drag, so the paths are read from the DOM rather than during render.
+  $effect(() => {
+    const container = document.querySelector('.svelte-flow__edges');
+    if (container === null) {
+      return;
+    }
+    let queued = 0;
+    const schedule = () => {
+      if (queued !== 0) {
+        return;
+      }
+      queued = requestAnimationFrame(() => {
+        queued = 0;
+        read();
+      });
+    };
+    // The overlay is portalled into the viewport, not into this container, so its own
+    // circles can never feed back through the observer.
+    const observer = new MutationObserver(schedule);
+    observer.observe(container, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['d'],
+    });
+    schedule();
+    return () => {
+      observer.disconnect();
+      if (queued !== 0) {
+        cancelAnimationFrame(queued);
+      }
+    };
+  });
 
   function seconds(share: number): number {
     return 4 - 2.8 * share;
   }
 
   // A weight per edge for the reduced-motion reading, applied by a stroke-width rule
-  // in app.css.
+  // in app.css. Reading paths waits for the edges to be in the DOM to carry it.
   $effect(() => {
-    if (!still) {
+    if (!still || Object.keys(paths).length === 0) {
       return;
     }
     for (const edge of shares) {
@@ -48,21 +105,28 @@
 </script>
 
 {#if !still}
-  <svg class="pointer-events-none absolute inset-0 h-full w-full" data-particles aria-hidden="true">
-    {#each shares as edge (edge.id)}
-      {@const d = pathFor(edge.id)}
-      {#if d !== null}
-        {#each Array(particleCount(edge.share)) as _, i (i)}
-          <circle r="2.5" fill="var(--togen-selection)" data-particle data-edge={edge.id}>
-            <animateMotion
-              dur="{seconds(edge.share)}s"
-              begin="{(i * seconds(edge.share)) / particleCount(edge.share)}s"
-              repeatCount="indefinite"
-              path={d}
-            />
-          </circle>
-        {/each}
-      {/if}
-    {/each}
-  </svg>
+  <!-- Inside the portal the dots share the viewport transform, so pan and zoom carry them. -->
+  <ViewportPortal target="front">
+    <svg
+      class="pointer-events-none absolute top-0 left-0 h-full w-full overflow-visible"
+      data-particles
+      aria-hidden="true"
+    >
+      {#each shares as edge (edge.id)}
+        {@const d = paths[edge.id] ?? null}
+        {#if d !== null}
+          {#each Array(particleCount(edge.share)) as _, i (i)}
+            <circle r="2.5" fill="var(--togen-selection)" data-particle data-edge={edge.id}>
+              <animateMotion
+                dur="{seconds(edge.share)}s"
+                begin="{(i * seconds(edge.share)) / particleCount(edge.share)}s"
+                repeatCount="indefinite"
+                path={d}
+              />
+            </circle>
+          {/each}
+        {/if}
+      {/each}
+    </svg>
+  </ViewportPortal>
 {/if}

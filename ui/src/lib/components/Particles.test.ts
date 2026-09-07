@@ -1,52 +1,58 @@
-import { tick } from 'svelte';
-import { afterEach, expect, test, vi } from 'vitest';
-import { render } from 'vitest-browser-svelte';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { gatewayServiceDatabase, storeContext, storeWith } from '../../harness.ts';
-import Particles, { particleCount } from './Particles.svelte';
+import { gatewayServiceDatabase, overviewLayout, reset, serve, show } from '../../harness.ts';
+import type { Simulation } from '../types.ts';
+import { particleCount } from './Particles.svelte';
 
-// The OS preference, as the studio would see it through matchMedia.
+const placed = overviewLayout({
+  'gateway-1': { x: 20, y: 20 },
+  'service-1': { x: 260, y: 20 },
+  'database-1': { x: 500, y: 20 },
+});
+
+// edge-2 carries four times what edge-1 does, so it reads as the busiest.
+const loaded: Simulation = {
+  version: 1,
+  sources: [{ id: 'source-1', name: 'traffic', target: 'gateway-1', rate: '600/min' }],
+  edges: { 'edge-2': 4 },
+};
+
+// The OS preference, as the studio would see it through matchMedia. Only the
+// reduced-motion query is answered by the stub; the theme query keeps its own reading.
 function prefer(reduced: boolean) {
   vi.stubGlobal(
     'matchMedia',
-    vi.fn(() => ({ matches: reduced, media: '(prefers-reduced-motion: reduce)' })),
+    vi.fn((query: string) => ({
+      matches: query.includes('prefers-reduced-motion') ? reduced : false,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    })),
   );
 }
 
-// Svelte Flow is not mounted in these tests, so the elements the overlay and the stroke-weight
-// rule reach for are stood up by hand, with the class and data-id Svelte Flow gives them.
-function edgeElements(): HTMLElement[] {
-  return ['edge-1', 'edge-2'].map((id) => {
-    const el = document.createElement('div');
-    el.className = 'svelte-flow__edge';
-    el.dataset.id = id;
-    document.body.append(el);
-    return el;
-  });
+function circles(edgeId?: string): Element[] {
+  const selector =
+    edgeId === undefined ? '[data-particle]' : `[data-particle][data-edge="${edgeId}"]`;
+  return Array.from(document.querySelectorAll(selector));
 }
 
-async function loaded() {
-  const store = await storeWith(gatewayServiceDatabase());
-  store.addSource();
-  store.updateSource('source-1', { target: 'gateway-1', rate: '600/min' });
-  store.setFanOut('edge-2', 4);
-  return store;
+async function moving() {
+  const screen = await show();
+  await vi.waitFor(() => expect(circles().length).toBeGreaterThan(0));
+  return screen;
 }
+
+beforeEach(() => {
+  reset();
+  serve(gatewayServiceDatabase(), placed, undefined, undefined, loaded);
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  document.querySelectorAll('.svelte-flow__edge').forEach((el) => el.remove());
 });
 
-test('an edge carrying nothing gets no particles', async () => {
-  prefer(false);
-  const store = await storeWith(gatewayServiceDatabase());
-  render(Particles, { context: storeContext(store) });
-  expect(document.querySelectorAll('[data-particle]').length).toBe(0);
-});
-
-// particleCount is the real density logic; calling it directly proves the busiest edge
-// carries the most without needing a Svelte Flow tree to draw a path first.
+// particleCount is the density logic on its own: the busiest edge carries the most.
 test('particle count rises with share', () => {
   expect(particleCount(0.1)).toBe(1);
   expect(particleCount(0.5)).toBe(3);
@@ -55,54 +61,99 @@ test('particle count rises with share', () => {
   expect(particleCount(1)).toBeGreaterThan(particleCount(0.5));
 });
 
-// pathFor reads the d attribute Svelte Flow puts on the edge, and a stand-in element has none,
-// so no circle is drawn even though there is load. This is the regression case: a particle must
-// never render without a path to ride. Whether a drawn particle actually moves is only
-// verifiable in a real browser against a real Svelte Flow tree.
-test('an edge with no rendered path in the DOM gets no particles, even with load', async () => {
+// The regression: the paths are read after Svelte Flow paints, so a first load with a
+// scenario already running draws particles with nothing else touched.
+test('particles appear on first load, with no further interaction', async () => {
   prefer(false);
-  edgeElements();
-  const store = await loaded();
-  render(Particles, { context: storeContext(store) });
-  await tick();
-  expect(document.querySelector('[data-particles]')).not.toBeNull();
-  expect(document.querySelectorAll('[data-particle]').length).toBe(0);
+  await moving();
+  expect(circles('edge-1').length).toBe(particleCount(0.25));
+  expect(circles('edge-2').length).toBe(particleCount(1));
 });
 
-// Zero particles is true either way while there is no path to ride, so what separates the two
-// readings is the overlay itself: under reduced motion it is never mounted.
-test('reduced motion mounts no particle overlay, and motion does', async () => {
+// The other regression: drawn outside the transformed viewport the dots sit in empty
+// space and pan and zoom leave them behind.
+test('the overlay is drawn inside the flow viewport', async () => {
+  prefer(false);
+  await moving();
+  const overlay = document.querySelector('[data-particles]');
+  expect(overlay).not.toBeNull();
+  expect(overlay!.closest('.svelte-flow__viewport')).not.toBeNull();
+});
+
+// A circle with no animateMotion would sit as a static dot at the origin, so every one
+// drawn must carry the path it rides.
+test('every particle rides a path Svelte Flow drew', async () => {
+  prefer(false);
+  await moving();
+  const drawn = new Set(
+    Array.from(document.querySelectorAll('.svelte-flow__edges .svelte-flow__edge')).map(
+      (edge) => edge.querySelector('path.svelte-flow__edge-path')?.getAttribute('d') ?? '',
+    ),
+  );
+  for (const circle of circles()) {
+    const motion = circle.querySelector('animateMotion');
+    expect(motion).not.toBeNull();
+    expect(drawn.has(motion!.getAttribute('path') ?? '')).toBe(true);
+  }
+});
+
+// The whole-particle gate, and the re-read that keeps the dots on the line when Svelte
+// Flow redraws an edge: take the path away and that edge's particles go with it.
+test('an edge that loses its path loses its particles', async () => {
+  prefer(false);
+  await moving();
+  const path = document.querySelector(
+    '.svelte-flow__edge[data-id="edge-1"] path.svelte-flow__edge-path',
+  );
+  expect(path).not.toBeNull();
+  path!.removeAttribute('d');
+  await vi.waitFor(() => expect(circles('edge-1').length).toBe(0));
+  expect(circles('edge-2').length).toBe(particleCount(1));
+});
+
+test('reduced motion mounts no particle overlay', async () => {
   prefer(true);
-  const store = await loaded();
-  render(Particles, { context: storeContext(store) });
-  await tick();
+  await show();
+  await vi.waitFor(() =>
+    expect(
+      document
+        .querySelector<HTMLElement>('.svelte-flow__edge[data-id="edge-1"]')
+        ?.style.getPropertyValue('--togen-edge-weight'),
+    ).not.toBe(''),
+  );
   expect(document.querySelector('[data-particles]')).toBeNull();
-
-  prefer(false);
-  const moving = await loaded();
-  render(Particles, { context: storeContext(moving) });
-  await tick();
-  expect(document.querySelector('[data-particles]')).not.toBeNull();
+  expect(circles().length).toBe(0);
 });
 
-// The reduced-motion reading is a stroke weight per edge, applied by the rule in app.css that
-// keys off this custom property. edge-2 carries four times what edge-1 does, so it reads heavier.
+// The reduced-motion reading is a stroke weight per edge, applied by the rule in app.css
+// that keys off this custom property.
 test('reduced motion weights the edges instead of animating them', async () => {
   prefer(true);
-  const [one, two] = edgeElements();
-  const store = await loaded();
-  render(Particles, { context: storeContext(store) });
-  await tick();
-  expect(Number(one.style.getPropertyValue('--togen-edge-weight'))).toBeCloseTo(1.5, 6);
-  expect(Number(two.style.getPropertyValue('--togen-edge-weight'))).toBeCloseTo(3, 6);
+  await show();
+  const weight = (id: string) =>
+    Number(
+      document
+        .querySelector<HTMLElement>(`.svelte-flow__edge[data-id="${id}"]`)
+        ?.style.getPropertyValue('--togen-edge-weight'),
+    );
+  await vi.waitFor(() => expect(weight('edge-2')).toBeCloseTo(3, 6));
+  expect(weight('edge-1')).toBeCloseTo(1.5, 6);
 });
 
 test('with motion the edges are left unweighted', async () => {
   prefer(false);
-  const [one, two] = edgeElements();
-  const store = await loaded();
-  render(Particles, { context: storeContext(store) });
-  await tick();
-  expect(one.style.getPropertyValue('--togen-edge-weight')).toBe('');
-  expect(two.style.getPropertyValue('--togen-edge-weight')).toBe('');
+  await moving();
+  for (const id of ['edge-1', 'edge-2']) {
+    const el = document.querySelector<HTMLElement>(`.svelte-flow__edge[data-id="${id}"]`);
+    expect(el?.style.getPropertyValue('--togen-edge-weight')).toBe('');
+  }
+});
+
+// No scenario means no rates, so nothing is drawn even though the overlay would mount.
+test('an edge carrying nothing gets no particles', async () => {
+  prefer(false);
+  reset();
+  serve(gatewayServiceDatabase(), placed);
+  await show();
+  expect(circles().length).toBe(0);
 });
