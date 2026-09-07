@@ -5,6 +5,14 @@ import { page, userEvent } from 'vitest/browser';
 import { answer, refuse, reset, serve, show } from '../../harness.ts';
 import type { Layout, Project, Views } from '../types.ts';
 
+// toSvg is spied through vi.mock so the filter it renders with can be
+// inspected without changing what it actually draws.
+vi.mock('html-to-image', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('html-to-image')>();
+  return { ...actual, toSvg: vi.fn(actual.toSvg) };
+});
+const htmlToImage = await import('html-to-image');
+
 const shop: Project = {
   version: 1,
   name: 'shop',
@@ -361,6 +369,28 @@ test('a render that fails says so and leaves the dialog open', async () => {
   expect(dialog(screen)).not.toBeNull();
   await expect.element(screen.getByRole('button', { name: 'Export PNG' })).toBeEnabled();
   expect(saved).toHaveLength(0);
+}, 30000);
+
+test('the particle overlay is stripped from an export', async () => {
+  catchDownloads();
+  const screen = await show();
+  await open(screen);
+  await radio(screen, '1x').click();
+  await exported(screen);
+
+  const call = vi.mocked(htmlToImage.toSvg).mock.calls.at(-1);
+  const filter = call?.[1]?.filter;
+  expect(filter).toBeDefined();
+  const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  overlay.setAttribute('data-particles', '');
+  expect(filter!(overlay as unknown as HTMLElement)).toBe(false);
+  const particle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  particle.setAttribute('data-particle', '');
+  expect(filter!(particle as unknown as HTMLElement)).toBe(false);
+  const card = document.createElement('div');
+  card.classList.add('svelte-flow__node');
+  card.setAttribute('data-id', 'gateway-1');
+  expect(filter!(card)).toBe(true);
 }, 30000);
 
 test('the renderer embeds both Plex families from the studio stylesheet', async () => {

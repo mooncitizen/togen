@@ -20,7 +20,7 @@ import {
 import { defaultProperties } from './catalogue.ts';
 import { subtotalOf } from './cost.ts';
 import { autoLayout } from './layout.ts';
-import { instant, run, secondsPerMonth } from './simulate.ts';
+import { instant, rateLabel, run, secondsPerMonth } from './simulate.ts';
 import { resolveStyle, type Resolved } from './style.ts';
 import type {
   Burst,
@@ -151,6 +151,7 @@ export class Store {
     const styled = (node: Node) => resolveStyle(node, this.config, project.provider);
     return project.nodes.flatMap((node) => {
       const errors = counted[node.id] ?? 0;
+      const rate = this.simulating ? (this.rates.nodes[node.id] ?? 0) : null;
       if (visible.has(node.id)) {
         return [
           this.#card(
@@ -160,6 +161,7 @@ export class Store {
             styled(node),
             subtotalOf(this.cost, node),
             false,
+            rate,
           ),
         ];
       }
@@ -174,6 +176,7 @@ export class Store {
           styled(node),
           subtotalOf(this.cost, node),
           true,
+          rate,
         ),
       ];
     });
@@ -188,7 +191,7 @@ export class Store {
         id: edge.id,
         source: edge.from,
         target: edge.to,
-        label: edge.relation,
+        label: this.simulating ? edgeLabel(edge, this.simulation, this.rates) : edge.relation,
         selected: edge.id === this.selectedEdgeId,
         class: edge.id in counted ? 'togen-edge-error' : undefined,
         type: 'smoothstep',
@@ -1054,6 +1057,7 @@ export class Store {
     style: Resolved,
     subtotal: number | null,
     dimmed: boolean,
+    rate: number | null,
   ): FlowNode {
     const selected = node.id === this.selectedNodeId;
     const editing = this.editing;
@@ -1070,6 +1074,7 @@ export class Store {
       subtotal,
       dimmed,
       editing,
+      rate,
     ]
       .map(String)
       .join('|');
@@ -1085,7 +1090,7 @@ export class Store {
       selectable: !editing,
       draggable: !dimmed,
       connectable: !dimmed,
-      data: { name: node.name, type: node.type, errors, style, subtotal, dimmed },
+      data: { name: node.name, type: node.type, errors, style, subtotal, dimmed, rate },
     };
     this.#cards.set(node.id, { key, card });
     return card;
@@ -1374,6 +1379,11 @@ export function getStore(): Store {
   return getContext<Store>(key);
 }
 
+// For a test that mounts one component instead of the whole app.
+export function storeContext(store: Store): Map<unknown, unknown> {
+  return new Map([[key, store]]);
+}
+
 export function errorLines(error: ApiError): string[] {
   if (error.errors.length === 0) {
     return [error.message];
@@ -1599,4 +1609,11 @@ function divided(rates: Record<string, number>): Record<string, number> {
     out[id] = rate / secondsPerMonth;
   }
   return out;
+}
+
+function edgeLabel(edge: Edge, sim: Simulation, rates: SimResult): string {
+  const per = sim.edges?.[edge.id] ?? 1;
+  const rate = rateLabel(rates.edges[edge.id] ?? 0);
+  const fan = per === 1 ? '' : ` x${per}`;
+  return rate === '' ? `${edge.relation}${fan}` : `${rate}${fan}`;
 }

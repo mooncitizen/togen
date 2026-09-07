@@ -217,3 +217,7 @@ body {
   stroke: var(--togen-edge-error-stroke);
   stroke-width: var(--togen-edge-error-width);
 }
+
+.svelte-flow__edge[style*='--togen-edge-weight'] path.svelte-flow__edge-path {
+  stroke-width: calc(var(--togen-edge-weight) * 1px);
+}

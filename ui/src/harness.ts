@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 
 import App from './App.svelte';
 import './app.css';
-import { Store } from './lib/store.svelte.ts';
+import { Store, storeContext } from './lib/store.svelte.ts';
 import type {
   Config,
   Cost,
@@ -118,6 +118,8 @@ export async function storeWith(project: Project): Promise<Store> {
   await store.load();
   return store;
 }
+
+export { storeContext };
 
 // gateway-1 routes to service-1, which reads database-1: the shortest path
 // with a fan-out edge worth multiplying.

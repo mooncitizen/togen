@@ -2,6 +2,7 @@
   import { Handle, Position, type NodeProps } from '@xyflow/svelte';
 
   import { dash, money } from '../cost.ts';
+  import { rateLabel } from '../simulate.ts';
   import type { Resolved } from '../style.ts';
   import Icon from './Icon.svelte';
 
@@ -14,6 +15,7 @@
       style: Resolved;
       dimmed: boolean;
       subtotal: number | null;
+      rate: number | null;
     },
   );
 </script>
@@ -40,6 +42,12 @@
     title={card.subtotal === null ? 'Not priced' : 'Monthly subtotal'}
     >{card.subtotal === null ? dash : money(card.subtotal)}</span
   >
+  {#if card.rate !== null && card.rate > 0}
+    <span
+      class="absolute top-0.5 right-1.5 rounded bg-raised px-1 font-mono text-[9px] leading-4 text-muted"
+      title="Traffic in this scenario">{rateLabel(card.rate)}</span
+    >
+  {/if}
 </div>
 <Handle type="target" position={Position.Left} />
 <Handle type="source" position={Position.Right} />

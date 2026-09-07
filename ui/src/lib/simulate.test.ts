@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { instant, monthly, run, secondsPerMonth } from './simulate.ts';
+import { instant, monthly, rateLabel, run, secondsPerMonth } from './simulate.ts';
 import type { Project } from './types.ts';
 
 type Case = {
@@ -123,4 +123,11 @@ test('instant applies the chosen burst only', () => {
   const base = (800 * 60 * 730) / secondsPerMonth;
   expect(instant(sim, '').mobile).toBeCloseTo(base, 6);
   expect(instant(sim, 'launch').mobile).toBeCloseTo(base * 6, 6);
+});
+
+test('a rate reads at the scale it is', () => {
+  expect(rateLabel(0)).toBe('');
+  expect(rateLabel(0.4)).toBe('24/min');
+  expect(rateLabel(12)).toBe('12/s');
+  expect(rateLabel(2400)).toBe('2.4k/s');
 });
