@@ -52,10 +52,12 @@ const (
 // number of sweeps do not depend on the order the nodes were declared in.
 //
 // Every arc multiplies by a non-negative fan-out, so the sweep contracts, and the rates settle on
-// their geometric sum, exactly when the fan-outs round every loop multiply out to less than 1. A
-// loop at 1 or more is caught two ways: it runs away past a huge multiple of the injected traffic
-// (or to Inf, or to NaN once Inf meets Inf), or, at exactly 1, the change per sweep stops
-// shrinking from one window of sweeps to the next.
+// their geometric sum, exactly when the spectral radius of the arc matrix is below 1. That is not
+// the same as every single loop multiplying out to less than 1: two loops of gain 0.6 through one
+// node diverge, because the node adds up what both send back. The sweep catches the rest two ways:
+// they run away past a huge multiple of the injected traffic (or to Inf, or to NaN once Inf meets
+// Inf), or, at the boundary, the change per sweep stops shrinking from one window of sweeps to the
+// next.
 func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Result, error) {
 	as := arcs(project, sim)
 	incoming := map[string][]arc{}
@@ -63,6 +65,11 @@ func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Res
 	for _, a := range as {
 		incoming[a.to] = append(incoming[a.to], a)
 		outgoing[a.from] = append(outgoing[a.from], a)
+	}
+
+	names := make(map[string]string, len(project.Nodes))
+	for _, n := range project.Nodes {
+		names[n.ID] = n.Name
 	}
 
 	entry := map[string]float64{}
@@ -94,7 +101,7 @@ func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Res
 				rate += nodes[a.from] * a.per
 			}
 			if math.IsNaN(rate) || math.Abs(rate) > runaway {
-				return Result{}, amplifying(ids, outgoing, moving(moved, movedBefore))
+				return Result{}, amplifying(ids, names, outgoing, moving(moved, movedBefore))
 			}
 			if !settledAt(nodes[id], rate) {
 				settled = false
@@ -118,13 +125,13 @@ func Run(project *ir.Project, sim Simulation, injection map[string]float64) (Res
 		}
 		if sweep%settleWindow == 0 {
 			if lastWindow > 0 && thisWindow >= lastWindow {
-				return Result{}, amplifying(ids, outgoing, moving(moved, movedBefore))
+				return Result{}, amplifying(ids, names, outgoing, moving(moved, movedBefore))
 			}
 			lastWindow, thisWindow = thisWindow, 0
 			moved, movedBefore = map[string]bool{}, moved
 		}
 	}
-	return Result{}, fmt.Errorf("the traffic through %s has still not settled after %d passes: the fan-outs round that loop multiply out to just under 1, so the traffic takes an impractical number of passes to die away. Lower the fan-out on one of the loop's edges", list(loopNodes(ids, outgoing, moving(moved, movedBefore))), settleSweeps)
+	return Result{}, fmt.Errorf("the traffic through %s has still not settled after %d passes: the traffic returning to those nodes is only just less than the traffic arriving, so it takes an impractical number of passes to die away. Lower the fan-out on one of the edges between them until less comes back than goes in", named(names, loopNodes(ids, outgoing, moving(moved, movedBefore))), settleSweeps)
 }
 
 func moving(moved, before map[string]bool) map[string]bool {
@@ -134,8 +141,20 @@ func moving(moved, before map[string]bool) map[string]bool {
 	return before
 }
 
-func amplifying(ids []string, outgoing map[string][]arc, moved map[string]bool) error {
-	return fmt.Errorf("the traffic through %s keeps growing every time it is worked out, because those nodes feed each other round a loop whose fan-outs multiply out to 1 or more, so each pass round the loop sends back at least as much as it received. Lower the fan-out on one of the loop's edges until the fan-outs round the loop multiply out to less than 1", list(loopNodes(ids, outgoing, moved)))
+func amplifying(ids []string, names map[string]string, outgoing map[string][]arc, moved map[string]bool) error {
+	return fmt.Errorf("the traffic through %s keeps growing every time it is worked out, because those nodes feed each other round one or more loops and the traffic returning to them is at least as much as the traffic arriving. Lower the fan-out on one of the edges between them until less comes back than goes in", named(names, loopNodes(ids, outgoing, moved)))
+}
+
+func named(names map[string]string, ids []string) string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if name, ok := names[id]; ok {
+			out = append(out, name)
+			continue
+		}
+		out = append(out, id)
+	}
+	return list(out)
 }
 
 // The nodes still moving include everything downstream of the loop, so name the loop itself: the

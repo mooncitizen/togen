@@ -72,22 +72,29 @@ func TestRunConsumesPullsFromTheQueue(t *testing.T) {
 	near(t, got.Edges["edge-4"], 500, "consumes edge")
 }
 
-// The error should name the loop and nothing else, so a database hanging off it stays unnamed.
+// The error names nodes the way the table and the canvas do, by name, and names the loop and
+// nothing else, so a database hanging off it stays unnamed.
 func namesExactly(t *testing.T, err error, loop ...string) {
 	t.Helper()
 	if err == nil {
 		t.Fatal("expected a refusal")
 	}
+	quoted := func(name string) bool { return strings.Contains(err.Error(), "'"+name+"'") }
 	named := map[string]bool{}
-	for _, id := range loop {
-		named[id] = true
-		if !strings.Contains(err.Error(), id) {
-			t.Errorf("the error should name '%s': %v", id, err)
+	for _, name := range loop {
+		named[name] = true
+		if !quoted(name) {
+			t.Errorf("the error should name '%s': %v", name, err)
 		}
 	}
-	for _, id := range []string{"gateway-1", "service-1", "database-1", "queue-1", "function-1", "function-2", "bucket-1"} {
-		if !named[id] && strings.Contains(err.Error(), id) {
-			t.Errorf("'%s' is not on the loop, so the error should not name it: %v", id, err)
+	for _, name := range []string{"edge", "orders", "orders-db", "jobs", "worker", "web", "api", "assets"} {
+		if !named[name] && quoted(name) {
+			t.Errorf("'%s' is not on the loop, so the error should not name it: %v", name, err)
+		}
+	}
+	for _, id := range []string{"gateway-1", "service-1", "database-1", "queue-1", "function-1", "function-2"} {
+		if strings.Contains(err.Error(), id) {
+			t.Errorf("the error should use names, not the id '%s': %v", id, err)
 		}
 	}
 }
@@ -96,7 +103,7 @@ func TestRunRefusesALoopThatDoesNotDieAway(t *testing.T) {
 	p := project()
 	p.Edges = append(p.Edges, ir.Edge{ID: "edge-3", From: "service-1", To: "gateway-1", Relation: ir.RelCalls})
 	_, err := Run(p, sound(), map[string]float64{"mobile": 1000})
-	namesExactly(t, err, "gateway-1", "service-1")
+	namesExactly(t, err, "edge", "orders")
 }
 
 // The aws-basic shape: a queue decouples an async loop the IR allows.
@@ -146,7 +153,7 @@ func TestRunSettlesAQueueFeedbackLoop(t *testing.T) {
 func TestRunRefusesAQueueLoopThatAmplifies(t *testing.T) {
 	for _, per := range []float64{1, 1.0000001, 1.5, 40} {
 		_, err := Run(feedback(), feedbackSim(per), map[string]float64{"mobile": 1000})
-		namesExactly(t, err, "function-1", "queue-1", "function-2", "service-1")
+		namesExactly(t, err, "orders", "jobs", "worker", "web")
 		if err != nil && !strings.Contains(err.Error(), "fan-out") {
 			t.Errorf("the error should say how to damp the loop: %v", err)
 		}
@@ -177,8 +184,8 @@ func TestRunSettlesLoopsCloseToGainOne(t *testing.T) {
 // runs out. That refusal has to name the loop too, and say something true about why.
 func TestRunGivesUpOnALoopThatSettlesTooSlowly(t *testing.T) {
 	_, err := Run(feedback(), feedbackSim(0.9999), map[string]float64{"mobile": 1000})
-	namesExactly(t, err, "function-1", "queue-1", "function-2", "service-1")
-	if err != nil && !strings.Contains(err.Error(), "just under 1") {
+	namesExactly(t, err, "orders", "jobs", "worker", "web")
+	if err != nil && !strings.Contains(err.Error(), "only just less than") {
 		t.Errorf("the error should say the loop is only just damped: %v", err)
 	}
 }
@@ -233,4 +240,41 @@ func TestInstantAppliesTheChosenBurst(t *testing.T) {
 		t.Fatal(err)
 	}
 	near(t, peak["mobile"], base*6, "burst")
+}
+
+// Two loops through one node, each of gain 0.6. Every loop on its own multiplies out to less
+// than 1, and the traffic still runs away, because 'hub' adds up what both send back. This is
+// the case the old wording called settled and told the user to fix by lowering a fan-out that
+// was already low enough.
+func TestRunRefusesTwoDampedLoopsThroughOneNode(t *testing.T) {
+	p := &ir.Project{
+		Version: ir.Version, Name: "shop", Provider: ir.ProviderAWS, Region: "eu-west-2", Environment: "dev",
+		Nodes: []ir.Node{
+			{ID: "gateway-1", Type: ir.NodeGateway, Name: "api"},
+			{ID: "service-1", Type: ir.NodeService, Name: "hub"},
+			{ID: "service-2", Type: ir.NodeService, Name: "left"},
+			{ID: "service-3", Type: ir.NodeService, Name: "right"},
+		},
+		Edges: []ir.Edge{
+			{ID: "edge-1", From: "gateway-1", To: "service-1", Relation: ir.RelRoutes},
+			{ID: "edge-2", From: "service-1", To: "service-2", Relation: ir.RelCalls},
+			{ID: "edge-3", From: "service-2", To: "service-1", Relation: ir.RelCalls},
+			{ID: "edge-4", From: "service-1", To: "service-3", Relation: ir.RelCalls},
+			{ID: "edge-5", From: "service-3", To: "service-1", Relation: ir.RelCalls},
+		},
+	}
+	sim := Simulation{
+		Version: Version,
+		Sources: []Source{{ID: "mobile", Name: "Mobile app", Target: "gateway-1", Rate: "800/min"}},
+		Edges:   map[string]float64{"edge-2": 0.6, "edge-4": 0.6},
+	}
+	_, err := Run(p, sim, map[string]float64{"mobile": 1000})
+	if err == nil {
+		t.Fatal("0.6 + 0.6 comes back for every 1 that goes in, so this should be refused")
+	}
+	for _, name := range []string{"hub", "left", "right"} {
+		if !strings.Contains(err.Error(), "'"+name+"'") {
+			t.Errorf("the error should name '%s': %v", name, err)
+		}
+	}
 }
