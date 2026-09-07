@@ -94,6 +94,32 @@ export type Config = {
   deprecated?: string;
 };
 
+export type Source = {
+  id: string;
+  name: string;
+  target: string;
+  rate: string;
+  bytesPerRequest?: number;
+};
+
+export type Burst = {
+  id: string;
+  name: string;
+  source: string;
+  multiplier: number;
+  minutes: number;
+  timesPerMonth: number;
+};
+
+export type Simulation = {
+  version: number;
+  sources: Source[];
+  bursts?: Burst[];
+  edges?: Record<string, number>;
+};
+
+export type SimResult = { nodes: Record<string, number>; edges: Record<string, number> };
+
 export type ValidationError = {
   path: string;
   nodeId?: string;

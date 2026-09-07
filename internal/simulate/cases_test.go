@@ -1,6 +1,7 @@
 package simulate
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -52,5 +53,26 @@ func TestSharedCases(t *testing.T) {
 				near(t, got.Edges[id], want, "edge "+id)
 			}
 		})
+	}
+}
+
+func TestUICopyIsCurrent(t *testing.T) {
+	ours, err := filepath.Glob(filepath.Join("testdata", "cases", "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range ours {
+		copied := filepath.Join("..", "..", "ui", "src", "lib", "testdata", "cases", filepath.Base(path))
+		want, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(copied)
+		if err != nil {
+			t.Fatalf("%s is missing, run just generate", copied)
+		}
+		if !bytes.Equal(got, want) {
+			t.Fatalf("%s is stale, run just generate", copied)
+		}
 	}
 }

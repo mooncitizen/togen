@@ -256,7 +256,7 @@ func Monthly(sim Simulation) (map[string]float64, error) {
 	return out, nil
 }
 
-// Rates per second at one scenario: an empty id or "baseline" for the flat rate,
+// Rates per second at one scenario: an id that matches no burst gives the flat rate,
 // otherwise the burst that multiplies its own source.
 func Instant(sim Simulation, scenario string) (map[string]float64, error) {
 	out := make(map[string]float64, len(sim.Sources))

@@ -70,6 +70,8 @@ func (s *Server) eventFor(changed string) (path, name string, ok bool) {
 		return workspace.LayoutPath(s.dir), "layout-changed", true
 	case "views.json":
 		return workspace.ViewsPath(s.dir), "views-changed", true
+	case "simulation.json":
+		return workspace.SimulationPath(s.dir), "simulation-changed", true
 	case workspace.ConfigName:
 		return workspace.ConfigPath(s.dir), "config-changed", true
 	}
