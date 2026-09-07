@@ -217,6 +217,7 @@ export class Store {
     return {
       nodes: divided(result.nodes),
       edges: divided(result.edges),
+      divergent: result.divergent,
       stillSettling: result.stillSettling,
     };
   });

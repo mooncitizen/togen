@@ -123,6 +123,7 @@ export type Simulation = {
 export type SimResult = {
   nodes: Record<string, number>;
   edges: Record<string, number>;
+  divergent?: boolean;
   stillSettling?: boolean;
 };
 

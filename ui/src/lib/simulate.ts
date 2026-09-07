@@ -61,14 +61,15 @@ function settledAt(was: number, now: number): boolean {
 // an approximate one. So the two engines agree on which loops are divergent and part company only
 // on what they do about it. There are three outcomes.
 //
-// Settled: the rates, bit for bit what Go returns.
+// Settled: the same rates Go returns.
 //
-// Divergent: zeros. A rate that is not finite or past the injected total times runawayFactor, and
-// also a loop that fails Go's contraction window, which is what catches a gain of exactly 1: the
-// biggest change of any sweep in a window of settleWindow sweeps has to keep shrinking from one
-// window to the next, and at gain 1 the rates climb by a constant amount for ever, so it does not.
-// Neither has a drawable answer, and the validation message the project carries for the cycle
-// tells the story.
+// Divergent: zeros, flagged with divergent so the caller can say why the canvas is blank. A rate
+// that is not finite or past the injected total times runawayFactor, and also a loop that fails
+// Go's contraction window, which is what catches a gain of exactly 1: the biggest change of any
+// sweep in a window of settleWindow sweeps has to keep shrinking from one window to the next, and
+// at gain 1 the rates climb by a constant amount for ever, so it does not. Neither has a drawable
+// answer, and a loop closed by the reversed 'consumes' arc carries no validation message of its
+// own (ADR 0011), so the flag is the only thing that can explain the zeros.
 //
 // Still contracting when the sweeps run out: the last iterate, flagged with stillSettling so the
 // caller can say so. The sweep climbs towards the fixed point from below, so that is an
@@ -160,7 +161,7 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
   for (const arc of all) {
     outEdges[arc.edge] = divergent ? 0 : (outNodes[arc.from] ?? 0) * arc.per;
   }
-  return { nodes: outNodes, edges: outEdges, stillSettling: !divergent && !fixedPoint };
+  return { nodes: outNodes, edges: outEdges, divergent, stillSettling: !divergent && !fixedPoint };
 }
 
 export function monthly(sim: Simulation): Record<string, number> {

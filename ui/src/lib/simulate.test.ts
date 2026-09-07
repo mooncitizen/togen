@@ -94,6 +94,16 @@ test('a slow but contracting loop stays close to the Go value', () => {
   expect(Math.abs(got - 999.99900139806812) / 999.99900139806812).toBeLessThan(1e-3);
 });
 
+test('a divergent loop flags the rates as divergent', () => {
+  expect(roundTheLoop(2).divergent).toBe(true);
+  expect(roundTheLoop(1).divergent).toBe(true);
+});
+
+test('a settled project is not flagged divergent', () => {
+  expect(roundTheLoop(0.5).divergent).toBe(false);
+  expect(roundTheLoop(0.9999).divergent).toBe(false);
+});
+
 test('a loop too slow to settle flags the rates as still settling', () => {
   expect(roundTheLoop(0.9999).stillSettling).toBe(true);
 });

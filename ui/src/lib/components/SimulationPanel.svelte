@@ -180,6 +180,12 @@
 
   {#if store.simulating}
     <div class="mt-auto flex flex-col gap-1 border-t border-border px-4 py-2">
+      {#if store.rates.divergent}
+        <p class="text-[11px] text-faint">
+          The traffic loops back on itself and never settles, so nothing can be drawn. Damp a
+          fan-out on the loop.
+        </p>
+      {/if}
       {#if store.rates.stillSettling}
         <p class="text-[11px] text-faint">Still settling, these figures are low.</p>
       {/if}
