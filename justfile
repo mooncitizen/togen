@@ -89,6 +89,11 @@ ui-test: ui-deps
 ui-dev: ui-deps
     pnpm --dir ui dev
 
+# Capture the studio screenshots the README and the site use. Drives the real
+# canvas, so it depends on a built binary.
+screenshots: build
+    pnpm --dir ui exec node scripts/screenshots.mjs
+
 # Run the built studio inside an example project, for instance `just studio aws-full 3001`.
 studio example='aws-basic' port='3000' *flags='':
     cd examples/{{example}} && ../../bin/togen studio --port {{port}} {{flags}}

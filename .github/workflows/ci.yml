@@ -29,3 +29,38 @@ jobs:
       - run: nix develop -c just ui-test
       - run: nix develop -c just build
       - run: nix develop -c goreleaser check
+
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/magic-nix-cache-action@v9
+      - id: pnpm-store
+        run: echo "path=$(nix develop -c pnpm store path)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ hashFiles('ui/pnpm-lock.yaml') }}
+      - run: nix develop -c just screenshots
+        env:
+          TOGEN_SHOTS_OUT: /tmp/togen-shots
+      - name: Every screenshot was produced
+        run: |
+          set -euo pipefail
+          expected=$(find docs/images -name "*.png" | wc -l)
+          if [ "$expected" -eq 0 ]; then
+            echo "error: no images expected"; exit 1
+          fi
+          missing=0
+          for f in $(ls docs/images/*.png | xargs -n1 basename); do
+            got="/tmp/togen-shots/$f"
+            if [ ! -f "$got" ]; then
+              echo "missing: $f"; missing=1; continue
+            fi
+            size=$(wc -c < "$got")
+            if [ "$size" -lt 10000 ]; then
+              echo "suspiciously small ($size bytes): $f"; missing=1
+            fi
+          done
+          exit "$missing"
