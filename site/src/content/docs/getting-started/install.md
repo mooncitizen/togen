@@ -7,10 +7,10 @@ Togen is a single binary. There is no account, no service to sign up to, and not
 
 ## Release binary
 
-Once a release is tagged, GitHub Releases carries a tarball for each platform, named `togen_<version>_<os>_<arch>.tar.gz`, alongside a `checksums.txt`. Download the one for your platform, verify it against the checksums, and extract it:
+Once a release is tagged, GitHub Releases carries a tarball for each platform, named `togen_<os>_<arch>.tar.gz`, alongside a `checksums.txt`. Download the one for your platform, verify it against the checksums, and extract it:
 
 ```bash
-tar xzf togen_<version>_<os>_<arch>.tar.gz
+tar xzf togen_<os>_<arch>.tar.gz
 ```
 
 Put the `togen` binary it contains on your `PATH`. This is the build to use: it embeds the studio's canvas, so `togen studio` serves the real thing.
