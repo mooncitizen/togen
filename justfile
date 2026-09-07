@@ -94,14 +94,17 @@ ui-dev: ui-deps
 screenshots: build
     pnpm --dir ui exec node scripts/screenshots.mjs
 
-# Run the built studio inside an example project, for instance `just studio aws-full 3001`.
-studio example='aws-basic' port='3000' *flags='':
+# Depends on build: a binary embedding a canvas from an older branch serves that
+# older canvas, and nothing on screen says so.
+#
+# Run the studio inside an example project, for instance `just studio aws-full 3001`.
+studio example='aws-basic' port='3000' *flags='': build
     cd examples/{{example}} && ../../bin/togen studio --port {{port}} {{flags}}
 
 # Show the load an example's simulation puts on every node and edge, for instance `just simulate aws-full --json`.
-simulate example='aws-full' *flags='': build-cli
+simulate example='aws-full' *flags='': build
     cd examples/{{example}} && ../../bin/togen simulate {{flags}}
 
 # Estimate an example's monthly cost, priced from its simulation when it has one.
-cost example='aws-full' *flags='': build-cli
+cost example='aws-full' *flags='': build
     cd examples/{{example}} && ../../bin/togen cost {{flags}}
