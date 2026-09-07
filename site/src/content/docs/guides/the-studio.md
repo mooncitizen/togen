@@ -9,7 +9,7 @@ description: A tour of the studio's layout, from the top bar to the inspector.
 
 The studio is four parts:
 
-- a top bar naming the project, its provider, region and environment, with the status pill and the Generate button on the right
+- a top bar naming the project, its provider, region and environment, with the cost pill, the scenario selector when the project has a simulation, the status pill and the Generate button on the right
 - a rail on the left with the views list and the palette
 - the canvas
 - an inspector on the right that opens on selection
@@ -31,6 +31,10 @@ Click a node to open the inspector on the right and set its name and properties.
 ![The inspector open on a selected node](/togen/images/inspector.png)
 
 The forms it builds come from the project schema; see [Nodes and edges](/togen/guides/nodes-and-edges/) for how that works.
+
+## Traffic
+
+A project with a `togen/simulation.json` gets a scenario selector next to the cost pill, Baseline plus one entry per burst, and the canvas draws each node and edge's rate for whichever scenario is picked. Editing a source, a burst or an edge's fan-out from the simulation panel or the edge inspector writes straight back to that file. See [Simulation](/togen/guides/simulation/) for what a simulation is and how it feeds `togen cost`.
 
 ## The style tab
 

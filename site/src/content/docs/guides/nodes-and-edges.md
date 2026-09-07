@@ -27,7 +27,9 @@ Which relations exist between which node types, and what each one does per provi
 
 ## Editing and deleting edges
 
-Click an edge to set a route's path and methods. Delete the selected node or edge from the inspector, or with the delete key while the canvas has focus.
+Click an edge to set a route's path and methods, and, on a project with a simulation, its fan-out: how many calls it makes per call in. Delete the selected node or edge from the inspector, or with the delete key while the canvas has focus.
+
+Edges are drawn with right-angled turns rather than curves, so a dense project stays readable. See [Simulation](/togen/guides/simulation/) for what fan-out changes.
 
 ## Boundaries
 

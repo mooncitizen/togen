@@ -11,7 +11,7 @@ On AWS, the databases, services (Fargate tasks, and the load balancer of a publi
 
 ## Usage keys
 
-What a node does is the `usage` block in `togen.yml`, keyed by node name. Each node type takes a fixed set of keys:
+What a node does is the `usage` block in `togen.yml`, keyed by node name, or, when the project has a `togen/simulation.json`, the rates a simulation works out. A hand-written entry still wins field by field over a simulated one; see [simulation](/togen/guides/simulation/). Each node type takes a fixed set of keys:
 
 - a gateway: `requests`
 - a function: `invocations` and `durationMs`
@@ -45,7 +45,7 @@ A key that is not the node type's, or a node the project has not got, fails `tog
 
 ## Reading the numbers
 
-Unit prices print to four places, or as many as a rate below a hundredth of a cent needs, so a Lambda request reads as `0.0000002`. A node type with no matcher yet is listed under `not priced` rather than silently counted as free, and the last line says which snapshot the prices came from.
+Unit prices print to four places, or as many as a rate below a hundredth of a cent needs, so a Lambda request reads as `0.0000002`. A node type with no matcher yet is listed under `not priced` rather than silently counted as free, and the last line says which snapshot the prices came from. A project with a simulation gets a line above the total, `usage derived from togen/simulation.json`, saying so.
 
 All three providers have matchers for every node type, but only the AWS and Azure snapshots are bundled: the GCP price list needs a Cloud Billing Catalog API key to build, so until someone with one runs the refresh, a GCP project prices nothing and the last line says no GCP prices are bundled yet.
 
