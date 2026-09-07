@@ -97,3 +97,11 @@ screenshots: build
 # Run the built studio inside an example project, for instance `just studio aws-full 3001`.
 studio example='aws-basic' port='3000' *flags='':
     cd examples/{{example}} && ../../bin/togen studio --port {{port}} {{flags}}
+
+# Show the load an example's simulation puts on every node and edge, for instance `just simulate aws-full --json`.
+simulate example='aws-full' *flags='': build-cli
+    cd examples/{{example}} && ../../bin/togen simulate {{flags}}
+
+# Estimate an example's monthly cost, priced from its simulation when it has one.
+cost example='aws-full' *flags='': build-cli
+    cd examples/{{example}} && ../../bin/togen cost {{flags}}
