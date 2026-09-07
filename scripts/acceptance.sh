@@ -62,8 +62,11 @@ cat > "$work/togen/simulation.json" <<'EOF'
 EOF
 (
   cd "$work" && "$bin" simulate --json > simulate.json || { cat simulate.json; exit 1; }
-  if ! grep -A4 '"id": "gateway-1"' simulate.json | grep -q '"ratePerMonth": [1-9]'; then
-    echo "togen simulate did not put load on the gateway"
+  # queue-1 (jobs) has no direct source injection: its rate only exists because
+  # the propagation sweep ran and resolved the function-1/function-3/function-2/
+  # service-1 loop with the right damping before feeding function-1 into it.
+  if ! grep -A4 '"id": "queue-1"' simulate.json | grep -q '"ratePerMonth": [1-9]'; then
+    echo "togen simulate did not propagate load through the loop to queue-1"
     cat simulate.json
     exit 1
   fi
