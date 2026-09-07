@@ -38,6 +38,15 @@ every example and runs `terraform validate` and `terraform fmt -check` over the
 output, so a change that breaks a provider pairing fails here rather than in
 someone's project.
 
+If you changed how the studio looks, regenerate the screenshots and commit them:
+
+    just screenshots
+
+CI runs the same script and fails if a shot no longer captures anything, which
+catches a renamed label or a restructured panel. It does not compare the images
+byte for byte, because the same page rasterises differently on macOS and Linux,
+so keeping them current is a human duty rather than a check.
+
 ## How changes land
 
 Every change starts from an issue, happens on a branch named
