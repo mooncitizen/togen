@@ -94,6 +94,22 @@ ui-dev: ui-deps
 screenshots: build
     pnpm --dir ui exec node scripts/screenshots.mjs
 
+# Install the documentation site's dependencies from the lockfile.
+site-deps:
+    pnpm --dir site install --frozen-lockfile
+
+# Build the documentation site into site/dist.
+site: site-deps
+    pnpm --dir site build
+
+# Serve the documentation site with hot reload.
+site-dev: site-deps
+    pnpm --dir site dev
+
+# astro check over the documentation site.
+site-check: site-deps
+    pnpm --dir site check
+
 # Depends on build: a binary embedding a canvas from an older branch serves that
 # older canvas, and nothing on screen says so.
 #

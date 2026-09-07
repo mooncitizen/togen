@@ -1,0 +1,21 @@
+{
+  "name": "site",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "sync": "node scripts/sync.mjs",
+    "dev": "node scripts/sync.mjs && astro dev",
+    "build": "node scripts/sync.mjs && astro build",
+    "preview": "astro preview",
+    "check": "node scripts/sync.mjs && astro check"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.42.0",
+    "astro": "^7.2.10",
+    "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "^5.9.3"
+  }
+}

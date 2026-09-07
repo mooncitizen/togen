@@ -1,0 +1,42 @@
+---
+title: Togen
+description: Sketch a system as boxes and edges, get a starting infrastructure repository.
+template: splash
+hero:
+  tagline: |
+    Sketch a system as boxes and edges, get a starting infrastructure
+    repository. Local, deterministic, no account needed.
+  image:
+    dark: ../../../public/images/studio-dark.png
+    light: ../../../public/images/studio-light.png
+  actions:
+    - text: Get started
+      link: /togen/getting-started/quickstart/
+      icon: right-arrow
+    - text: Source
+      link: https://github.com/mooncitizen/togen
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+  <Card title="Draw it, do not type it" icon="pencil">
+    Seven node types, dragged onto a canvas and joined by edges. The relation
+    table refuses a pairing that has no meaning, and says why.
+  </Card>
+  <Card title="Terraform you own" icon="document">
+    Generation writes plain HCL into your repository. There is no runtime, no
+    wrapper and nothing to keep installed. Delete Togen and the code still
+    works.
+  </Card>
+  <Card title="Nothing leaves the machine" icon="approve-check">
+    No account, no sign-in, no network call at generate time. Even the cost
+    estimate comes from a price snapshot bundled in the binary.
+  </Card>
+  <Card title="AWS, Google Cloud and Azure" icon="cloud">
+    The same sketch resolves to each provider's idea of the same system, with
+    the differences recorded in the node catalogue rather than hidden.
+  </Card>
+</CardGrid>
