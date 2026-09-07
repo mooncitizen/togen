@@ -9,7 +9,7 @@ The studio starts with or without a project. Point it at an empty directory and 
 
 In a directory with no `togen/`, the studio opens on a first-run screen that names the directory and offers three choices:
 
-- a new sketch: project name, environment, provider with its palette, and region, then an empty canvas
+- a new sketch: project name, environment, provider with its palette, and region, offered from `schema/regions.json` with each provider's regions under their display names, the default first, then an empty canvas
 - one of the bundled examples
 - importing existing Terraform, which is drawn but comes later
 

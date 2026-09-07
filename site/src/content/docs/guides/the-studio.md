@@ -3,7 +3,7 @@ title: The studio
 description: A tour of the studio's layout, from the top bar to the inspector.
 ---
 
-`togen studio --port 3000` serves the canvas and its JSON API on 127.0.0.1 and opens a browser (`--no-open` if you would rather it did not).
+`togen studio --port 3000` serves the canvas and its JSON API on 127.0.0.1 and opens a browser (`--no-open` if you would rather it did not). The canvas talks to the studio over `/api` and holds a websocket to it, so it reloads the moment a file changes on disk, not only the ones it wrote itself.
 
 ## Layout
 
@@ -31,6 +31,8 @@ Click a node to open the inspector on the right and set its name and properties.
 ![The inspector open on a selected node](/togen/images/inspector.png)
 
 The forms it builds come from the project schema; see [Nodes and edges](/togen/guides/nodes-and-edges/) for how that works.
+
+Every edit is checked in the browser with ajv, against the same schema and the same rules the CLI applies, so the top bar's problem count and `togen validate`'s output always agree.
 
 ## Traffic
 

@@ -21,7 +21,7 @@ Drag from the right of one node to the left of another to connect them. What hap
 
 - one legal relation is applied straight away
 - several offer a small menu to choose from
-- a pair the relation table has nothing for is refused, with the reason
+- a pair `schema/relations.json` has nothing for is refused, with the reason
 
 Which relations exist between which node types, and what each one does per provider, is in the [node catalogue](/togen/reference/catalogue/) rather than here.
 
