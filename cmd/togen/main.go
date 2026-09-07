@@ -9,6 +9,9 @@ import (
 	"github.com/mooncitizen/togen/internal/cli"
 )
 
+// Stamped at link time by goreleaser.
+var version = "dev"
+
 func main() {
 	root := newRootCommand()
 	if err := root.Execute(); err != nil {
@@ -21,6 +24,7 @@ func newRootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "togen",
 		Short:         "Sketch a system, get infrastructure code",
+		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}

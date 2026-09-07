@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"os"
@@ -77,5 +78,29 @@ func TestInitMigrateCommandRewritesTheLegacyConfig(t *testing.T) {
 	}
 	if _, err := os.Stat(legacy); !os.IsNotExist(err) {
 		t.Errorf("togen/togen.json survived: %v", err)
+	}
+}
+
+func TestTheRootCommandReportsItsVersion(t *testing.T) {
+	root := newRootCommand()
+	if root.Version != version {
+		t.Fatalf("root command version is %q, want %q", root.Version, version)
+	}
+
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetArgs([]string{"--version"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), version) {
+		t.Errorf("--version printed %q, which does not contain %q", out.String(), version)
+	}
+}
+
+// An unstamped build says dev rather than pretending to be a release.
+func TestTheDefaultVersionIsDev(t *testing.T) {
+	if version != "dev" {
+		t.Errorf("the compiled-in default is %q, want dev", version)
 	}
 }
