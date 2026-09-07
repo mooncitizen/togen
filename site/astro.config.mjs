@@ -43,6 +43,7 @@ export default defineConfig({
             { label: 'Views', slug: 'guides/views' },
             { label: 'Exporting diagrams', slug: 'guides/exporting-diagrams' },
             { label: 'Cost estimates', slug: 'guides/cost-estimates' },
+            { label: 'Simulation', slug: 'guides/simulation' },
             { label: 'Configuration', slug: 'guides/configuration' },
             { label: 'Providers', slug: 'guides/providers' },
           ],
