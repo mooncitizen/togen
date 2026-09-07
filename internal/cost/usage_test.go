@@ -48,6 +48,37 @@ func TestAnUnsetRateIsZero(t *testing.T) {
 	}
 }
 
+func TestMergePrefersTheWrittenField(t *testing.T) {
+	derived := Usage{
+		"orders": {Requests: "1000/month", EgressGb: 5},
+		"worker": {Invocations: "40/month"},
+	}
+	written := Usage{
+		"orders": {Requests: "9/month"},
+		"assets": {StorageGb: 20},
+	}
+	got := Merge(derived, written)
+	if got["orders"].Requests != "9/month" {
+		t.Fatalf("written requests should win: %+v", got["orders"])
+	}
+	if got["orders"].EgressGb != 5 {
+		t.Fatalf("derived egress should survive: %+v", got["orders"])
+	}
+	if got["worker"].Invocations != "40/month" {
+		t.Fatalf("a node absent from the written block keeps its derived record: %+v", got["worker"])
+	}
+	if got["assets"].StorageGb != 20 {
+		t.Fatalf("a node only in the written block survives: %+v", got["assets"])
+	}
+}
+
+func TestMergeWithNothingDerived(t *testing.T) {
+	written := Usage{"orders": {Requests: "9/month"}}
+	if got := Merge(nil, written); got["orders"].Requests != "9/month" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
 func TestNodeUsageNamesTheKeysItSets(t *testing.T) {
 	if got := (NodeUsage{}).Keys(); len(got) != 0 {
 		t.Errorf("keys of nothing = %v", got)

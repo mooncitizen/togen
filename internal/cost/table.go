@@ -57,6 +57,9 @@ func (d Document) Table() []string {
 	if d.Warning != "" {
 		out = append(out, "warning: "+d.Warning)
 	}
+	if d.Simulated {
+		out = append(out, "usage derived from togen/simulation.json")
+	}
 	return append(out, fmt.Sprintf("total  %s %s/month  %s, %s", money(d.Total), d.Currency, d.Region, d.Note))
 }
 

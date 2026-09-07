@@ -106,3 +106,38 @@ func (u NodeUsage) Keys() []string {
 func (u NodeUsage) Rates() map[string]Rate {
 	return map[string]Rate{"requests": u.Requests, "invocations": u.Invocations, "messages": u.Messages}
 }
+
+// A field set by hand in togen.yml wins; the rest of the record is what the simulation
+// worked out (ADR 0011).
+func Merge(derived, written Usage) Usage {
+	out := make(Usage, len(derived)+len(written))
+	for name, entry := range derived {
+		out[name] = entry
+	}
+	for name, entry := range written {
+		merged := out[name]
+		if entry.Requests != "" {
+			merged.Requests = entry.Requests
+		}
+		if entry.Invocations != "" {
+			merged.Invocations = entry.Invocations
+		}
+		if entry.DurationMs != 0 {
+			merged.DurationMs = entry.DurationMs
+		}
+		if entry.Messages != "" {
+			merged.Messages = entry.Messages
+		}
+		if entry.StorageGb != 0 {
+			merged.StorageGb = entry.StorageGb
+		}
+		if entry.EgressGb != 0 {
+			merged.EgressGb = entry.EgressGb
+		}
+		if entry.NatGb != 0 {
+			merged.NatGb = entry.NatGb
+		}
+		out[name] = merged
+	}
+	return out
+}

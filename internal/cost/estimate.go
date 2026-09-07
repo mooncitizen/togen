@@ -40,6 +40,7 @@ type Document struct {
 	Total        float64          `json:"total"`
 	SnapshotDate string           `json:"snapshotDate,omitempty"`
 	Note         string           `json:"note"`
+	Simulated    bool             `json:"simulated,omitempty"`
 	Warning      string           `json:"warning,omitempty"`
 }
 

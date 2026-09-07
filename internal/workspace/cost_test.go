@@ -1,12 +1,41 @@
 package workspace
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
+	"github.com/mooncitizen/togen/internal/simulate"
 )
+
+func copyExample(t *testing.T, name, dir string) {
+	t.Helper()
+	src := os.DirFS(filepath.Join("..", "..", "examples", name))
+	if err := os.CopyFS(dir, src); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func gatewayID(t *testing.T, dir string) string {
+	t.Helper()
+	project, errs, err := Validate(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(errs) > 0 {
+		t.Fatalf("errors = %v", errs)
+	}
+	for _, n := range project.Nodes {
+		if n.Type == ir.NodeGateway {
+			return n.ID
+		}
+	}
+	t.Fatalf("examples/%s has no gateway node", filepath.Base(dir))
+	return ""
+}
 
 // The matchers a snapshot would be looked up with, once one is bundled. Until then Cost passes
 // no matchers so the estimate says no prices are bundled, which the cli and server tests cover.
@@ -46,5 +75,39 @@ func TestCostMatchersPriceAGcpProjectWhenASnapshotIsThere(t *testing.T) {
 	}
 	if got := doc.Items[0].Lines; len(got) != 2 || got[0].SKU != "sql-micro" || got[1].SKU != "sql-storage" {
 		t.Errorf("database = %+v", got)
+	}
+}
+
+func TestCostPricesTheSimulation(t *testing.T) {
+	dir := t.TempDir()
+	// aws-basic has a call cycle between its compute nodes (gateway -> function-1 -> queue-1
+	// -> function-2 -> service-1 -> function-1), which the topological sort in simulate.Run
+	// cannot order; azure-basic has a straight line from its gateway, so it can be simulated.
+	copyExample(t, "azure-basic", dir)
+
+	plain, _, err := Cost(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.Simulated {
+		t.Fatal("no simulation file, so nothing is simulated")
+	}
+
+	sim := simulate.Simulation{
+		Version: simulate.Version,
+		Sources: []simulate.Source{{ID: "mobile", Name: "Mobile app", Target: gatewayID(t, dir), Rate: "800/min"}},
+	}
+	if err := WriteSimulation(dir, sim); err != nil {
+		t.Fatal(err)
+	}
+	simulated, _, err := Cost(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !simulated.Simulated {
+		t.Fatal("the document should say the usage came from the simulation")
+	}
+	if simulated.Total <= plain.Total {
+		t.Fatalf("traffic should cost more than none: %v vs %v", simulated.Total, plain.Total)
 	}
 }
