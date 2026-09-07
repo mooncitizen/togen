@@ -29,6 +29,91 @@ const shots = [
     frame: true,
     viewport: { width: 1440, height: 680 },
   },
+  {
+    // Same project and framing as studio-dark.png, only the theme differs,
+    // so the two sit side by side as the same composition.
+    file: 'studio-light.png',
+    project: 'examples/aws-full',
+    theme: 'light',
+    frame: true,
+    viewport: { width: 1440, height: 680 },
+  },
+  {
+    file: 'inspector.png',
+    project: 'examples/aws-basic',
+    theme: 'dark',
+    act: async (page) => {
+      await page.locator('.svelte-flow__node[data-id="function-1"]').click();
+      await page.waitForSelector('[aria-label="Inspector"]');
+    },
+  },
+  {
+    file: 'style-tab.png',
+    project: 'examples/aws-basic',
+    theme: 'dark',
+    clip: '[aria-label="Inspector"]',
+    act: async (page) => {
+      await page.locator('.svelte-flow__node[data-id="function-1"]').click();
+      await page.waitForSelector('[aria-label="Inspector"]');
+      await page.getByRole('tab', { name: 'Style' }).click();
+      await page.waitForSelector('[aria-label="Inspector"] code');
+    },
+  },
+  {
+    file: 'views.png',
+    project: 'examples/aws-full',
+    theme: 'dark',
+    clip: '[aria-label="Rail"]',
+  },
+  {
+    file: 'view-editor.png',
+    project: 'examples/aws-full',
+    theme: 'dark',
+    act: async (page) => {
+      await page.locator('[aria-label^="Edit "]').first().click();
+      await page.waitForSelector('[aria-label="View editor"]');
+    },
+  },
+  {
+    file: 'cost-panel.png',
+    project: 'examples/aws-basic',
+    theme: 'dark',
+    act: async (page) => {
+      // The toggle's accessible name is the estimate itself ("$X/mo"), which
+      // changes with the project; its title attribute does not.
+      await page.getByTitle('Monthly estimate').click();
+      await page.waitForSelector('[aria-label="Close cost"]');
+    },
+  },
+  {
+    file: 'export-dialog.png',
+    project: 'examples/aws-basic',
+    theme: 'dark',
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Export' }).click();
+      // The preview is drawn as positioned cards, not an img or canvas; wait
+      // for one of those cards rather than the (nonexistent) media element.
+      await page.waitForSelector('[aria-label="Preview"] [data-preview-node]');
+    },
+  },
+  {
+    file: 'first-run.png',
+    project: null,
+    theme: 'dark',
+    empty: true,
+  },
+  {
+    file: 'canvas-gcp.png',
+    project: 'examples/gcp-full',
+    theme: 'dark',
+    frame: true,
+  },
+  {
+    file: 'canvas-azure.png',
+    project: 'examples/azure-full',
+    theme: 'dark',
+    frame: true,
+  },
 ];
 
 async function freePort() {
@@ -101,8 +186,19 @@ async function pollUntil(check, timeoutMs, what) {
 
 // The example projects are read-only fixtures. The studio auto-lays-out with
 // dagre on first load and persists that back to togen/layout.json, so it is
-// driven against a scratch copy rather than the repository's own copy.
+// driven against a scratch copy rather than the repository's own copy. A
+// null project (the first-run shot) just gets an empty directory: there is
+// nothing to copy, and no togen/ is what makes the studio show that screen.
+// That directory's own name ends up on screen (the studio shows it in the
+// header), so it has to be stable rather than mkdtemp's random suffix, or
+// the shot differs on every run.
 async function copyProject(project) {
+  if (project === null) {
+    const dir = resolve(tmpdir(), 'togen-shots-empty');
+    await rm(dir, { recursive: true, force: true });
+    await mkdir(dir, { recursive: true });
+    return dir;
+  }
   const dir = await mkdtemp(join(tmpdir(), 'togen-shots-'));
   await cp(resolve(root, project), dir, {
     recursive: true,
@@ -126,7 +222,10 @@ const still = `
 async function settle(page, shot) {
   await page.addStyleTag({ content: still });
   await page.waitForSelector(`html[data-theme="${shot.theme}"]`);
-  await page.waitForSelector(shot.empty ? '[aria-label="New sketch"]' : '.svelte-flow__node');
+  // The empty-project screen offers three choices before any form opens; the
+  // cards carry their accessible name via aria-labelledby rather than
+  // aria-label, so this waits on the sketch card, not the sketch form.
+  await page.waitForSelector(shot.empty ? '[aria-labelledby="choice-sketch"]' : '.svelte-flow__node');
   if (!shot.empty) {
     await page.waitForFunction(() => {
       const nodes = document.querySelectorAll('.svelte-flow__node');
