@@ -61,14 +61,7 @@ func usageFor(cwd string, project *ir.Project, config Config) (cost.Usage, bool,
 	if sim.IsEmpty() {
 		return config.Usage, false, nil
 	}
-	if errs := simulate.Validate(sim, project); len(errs) > 0 {
-		return nil, false, errs
-	}
-	monthly, err := simulate.Monthly(sim)
-	if err != nil {
-		return nil, false, err
-	}
-	result, err := simulate.Run(project, sim, monthly)
+	monthly, result, err := simulateSweep(sim, project)
 	if err != nil {
 		return nil, false, err
 	}
@@ -87,16 +80,24 @@ func Simulate(cwd string) (simulate.Document, error) {
 	if err != nil {
 		return simulate.Document{}, err
 	}
-	if errs := simulate.Validate(sim, project); len(errs) > 0 {
-		return simulate.Document{}, errs
-	}
-	monthly, err := simulate.Monthly(sim)
-	if err != nil {
-		return simulate.Document{}, err
-	}
-	result, err := simulate.Run(project, sim, monthly)
+	monthly, result, err := simulateSweep(sim, project)
 	if err != nil {
 		return simulate.Document{}, err
 	}
 	return simulate.Describe(project, sim, monthly, result), nil
+}
+
+func simulateSweep(sim simulate.Simulation, project *ir.Project) (map[string]float64, simulate.Result, error) {
+	if errs := simulate.Validate(sim, project); len(errs) > 0 {
+		return nil, simulate.Result{}, errs
+	}
+	monthly, err := simulate.Monthly(sim)
+	if err != nil {
+		return nil, simulate.Result{}, err
+	}
+	result, err := simulate.Run(project, sim, monthly)
+	if err != nil {
+		return nil, simulate.Result{}, err
+	}
+	return monthly, result, nil
 }
