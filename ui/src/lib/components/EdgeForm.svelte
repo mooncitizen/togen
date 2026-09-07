@@ -10,6 +10,9 @@
   const methods = methodOptions();
   const from = $derived(named(edge.from));
   const to = $derived(named(edge.to));
+  // 'consumes' is walked backwards, queue to consumer, so it is the queue's rate the fan-out
+  // multiplies, not the consumer's.
+  const driver = $derived(edge.relation === 'consumes' ? to : from);
   const chosen = $derived(set());
 
   let reason = $state<string | undefined>(undefined);
@@ -58,22 +61,24 @@
     <p class="text-[11px] text-faint">The {edge.relation} edge between these two.</p>
   </div>
 
-  <div class="flex flex-col gap-1">
-    <label class="text-xs font-medium" for="{edge.id}-per">Calls per request</label>
-    <input
-      id="{edge.id}-per"
-      class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
-      type="number"
-      min="0"
-      step="0.1"
-      value={store.simulation.edges?.[edge.id] ?? 1}
-      oninput={(event) => setPer(event.currentTarget.value)}
-    />
-    <p class="text-[11px] text-faint">
-      How many times this edge fires per request at {from}. One is the default and stays out of
-      the file.
-    </p>
-  </div>
+  {#if store.simulating}
+    <div class="flex flex-col gap-1">
+      <label class="text-xs font-medium" for="{edge.id}-per">Calls per request</label>
+      <input
+        id="{edge.id}-per"
+        class="h-8 rounded-md border border-border-strong bg-input px-2.5 text-[13px]"
+        type="number"
+        min="0"
+        step="0.1"
+        value={store.simulation.edges?.[edge.id] ?? 1}
+        oninput={(event) => setPer(event.currentTarget.value)}
+      />
+      <p class="text-[11px] text-faint">
+        How many times this edge fires per request at {driver}. One is the default and stays out
+        of the file.
+      </p>
+    </div>
+  {/if}
 
   {#if edge.relation === 'routes'}
     <div class="flex flex-col gap-1">

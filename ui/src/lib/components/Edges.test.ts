@@ -317,15 +317,51 @@ test('ANY and a named method are mutually exclusive, and none at all leaves the 
   });
 });
 
-test('an edge that is not a route has nothing to set beyond its fan-out', async () => {
+test('an edge that is not a route has nothing to set in a project with no simulation', async () => {
   const screen = await show();
 
   await clickEdge(screen, 'edge-2');
 
   expect(panel(screen)?.querySelector('header span')?.textContent).toBe('reads');
-  expect(panel(screen)?.querySelectorAll('input')).toHaveLength(1);
-  await expect.element(screen.getByLabelText('Calls per request')).toBeInTheDocument();
+  expect(panel(screen)?.querySelectorAll('input')).toHaveLength(0);
   await expect.element(screen.getByText('orders → orders-db')).toBeInTheDocument();
+});
+
+// Without a simulation file there is no simulation layer in the UI, and touching a fan-out would
+// write one with an empty sources array to a project that never asked for it.
+test('the fan-out field only appears once the project has a simulation', async () => {
+  reset();
+  serve(shop, placed, undefined, undefined, {
+    version: 1,
+    sources: [{ id: 'mobile', name: 'Mobile app', target: 'gateway-1', rate: '800/min' }],
+  });
+  const screen = await show();
+
+  await clickEdge(screen, 'edge-2');
+  await expect.element(screen.getByLabelText('Calls per request')).toBeInTheDocument();
+});
+
+// 'consumes' is walked backwards, queue to consumer, so the rate the fan-out multiplies is the
+// queue's, not the consumer's.
+test('the fan-out help names the queue on a consumes edge', async () => {
+  reset();
+  const consuming: Project = {
+    ...shop,
+    edges: [
+      ...shop.edges,
+      { id: 'edge-3', from: 'service-1', to: 'queue-1', relation: 'consumes' },
+    ],
+  };
+  serve(consuming, placed, undefined, undefined, {
+    version: 1,
+    sources: [{ id: 'mobile', name: 'Mobile app', target: 'gateway-1', rate: '800/min' }],
+  });
+  const screen = await show();
+
+  await clickEdge(screen, 'edge-3');
+  await expect
+    .element(screen.getByText('How many times this edge fires per request at jobs.', { exact: false }))
+    .toBeInTheDocument();
 });
 
 test('deleting a node takes its edges with it and saves both files', async () => {
