@@ -180,6 +180,8 @@ export class Store {
         label: edge.relation,
         selected: edge.id === this.selectedEdgeId,
         class: edge.id in counted ? 'togen-edge-error' : undefined,
+        type: 'smoothstep',
+        pathOptions: { borderRadius: 4 },
       }));
   });
 

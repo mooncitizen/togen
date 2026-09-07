@@ -241,6 +241,15 @@ test('addEdge reports false for a duplicate, true once saved, and false when the
   await expect(store.addEdge('service-1', 'queue-1', 'consumes')).resolves.toBe(false);
 });
 
+test('edges are drawn with square corners', async () => {
+  const store = new Store();
+  await store.load();
+
+  const [edge] = store.flowEdges;
+  expect(edge.type).toBe('smoothstep');
+  expect(edge.pathOptions).toEqual({ borderRadius: 4 });
+});
+
 test('a refused edge is taken back off the canvas', async () => {
   refuse((call) =>
     call.method === 'PUT' && call.path === '/api/project'
