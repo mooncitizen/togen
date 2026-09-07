@@ -1,0 +1,44 @@
+version: 2
+
+before:
+  hooks:
+    - just require-ui
+
+builds:
+  - id: togen
+    main: ./cmd/togen
+    binary: togen
+    env:
+      - CGO_ENABLED=0
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w -X main.version={{ .Version }}
+
+archives:
+  - id: togen
+    formats: [tar.gz]
+    name_template: "togen_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - Merge pull request
+
+release:
+  draft: false
+  prerelease: auto
+  footer: |
+    Verify a download against `checksums.txt`. Togen is Apache-2.0; the
+    archives carry `LICENSE` and `NOTICE`.

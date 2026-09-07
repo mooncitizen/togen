@@ -41,6 +41,15 @@ build: ui build-cli
 build-cli:
     go build -o bin/togen ./cmd/togen
 
+# Fail if the canvas is not built; guards release builds against the placeholder.
+require-ui:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f internal/server/dist/index.html ]; then
+      echo "internal/server/dist/index.html is missing: run 'just ui' first" >&2
+      exit 1
+    fi
+
 # Regenerate schema/ from the Go types and refresh the embedded copies, examples included.
 generate:
     go run ./internal/schema/cmd

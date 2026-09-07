@@ -13,3 +13,4 @@ ui/src/fonts/
 ui/.vitest/
 internal/server/dist/*
 !internal/server/dist/.gitkeep
+/dist/
