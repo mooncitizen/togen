@@ -21,11 +21,15 @@ function title(markdown, file) {
 }
 
 // Starlight resolves links against the page's own URL, and the catalogue's
-// links are relative to docs/catalogue, so a bare styles.md would 404. The
-// site is built with trailingSlash: 'always', so the rewritten link needs
-// the trailing slash too, or it 404s again once deployed.
-function relink(markdown) {
-  return markdown.replace(/\]\((?!https?:|\/|#)([\w.-]+)\.md(#[\w-]*)?\)/g, '](./$1/$2)');
+// links are relative to docs/catalogue, so a bare styles.md would 404. With
+// trailingSlash: 'always' a page is served from its own directory, so a
+// sibling is one level up, while the index is served from the catalogue root
+// and its siblings are one level down. README.md is published as that index.
+function relink(markdown, prefix) {
+  return markdown.replace(
+    /\]\((?!https?:|\/|#)(?:\.\/)?([\w.-]+)\.md(#[\w-]*)?\)/g,
+    (_, name, hash = '') => (name === 'README' ? `](${prefix}${hash})` : `](${prefix}${name}/${hash})`),
+  );
 }
 
 async function catalogue() {
@@ -41,7 +45,7 @@ async function catalogue() {
     const markdown = await readFile(resolve(catalogueFrom, file), 'utf8');
     const name = basename(file, '.md');
     const heading = title(markdown, file);
-    const body = relink(markdown.replace(/^# .*\n/, ''));
+    const body = relink(markdown.replace(/^# .*\n/m, ''), name === 'README' ? './' : '../');
     const frontmatter = [
       '---',
       `title: ${JSON.stringify(heading)}`,
