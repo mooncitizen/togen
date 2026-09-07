@@ -76,6 +76,32 @@ total  144.17 USD/month  eu-west-2, list prices from 2026-09-06, estimate not a 
 
 `togen simulate` shows the load `togen/simulation.json` puts on every node and edge. `--json` prints the same as a document.
 
+## Simulation
+
+A simulation is a description of the traffic a sketch carries: one or more sources injecting requests at a gateway, service or function, an optional burst laid over a source for part of the month, and the fan-out on any edge that is not a straight one call in for one call out. It lives at `togen/simulation.json`, next to `project.json`, and the studio writes it as you edit traffic on the canvas; a project with no file has no simulation and behaves as it always did. When it is there, `togen cost` prices every node's usage from the rates it works out, but anything set by hand in the `usage` block of `togen.yml` still wins field by field, so a simulated `requests` figure is only a starting point you can override. `togen simulate` prints the same rates as a table or, with `--json`, a document. `examples/aws-full/togen/simulation.json` is the worked example:
+
+```json
+{
+  "version": 1,
+  "sources": [
+    { "id": "web", "name": "Web traffic", "target": "gateway-1", "rate": "800/min", "bytesPerRequest": 4096 },
+    { "id": "admin", "name": "Admin console", "target": "service-2", "rate": "40/min" }
+  ],
+  "bursts": [
+    { "id": "launch", "name": "Product launch", "source": "web", "multiplier": 4, "minutes": 30, "timesPerMonth": 2 }
+  ],
+  "edges": {
+    "edge-9": 0.8,
+    "edge-12": 0.2,
+    "edge-14": 0.3,
+    "edge-18": 0.5,
+    "edge-22": 0.5
+  }
+}
+```
+
+`edge-12` and `edge-22` are not there for realism alone: `orders` publishing to `jobs` and `orders` calling `mailer` sit on the project's two loops (through `worker` and `web` back to `orders`), and at the default fan-out of 1 both loops amplify without limit. Damping `edge-12` to 0.2 (one publish in five enqueues a job) and `edge-22` to 0.5 (half the calls take that branch) is what makes the sweep settle at all; the rest of the fan-outs above just describe cache hit rates and how much of each request reaches a downstream edge.
+
 `examples/aws-full` is the larger sketch: every node type, every relation and every property this milestone supports, all in one project. It is what `just acceptance` generates and validates alongside `aws-basic`, so a change that breaks a pairing shows up there rather than in someone's real project. It deploys a gateway in front of three functions and two services, two databases, two queues, two buckets and two caches, wired together with routes, calls, reads, writes, publishes and consumes.
 
 `examples/gcp-full` is the same sketch as `aws-full` on Google Cloud: the same nodes, properties and edges, so what one provider does with a pairing can be read beside the other. `web` calling the private `admin` service is the one that shows Cloud Run's rule: the caller's egress all goes through the VPC, which brings a Cloud NAT with it. `just acceptance` validates it with the `google` and `random` providers, and `togen cost` reports no gcp prices bundled until someone with a Cloud Billing Catalog API key runs the refresh.
