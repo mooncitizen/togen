@@ -179,10 +179,15 @@
   </section>
 
   {#if store.simulating}
-    <p class="mt-auto border-t border-border px-4 py-2 font-mono text-[11px] text-faint">
-      togen/simulation.json · {rateLabel(
-        Object.values(store.rates.nodes).reduce((a, b) => Math.max(a, b), 0),
-      )} peak
-    </p>
+    <div class="mt-auto flex flex-col gap-1 border-t border-border px-4 py-2">
+      {#if store.rates.stillSettling}
+        <p class="text-[11px] text-faint">Still settling, these figures are low.</p>
+      {/if}
+      <p class="font-mono text-[11px] text-faint">
+        togen/simulation.json · {rateLabel(
+          Object.values(store.rates.nodes).reduce((a, b) => Math.max(a, b), 0),
+        )} peak
+      </p>
+    </div>
   {/if}
 </aside>

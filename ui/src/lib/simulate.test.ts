@@ -94,6 +94,14 @@ test('a slow but contracting loop stays close to the Go value', () => {
   expect(Math.abs(got - 999.99900139806812) / 999.99900139806812).toBeLessThan(1e-3);
 });
 
+test('a loop too slow to settle flags the rates as still settling', () => {
+  expect(roundTheLoop(0.9999).stillSettling).toBe(true);
+});
+
+test('a settled project does not flag the rates', () => {
+  expect(roundTheLoop(0.5).stillSettling).toBe(false);
+});
+
 test('converging loops agree with Go', () => {
   const want: Record<number, number> = {
     0.5: 1.9999999981373549,
@@ -130,4 +138,9 @@ test('a rate reads at the scale it is', () => {
   expect(rateLabel(0.4)).toBe('24/min');
   expect(rateLabel(12)).toBe('12/s');
   expect(rateLabel(2400)).toBe('2.4k/s');
+});
+
+test('a non-finite rate reads as empty, same as zero', () => {
+  expect(rateLabel(Infinity)).toBe('');
+  expect(rateLabel(NaN)).toBe('');
 });

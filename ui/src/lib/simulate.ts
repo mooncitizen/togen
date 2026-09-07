@@ -70,9 +70,11 @@ function settledAt(was: number, now: number): boolean {
 // Neither has a drawable answer, and the validation message the project carries for the cycle
 // tells the story.
 //
-// Still contracting when the sweeps run out: the last iterate. The sweep climbs towards the fixed
-// point from below, so that is an underestimate of the real rates rather than a fiction. Go's
-// budget is larger and it errors here instead, but the classification above is the same in both.
+// Still contracting when the sweeps run out: the last iterate, flagged with stillSettling so the
+// caller can say so. The sweep climbs towards the fixed point from below, so that is an
+// underestimate of the real rates rather than a fiction. Go's budget is larger, so a loop this
+// function calls still-settling can be one Go settles outright; the divergence classification
+// above is the same in both.
 export function run(project: Project, sim: Simulation, injection: Record<string, number>): SimResult {
   const all = arcs(project, sim);
   const incoming = new Map<string, Arc[]>();
@@ -105,6 +107,7 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
   let next: Record<string, number> = {};
 
   let divergent = false;
+  let fixedPoint = false;
   let thisWindow = 0;
   let lastWindow = 0;
   for (let sweep = 1; sweep <= settleSweeps; sweep++) {
@@ -133,6 +136,7 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
     }
     [nodes, next] = [next, nodes];
     if (settled) {
+      fixedPoint = true;
       break;
     }
     if (biggest > thisWindow) {
@@ -156,7 +160,7 @@ export function run(project: Project, sim: Simulation, injection: Record<string,
   for (const arc of all) {
     outEdges[arc.edge] = divergent ? 0 : (outNodes[arc.from] ?? 0) * arc.per;
   }
-  return { nodes: outNodes, edges: outEdges };
+  return { nodes: outNodes, edges: outEdges, stillSettling: !divergent && !fixedPoint };
 }
 
 export function monthly(sim: Simulation): Record<string, number> {
@@ -176,7 +180,7 @@ export function monthly(sim: Simulation): Record<string, number> {
 
 // Under one a second reads better a minute, and a big number reads better with a suffix.
 export function rateLabel(perSecond: number): string {
-  if (perSecond <= 0) {
+  if (!Number.isFinite(perSecond) || perSecond <= 0) {
     return '';
   }
   if (perSecond < 1) {

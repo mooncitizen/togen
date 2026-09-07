@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 
 import { gatewayServiceDatabase, storeContext, storeWith } from '../../harness.ts';
-import Particles from './Particles.svelte';
+import Particles, { particleCount } from './Particles.svelte';
 
 // The OS preference, as the studio would see it through matchMedia.
 function prefer(reduced: boolean) {
@@ -24,7 +24,21 @@ test('an edge carrying nothing gets no particles', async () => {
   expect(document.querySelectorAll('[data-particle]').length).toBe(0);
 });
 
-test('the busiest edge carries the most', async () => {
+// particleCount is the real density logic; calling it directly proves the busiest edge
+// carries the most without needing a Svelte Flow tree to draw a path first.
+test('particle count rises with share', () => {
+  expect(particleCount(0.1)).toBe(1);
+  expect(particleCount(0.5)).toBe(3);
+  expect(particleCount(1)).toBe(6);
+  expect(particleCount(0.5)).toBeGreaterThan(particleCount(0.1));
+  expect(particleCount(1)).toBeGreaterThan(particleCount(0.5));
+});
+
+// Outside a real Svelte Flow tree there is no rendered path for any edge, so pathFor always
+// returns null and no circle is drawn even though there is load. This is the regression case:
+// a particle must never render without a path to ride. Whether a drawn particle actually
+// moves is only verifiable in a real browser against a real Svelte Flow tree.
+test('an edge with no rendered path in the DOM gets no particles, even with load', async () => {
   prefer(false);
   const store = await storeWith(gatewayServiceDatabase());
   store.addSource();
@@ -32,9 +46,7 @@ test('the busiest edge carries the most', async () => {
   store.setFanOut('edge-2', 4);
   render(Particles, { context: storeContext(store) });
   await tick();
-  const first = document.querySelectorAll('[data-particle][data-edge="edge-1"]').length;
-  const second = document.querySelectorAll('[data-particle][data-edge="edge-2"]').length;
-  expect(second).toBeGreaterThan(first);
+  expect(document.querySelectorAll('[data-particle]').length).toBe(0);
 });
 
 test('reduced motion draws no particles', async () => {

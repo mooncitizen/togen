@@ -1,3 +1,9 @@
+<script module lang="ts">
+  export function particleCount(share: number): number {
+    return Math.max(1, Math.round(6 * share));
+  }
+</script>
+
 <script lang="ts">
   import { getStore } from '../store.svelte.ts';
 
@@ -24,10 +30,6 @@
     return document.querySelector(selector)?.getAttribute('d') ?? null;
   }
 
-  function count(share: number): number {
-    return Math.max(1, Math.round(6 * share));
-  }
-
   function seconds(share: number): number {
     return 4 - 2.8 * share;
   }
@@ -49,18 +51,18 @@
   <svg class="pointer-events-none absolute inset-0 h-full w-full" data-particles aria-hidden="true">
     {#each shares as edge (edge.id)}
       {@const d = pathFor(edge.id)}
-      {#each Array(count(edge.share)) as _, i (i)}
-        <circle r="2.5" fill="var(--togen-selection)" data-particle data-edge={edge.id}>
-          {#if d !== null}
+      {#if d !== null}
+        {#each Array(particleCount(edge.share)) as _, i (i)}
+          <circle r="2.5" fill="var(--togen-selection)" data-particle data-edge={edge.id}>
             <animateMotion
               dur="{seconds(edge.share)}s"
-              begin="{(i * seconds(edge.share)) / count(edge.share)}s"
+              begin="{(i * seconds(edge.share)) / particleCount(edge.share)}s"
               repeatCount="indefinite"
               path={d}
             />
-          {/if}
-        </circle>
-      {/each}
+          </circle>
+        {/each}
+      {/if}
     {/each}
   </svg>
 {/if}

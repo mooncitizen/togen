@@ -118,7 +118,13 @@ export type Simulation = {
   edges?: Record<string, number>;
 };
 
-export type SimResult = { nodes: Record<string, number>; edges: Record<string, number> };
+// stillSettling is set when the sweep budget ran out before the loop reached a fixed
+// point: the rates are the last iterate, not the settled answer, and read low.
+export type SimResult = {
+  nodes: Record<string, number>;
+  edges: Record<string, number>;
+  stillSettling?: boolean;
+};
 
 export type ValidationError = {
   path: string;
