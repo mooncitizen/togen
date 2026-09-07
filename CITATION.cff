@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: Togen
+message: >-
+  Togen is free to use, commercially included. If it helped, a credit is
+  appreciated. Files Togen generates carry a provenance line; leaving it in
+  place is credit enough.
+type: software
+authors:
+  - given-names: Paul
+    email: paul@gitglue.com
+repository-code: https://github.com/mooncitizen/togen
+url: https://mooncitizen.github.io/togen
+abstract: >-
+  Sketch a system as boxes and edges, get a starting infrastructure repository.
+  Local, deterministic, no account needed.
+keywords:
+  - infrastructure-as-code
+  - terraform
+  - aws
+  - gcp
+  - azure
+license: Apache-2.0
