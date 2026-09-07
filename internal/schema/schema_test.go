@@ -33,6 +33,10 @@ func TestCommittedSchemaIsCurrent(t *testing.T) {
 			filepath.Join("..", "..", "schema", "layout.schema.json"),
 			filepath.Join("..", "workspace", "layout.schema.json"),
 		},
+		"simulation.schema.json": {
+			filepath.Join("..", "..", "schema", "simulation.schema.json"),
+			filepath.Join("..", "workspace", "simulation.schema.json"),
+		},
 		"relations.json": {filepath.Join("..", "..", "schema", "relations.json")},
 		"engines.json":   {filepath.Join("..", "..", "schema", "engines.json")},
 		"styles.json":    {filepath.Join("..", "..", "schema", "styles.json")},

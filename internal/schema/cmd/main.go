@@ -11,10 +11,11 @@ import (
 
 // The packages that validate cannot embed from schema/, so they keep a copy.
 var embedCopies = map[string]string{
-	"project.schema.json": "internal/ir/project.schema.json",
-	"togen.schema.json":   "internal/workspace/togen.schema.json",
-	"views.schema.json":   "internal/workspace/views.schema.json",
-	"layout.schema.json":  "internal/workspace/layout.schema.json",
+	"project.schema.json":    "internal/ir/project.schema.json",
+	"togen.schema.json":      "internal/workspace/togen.schema.json",
+	"views.schema.json":      "internal/workspace/views.schema.json",
+	"simulation.schema.json": "internal/workspace/simulation.schema.json",
+	"layout.schema.json":     "internal/workspace/layout.schema.json",
 }
 
 // Same for the examples the studio offers, which go:embed cannot reach in examples/.
