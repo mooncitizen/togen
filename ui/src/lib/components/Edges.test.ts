@@ -247,6 +247,7 @@ test('edges are drawn with square corners', async () => {
 
   const [edge] = store.flowEdges;
   expect(edge.type).toBe('smoothstep');
+  if (edge.type !== 'smoothstep') throw new Error('expected a smoothstep edge');
   expect(edge.pathOptions).toEqual({ borderRadius: 4 });
 });
 

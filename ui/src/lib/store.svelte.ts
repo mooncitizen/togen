@@ -1,5 +1,5 @@
 import { getContext, setContext } from 'svelte';
-import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
+import type { BuiltInEdge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
 
 import {
   ApiError,
