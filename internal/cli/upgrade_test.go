@@ -100,6 +100,25 @@ func TestUpgradeCheckReportsWithoutActing(t *testing.T) {
 	}
 }
 
+func TestUpgradeCheckReportsEvenOnAHomebrewInstall(t *testing.T) {
+	client := &stubClient{tag: "v0.3.0"}
+	result := Upgrade(context.Background(), client, UpgradeOptions{
+		Current: "0.2.0",
+		Check:   true,
+		Method:  release.MethodHomebrew,
+		Path:    "/opt/homebrew/Cellar/togen/0.2.0/bin/togen",
+	})
+	if result.Code != 0 {
+		t.Errorf("code = %d", result.Code)
+	}
+	if client.calls != 1 {
+		t.Errorf("calls = %d, want 1: --check reports for every install method", client.calls)
+	}
+	if !strings.Contains(upgradeOutput(result), "brew upgrade mooncitizen/tap/togen") {
+		t.Errorf("output = %q, want the homebrew command named", upgradeOutput(result))
+	}
+}
+
 func TestUpgradeCheckOnTheLatestSaysSo(t *testing.T) {
 	client := &stubClient{tag: "v0.2.0"}
 	result := Upgrade(context.Background(), client, UpgradeOptions{

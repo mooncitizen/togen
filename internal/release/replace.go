@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const maxBinaryBytes = 256 << 20
+var maxBinaryBytes int64 = 256 << 20
 
 func Replace(ctx context.Context, c Client, rel Release, target, goos, goarch string) error {
 	name := AssetName(goos, goarch)
@@ -90,10 +90,16 @@ func stream(ctx context.Context, c Client, url, dir, pattern string) (string, er
 	if err != nil {
 		return "", err
 	}
-	if _, err := io.Copy(out, io.LimitReader(body, maxBinaryBytes)); err != nil {
+	written, err := io.Copy(out, io.LimitReader(body, maxBinaryBytes+1))
+	if err != nil {
 		_ = out.Close()
 		_ = os.Remove(out.Name())
 		return "", err
+	}
+	if written > maxBinaryBytes {
+		_ = out.Close()
+		_ = os.Remove(out.Name())
+		return "", fmt.Errorf("the download is larger than %d bytes", maxBinaryBytes)
 	}
 	if err := out.Close(); err != nil {
 		_ = os.Remove(out.Name())
@@ -143,10 +149,16 @@ func extract(archive, dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if _, err := io.Copy(out, io.LimitReader(reader, maxBinaryBytes)); err != nil {
+		written, err := io.Copy(out, io.LimitReader(reader, maxBinaryBytes))
+		if err != nil {
 			_ = out.Close()
 			_ = os.Remove(out.Name())
 			return "", err
+		}
+		if written != header.Size {
+			_ = out.Close()
+			_ = os.Remove(out.Name())
+			return "", fmt.Errorf("the togen entry is %d bytes, but only %d were read", header.Size, written)
 		}
 		if err := out.Close(); err != nil {
 			_ = os.Remove(out.Name())

@@ -153,6 +153,45 @@ func TestReplaceRejectsAnArchiveWithoutATogenEntry(t *testing.T) {
 	assertUnchanged(t, target)
 }
 
+func withMaxBinaryBytes(t *testing.T, n int64) {
+	t.Helper()
+	old := maxBinaryBytes
+	maxBinaryBytes = n
+	t.Cleanup(func() { maxBinaryBytes = old })
+}
+
+func TestReplaceRejectsATogenEntryOverTheCap(t *testing.T) {
+	withMaxBinaryBytes(t, 4)
+	archive := archiveWith(t, map[string]string{"togen": "new binary"})
+	sums := digest(archive) + "  " + AssetName("linux", "amd64") + "\n"
+	client := clientFor(t, archive, sums)
+	target := targetIn(t)
+
+	if err := Replace(context.Background(), client, client.rel, target, "linux", "amd64"); err == nil {
+		t.Fatal("want an error when the togen entry is larger than the cap")
+	}
+	assertUnchanged(t, target)
+	leftovers(t, filepath.Dir(target))
+}
+
+func TestReplaceReportsAnOversizedDownload(t *testing.T) {
+	withMaxBinaryBytes(t, 4)
+	archive := archiveWith(t, map[string]string{"togen": "new binary"})
+	sums := digest(archive) + "  " + AssetName("linux", "amd64") + "\n"
+	client := clientFor(t, archive, sums)
+	target := targetIn(t)
+
+	err := Replace(context.Background(), client, client.rel, target, "linux", "amd64")
+	if err == nil {
+		t.Fatal("want an error when the download is larger than the cap")
+	}
+	if !strings.Contains(err.Error(), "larger than") {
+		t.Errorf("err = %q, want it to name the size rather than a checksum mismatch", err.Error())
+	}
+	assertUnchanged(t, target)
+	leftovers(t, filepath.Dir(target))
+}
+
 func TestReplaceReportsAMissingAsset(t *testing.T) {
 	client := clientFor(t, "", "")
 	target := targetIn(t)
