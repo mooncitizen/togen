@@ -161,14 +161,23 @@ func withMaxBinaryBytes(t *testing.T, n int64) {
 }
 
 func TestReplaceRejectsATogenEntryOverTheCap(t *testing.T) {
-	withMaxBinaryBytes(t, 4)
-	archive := archiveWith(t, map[string]string{"togen": "new binary"})
+	withMaxBinaryBytes(t, 1000)
+	payload := strings.Repeat("a", 5000)
+	archive := archiveWith(t, map[string]string{"togen": payload})
 	sums := digest(archive) + "  " + AssetName("linux", "amd64") + "\n"
 	client := clientFor(t, archive, sums)
 	target := targetIn(t)
 
-	if err := Replace(context.Background(), client, client.rel, target, "linux", "amd64"); err == nil {
+	err := Replace(context.Background(), client, client.rel, target, "linux", "amd64")
+	if err == nil {
 		t.Fatal("want an error when the togen entry is larger than the cap")
+	}
+	if strings.Contains(err.Error(), "larger than") {
+		t.Errorf("err = %q, want the extractor's wording, not the download cap's", err.Error())
+	}
+	want := "the togen entry is 5000 bytes, but only 1000 were read"
+	if err.Error() != want {
+		t.Errorf("err = %q, want %q", err.Error(), want)
 	}
 	assertUnchanged(t, target)
 	leftovers(t, filepath.Dir(target))
