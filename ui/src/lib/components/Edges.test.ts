@@ -241,14 +241,62 @@ test('addEdge reports false for a duplicate, true once saved, and false when the
   await expect(store.addEdge('service-1', 'queue-1', 'consumes')).resolves.toBe(false);
 });
 
-test('edges are drawn with square corners', async () => {
+test('an edge carries its texture, its band and the offsets it cannot work out alone', async () => {
   const store = new Store();
   await store.load();
 
-  const [edge] = store.flowEdges;
-  expect(edge.type).toBe('smoothstep');
-  if (edge.type !== 'smoothstep') throw new Error('expected a smoothstep edge');
-  expect(edge.pathOptions).toEqual({ borderRadius: 4 });
+  const [routes, reads] = store.flowEdges;
+  expect(routes.type).toBe('togen');
+  expect(routes.data).toMatchObject({ texture: 'solid', band: 1 });
+  expect(reads.data).toMatchObject({ texture: 'dotted' });
+  expect(String(routes.class)).toContain('togen-edge-solid');
+  expect(String(reads.class)).toContain('togen-edge-dotted');
+});
+
+test('a read and a write to the same store are split apart and both keep their chips', async () => {
+  const store = new Store();
+  await store.load();
+  await store.addEdge('function-1', 'database-1', 'writes');
+
+  const pair = store.flowEdges.filter((edge) => edge.target === 'database-1');
+  expect(pair).toHaveLength(2);
+  const offsets = pair.map((edge) => (edge.data as { pair: number }).pair);
+  expect(offsets[0]).toBeCloseTo(-offsets[1], 6);
+  expect(offsets[0]).not.toBe(0);
+  expect(pair.map((edge) => edge.label)).toEqual(['reads', 'writes']);
+});
+
+test('hovering a card lifts its relations and drops the rest back', async () => {
+  const store = new Store();
+  await store.load();
+
+  store.hover('database-1');
+
+  const [routes, reads] = store.flowEdges;
+  expect(String(routes.class)).toContain('togen-edge-dim');
+  expect(routes.label).toBeUndefined();
+  expect(String(reads.class)).not.toContain('togen-edge-dim');
+  expect(reads.label).toBe('reads');
+
+  const [gateway, , database] = store.flowNodes;
+  expect(gateway.data.dimmed).toBe(true);
+  expect(database.data.dimmed).toBe(false);
+
+  store.hover(null);
+  expect(String(store.flowEdges[0].class)).not.toContain('togen-edge-dim');
+});
+
+// The selection keeps the subgraph lit once the pointer has left, so the card that
+// was chosen stays the one being read.
+test('a selected card focuses the canvas on its own, and clearing it lets go', async () => {
+  const store = new Store();
+  await store.load();
+
+  store.select('database-1');
+  expect(String(store.flowEdges[0].class)).toContain('togen-edge-dim');
+
+  store.clearSelection();
+  expect(String(store.flowEdges[0].class)).not.toContain('togen-edge-dim');
 });
 
 test('a refused edge is taken back off the canvas', async () => {

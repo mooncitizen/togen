@@ -67,7 +67,9 @@
     box-shadow: 0 0 0 1px var(--togen-selection);
   }
 
-  .card.dimmed {
+  /* A card is dropped back either for being outside the view or for being outside
+     the focused subgraph, and neither is the picture's business. */
+  :global(.svelte-flow:not([data-exporting])) .card.dimmed {
     opacity: 0.32;
   }
 </style>

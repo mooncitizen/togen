@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { gatewayServiceDatabase, overviewLayout, reset, serve, show } from '../../harness.ts';
+import { Store } from '../store.svelte.ts';
 import type { Simulation } from '../types.ts';
 import { particleCount } from './Particles.svelte';
 
@@ -115,38 +116,23 @@ test('reduced motion mounts no particle overlay', async () => {
   prefer(true);
   await show();
   await vi.waitFor(() =>
-    expect(
-      document
-        .querySelector<HTMLElement>('.svelte-flow__edge[data-id="edge-1"]')
-        ?.style.getPropertyValue('--togen-edge-weight'),
-    ).not.toBe(''),
+    expect(document.querySelector('.svelte-flow__edge[data-id="edge-1"]')).not.toBeNull(),
   );
   expect(document.querySelector('[data-particles]')).toBeNull();
   expect(circles().length).toBe(0);
 });
 
-// The reduced-motion reading is a stroke weight per edge, applied by the rule in app.css
-// that keys off this custom property.
-test('reduced motion weights the edges instead of animating them', async () => {
+// The traffic reading with motion off is the weight band the edge already carries,
+// which is on the canvas whether or not the dots are.
+test('reduced motion leaves the busiest edge in a heavier band than the quietest', async () => {
   prefer(true);
-  await show();
-  const weight = (id: string) =>
-    Number(
-      document
-        .querySelector<HTMLElement>(`.svelte-flow__edge[data-id="${id}"]`)
-        ?.style.getPropertyValue('--togen-edge-weight'),
-    );
-  await vi.waitFor(() => expect(weight('edge-2')).toBeCloseTo(3, 6));
-  expect(weight('edge-1')).toBeCloseTo(1.5, 6);
-});
+  const store = new Store();
+  await store.load();
 
-test('with motion the edges are left unweighted', async () => {
-  prefer(false);
-  await moving();
-  for (const id of ['edge-1', 'edge-2']) {
-    const el = document.querySelector<HTMLElement>(`.svelte-flow__edge[data-id="${id}"]`);
-    expect(el?.style.getPropertyValue('--togen-edge-weight')).toBe('');
-  }
+  const band = (id: string) =>
+    (store.flowEdges.find((edge) => edge.id === id)?.data as { band: number }).band;
+  await vi.waitFor(() => expect(band('edge-2')).toBe(3));
+  expect(band('edge-1')).toBeLessThan(3);
 });
 
 // No scenario means no rates, so nothing is drawn even though the overlay would mount.

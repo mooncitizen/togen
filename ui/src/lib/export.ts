@@ -172,11 +172,17 @@ function variable(palette: CSSStyleDeclaration, name: string): string {
 function edgeRules(palette: CSSStyleDeclaration): string {
   const stroke = variable(palette, '--xy-edge-stroke');
   const width = variable(palette, '--xy-edge-stroke-width');
+  const strong = variable(palette, '--togen-edge-strong');
+  const canvas = variable(palette, '--togen-canvas');
   const errorStroke = variable(palette, '--togen-edge-error-stroke');
-  const errorWidth = variable(palette, '--togen-edge-error-width');
   return [
     `.svelte-flow__edge-path { fill: none; stroke: ${stroke}; stroke-width: ${width}; }`,
-    `.svelte-flow__edge.togen-edge-error .svelte-flow__edge-path { stroke: ${errorStroke}; stroke-width: ${errorWidth}; }`,
+    `.togen-edge-casing { fill: none; stroke: ${canvas}; stroke-linecap: round; }`,
+    `.togen-edge-head { fill: ${stroke}; stroke: ${stroke}; stroke-width: 0.6; stroke-linejoin: round; }`,
+    `.togen-edge-dashed .svelte-flow__edge-path, .togen-edge-dotted .svelte-flow__edge-path { stroke: ${strong}; }`,
+    `.togen-edge-dashed .togen-edge-head, .togen-edge-dotted .togen-edge-head { fill: ${strong}; stroke: ${strong}; }`,
+    `.svelte-flow__edge.togen-edge-error .svelte-flow__edge-path { stroke: ${errorStroke}; }`,
+    `.svelte-flow__edge.togen-edge-error .togen-edge-head { fill: ${errorStroke}; stroke: ${errorStroke}; }`,
   ].join('\n');
 }
 
