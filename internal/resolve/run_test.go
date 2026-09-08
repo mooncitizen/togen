@@ -4,9 +4,11 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/mooncitizen/togen/internal/catalogue"
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
@@ -285,3 +287,72 @@ func TestHandleAddStatementDeduplicates(t *testing.T) {
 		t.Errorf("statements = %v", h.Statements)
 	}
 }
+
+const fixtureCore = `{"entries": [{"id": "gateway", "label": "Gateway", "group": "Networking",
+	"description": "d", "roles": ["entry"], "usage": ["requests"]}]}`
+
+func fixtureProvider(name, entries string) string {
+	return `{"provider": "` + name + `", "accent": "#000000", "network": {"kind": "n", "color": "#000000"},
+		"entries": [` + entries + `]}`
+}
+
+const fixtureGateway = `{"id": "gateway", "tier": "generates", "resource": "API Gateway",
+	"style": {"color": "#000000", "icon": "i", "shape": "card"}}`
+
+const fixtureTable = `{"id": "aws/table", "label": "Table", "group": "Databases", "description": "d",
+	"roles": ["store"], "tier": "draws", "resource": "DynamoDB", "properties": {},
+	"style": {"color": "#000000", "icon": "i", "shape": "cylinder"}}`
+
+func fixtureCatalogue(t *testing.T) *catalogue.Catalogue {
+	t.Helper()
+	fsys := fstest.MapFS{
+		"data/core.json":  &fstest.MapFile{Data: []byte(fixtureCore)},
+		"data/aws.json":   &fstest.MapFile{Data: []byte(fixtureProvider("aws", fixtureGateway+","+fixtureTable))},
+		"data/gcp.json":   &fstest.MapFile{Data: []byte(fixtureProvider("gcp", fixtureGateway))},
+		"data/azure.json": &fstest.MapFile{Data: []byte(fixtureProvider("azure", fixtureGateway))},
+	}
+	c, err := catalogue.Load(fsys, "data")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return c
+}
+
+func TestRunRecordsADrawOnlyNodeAndDropsItsEdges(t *testing.T) {
+	p := project(
+		[]ir.Node{
+			{ID: "n1", Type: ir.NodeGateway, Name: "api"},
+			{ID: "n2", Type: "aws/table", Name: "orders"},
+		},
+		[]ir.Edge{{ID: "e1", From: "n1", To: "n2", Relation: ir.RelWrites}},
+	)
+	prov := &fakeProvider{}
+	g, err := Run(p, prov, WithCatalogue(fixtureCatalogue(t)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []ir.NotGenerated{{NodeID: "n2", Name: "orders", Type: "aws/table", Resource: "DynamoDB"}}
+	if diff := cmp.Diff(want, g.NotGenerated); diff != "" {
+		t.Errorf("not generated (-want +got):\n%s", diff)
+	}
+	if len(g.Resources) != 1 {
+		t.Errorf("resources = %d, want the gateway alone", len(g.Resources))
+	}
+	if len(prov.edges) != 0 {
+		t.Errorf("edges = %v, want none", prov.edges)
+	}
+}
+
+func TestRunReportsATypeTheProviderHasNot(t *testing.T) {
+	p := project([]ir.Node{{ID: "n1", Type: "aws/table", Name: "orders"}}, nil)
+	p.Provider = ir.ProviderGCP
+	_, err := Run(p, &gcpProvider{}, WithCatalogue(fixtureCatalogue(t)))
+	errs := resolveErrors(t, err)
+	if len(errs) != 1 || !strings.Contains(errs[0].Message, "is not available on gcp") {
+		t.Fatalf("errors = %v", errs)
+	}
+}
+
+type gcpProvider struct{ fakeProvider }
+
+func (g *gcpProvider) Name() ir.CloudProvider { return ir.ProviderGCP }

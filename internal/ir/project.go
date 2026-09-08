@@ -1,6 +1,10 @@
 package ir
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/mooncitizen/togen/internal/catalogue"
+)
 
 type NodeType string
 
@@ -14,7 +18,28 @@ const (
 	NodeCache    NodeType = "cache"
 )
 
-var NodeTypes = []NodeType{NodeService, NodeFunction, NodeDatabase, NodeGateway, NodeQueue, NodeBucket, NodeCache}
+// Every type any provider offers, in catalogue order. The seven above are the portable
+// ones; the rest are namespaced and belong to one cloud.
+var NodeTypes = nodeTypes()
+
+func nodeTypes() []NodeType {
+	ids := catalogue.Embedded().IDs()
+	out := make([]NodeType, len(ids))
+	for i, id := range ids {
+		out[i] = NodeType(id)
+	}
+	return out
+}
+
+// TypesFor is what the provider offers, which is what the studio's palette shows.
+func TypesFor(p CloudProvider) []NodeType {
+	entries := catalogue.Embedded().For(string(p))
+	out := make([]NodeType, len(entries))
+	for i, e := range entries {
+		out[i] = NodeType(e.ID)
+	}
+	return out
+}
 
 type Relation string
 
@@ -117,7 +142,7 @@ type EdgeProperties struct {
 }
 
 type ServiceProps struct {
-	Image       string            `json:"image"                 jsonschema:"description=Container image to run"`
+	Image       string            `json:"image"                 jsonschema:"description=Container image to run,example=nginx:1.27"`
 	Port        int               `json:"port,omitempty"        jsonschema:"minimum=1,maximum=65535,default=8080,description=Port the container listens on"`
 	Size        Size              `json:"size,omitempty"        jsonschema:"default=small,description=Memory and CPU tier"`
 	MinReplicas *int              `json:"minReplicas,omitempty" jsonschema:"minimum=0,default=1,description=Fewest tasks to keep running. Zero is allowed"`

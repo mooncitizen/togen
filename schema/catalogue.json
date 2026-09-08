@@ -1,0 +1,1052 @@
+{
+  "providers": {
+    "aws": {
+      "accent": "#ED7100",
+      "entries": [
+        {
+          "aliases": [
+            "container",
+            "app",
+            "web"
+          ],
+          "description": "A container that keeps running behind a load balancer.",
+          "group": "Compute",
+          "id": "service",
+          "label": "Service",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables to set on the container",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "type": "object"
+              },
+              "image": {
+                "description": "Container image to run",
+                "examples": [
+                  "nginx:1.27"
+                ],
+                "type": "string"
+              },
+              "maxReplicas": {
+                "default": 2,
+                "description": "Most tasks to scale out to",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "minReplicas": {
+                "default": 1,
+                "description": "Fewest tasks to keep running. Zero is allowed",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "port": {
+                "default": 8080,
+                "description": "Port the container listens on",
+                "maximum": 65535,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "public": {
+                "default": false,
+                "description": "Reachable from the internet",
+                "type": "boolean"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "resource": "ECS on Fargate",
+          "style": {
+            "color": "#ED7100",
+            "icon": "aws/ecs",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "serverless",
+            "handler",
+            "worker"
+          ],
+          "description": "Code that runs on demand, per request or per message.",
+          "group": "Compute",
+          "id": "function",
+          "label": "Function",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables to set on the function",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "type": "object"
+              },
+              "handler": {
+                "default": "index.handler",
+                "description": "Entry point the runtime calls",
+                "minLength": 1,
+                "type": "string"
+              },
+              "runtime": {
+                "default": "node",
+                "description": "Language runtime the code needs",
+                "enum": [
+                  "node",
+                  "python",
+                  "go"
+                ],
+                "type": "string"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              },
+              "timeoutSeconds": {
+                "default": 30,
+                "description": "Seconds a single invocation may run for",
+                "maximum": 900,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Lambda",
+          "style": {
+            "color": "#ED7100",
+            "icon": "aws/lambda",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "sql",
+            "postgres",
+            "mysql",
+            "relational"
+          ],
+          "description": "A managed relational database, Postgres or MySQL.",
+          "group": "Databases",
+          "id": "database",
+          "label": "Database",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "engine": {
+                "default": "postgres",
+                "description": "Database engine to run",
+                "enum": [
+                  "postgres",
+                  "mysql"
+                ],
+                "type": "string"
+              },
+              "highAvailability": {
+                "default": false,
+                "description": "Run a standby in a second availability zone",
+                "type": "boolean"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              },
+              "storageGb": {
+                "default": 20,
+                "description": "Disk to allocate in gigabytes",
+                "minimum": 20,
+                "type": "integer"
+              },
+              "version": {
+                "description": "Engine version. Defaults to the newest supported one",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "RDS",
+          "style": {
+            "color": "#C925D1",
+            "icon": "aws/rds",
+            "shape": "cylinder"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "api",
+            "http",
+            "ingress"
+          ],
+          "description": "The public entry point that routes to services and functions.",
+          "group": "Networking",
+          "id": "gateway",
+          "label": "Gateway",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "resource": "API Gateway",
+          "style": {
+            "color": "#8C4FFF",
+            "icon": "aws/api-gateway",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "message",
+            "fifo",
+            "dead letter"
+          ],
+          "description": "Messages handed from a publisher to a consumer.",
+          "group": "Messaging",
+          "id": "queue",
+          "label": "Queue",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "deadLetter": {
+                "default": true,
+                "description": "Park messages that keep failing on a second queue",
+                "type": "boolean"
+              },
+              "fifo": {
+                "default": false,
+                "description": "Deliver messages in order exactly once",
+                "type": "boolean"
+              },
+              "retentionDays": {
+                "default": 4,
+                "description": "Days an unread message is kept",
+                "maximum": 14,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "SQS",
+          "style": {
+            "color": "#E7157B",
+            "icon": "aws/sqs",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "object storage",
+            "files",
+            "blob"
+          ],
+          "description": "Object storage for files.",
+          "group": "Storage",
+          "id": "bucket",
+          "label": "Bucket",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "public": {
+                "default": false,
+                "description": "Readable from the internet",
+                "type": "boolean"
+              },
+              "versioning": {
+                "default": true,
+                "description": "Keep previous versions of overwritten objects",
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "S3",
+          "style": {
+            "color": "#7AA116",
+            "icon": "aws/s3",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "redis",
+            "memory",
+            "session"
+          ],
+          "description": "An in-memory store for hot data.",
+          "group": "Databases",
+          "id": "cache",
+          "label": "Cache",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "ElastiCache",
+          "style": {
+            "color": "#C925D1",
+            "icon": "aws/elasticache",
+            "shape": "cylinder"
+          },
+          "tier": "generates"
+        }
+      ],
+      "network": {
+        "color": "#8C4FFF",
+        "kind": "VPC"
+      }
+    },
+    "azure": {
+      "accent": "#0078D4",
+      "entries": [
+        {
+          "aliases": [
+            "container",
+            "app",
+            "web"
+          ],
+          "description": "A container that keeps running behind a load balancer.",
+          "group": "Compute",
+          "id": "service",
+          "label": "Service",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables to set on the container",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "type": "object"
+              },
+              "image": {
+                "description": "Container image to run",
+                "examples": [
+                  "nginx:1.27"
+                ],
+                "type": "string"
+              },
+              "maxReplicas": {
+                "default": 2,
+                "description": "Most tasks to scale out to",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "minReplicas": {
+                "default": 1,
+                "description": "Fewest tasks to keep running. Zero is allowed",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "port": {
+                "default": 8080,
+                "description": "Port the container listens on",
+                "maximum": 65535,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "public": {
+                "default": false,
+                "description": "Reachable from the internet",
+                "type": "boolean"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "resource": "Container Apps",
+          "style": {
+            "color": "#0078D4",
+            "icon": "azure/container-apps",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "serverless",
+            "handler",
+            "worker"
+          ],
+          "description": "Code that runs on demand, per request or per message.",
+          "group": "Compute",
+          "id": "function",
+          "label": "Function",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables to set on the function",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "type": "object"
+              },
+              "handler": {
+                "default": "index.handler",
+                "description": "Entry point the runtime calls",
+                "minLength": 1,
+                "type": "string"
+              },
+              "runtime": {
+                "default": "node",
+                "description": "Language runtime the code needs",
+                "enum": [
+                  "node",
+                  "python",
+                  "go"
+                ],
+                "type": "string"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              },
+              "timeoutSeconds": {
+                "default": 30,
+                "description": "Seconds a single invocation may run for",
+                "maximum": 900,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Functions",
+          "style": {
+            "color": "#0078D4",
+            "icon": "azure/functions",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "sql",
+            "postgres",
+            "mysql",
+            "relational"
+          ],
+          "description": "A managed relational database, Postgres or MySQL.",
+          "group": "Databases",
+          "id": "database",
+          "label": "Database",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "engine": {
+                "default": "postgres",
+                "description": "Database engine to run",
+                "enum": [
+                  "postgres",
+                  "mysql"
+                ],
+                "type": "string"
+              },
+              "highAvailability": {
+                "default": false,
+                "description": "Run a standby in a second availability zone",
+                "type": "boolean"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              },
+              "storageGb": {
+                "default": 20,
+                "description": "Disk to allocate in gigabytes",
+                "minimum": 20,
+                "type": "integer"
+              },
+              "version": {
+                "description": "Engine version. Defaults to the newest supported one",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Database for PostgreSQL",
+          "style": {
+            "color": "#7B3FE4",
+            "icon": "azure/database-postgresql",
+            "shape": "cylinder"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "api",
+            "http",
+            "ingress"
+          ],
+          "description": "The public entry point that routes to services and functions.",
+          "group": "Networking",
+          "id": "gateway",
+          "label": "Gateway",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "resource": "API Management",
+          "style": {
+            "color": "#0078D4",
+            "icon": "azure/api-management",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "message",
+            "fifo",
+            "dead letter"
+          ],
+          "description": "Messages handed from a publisher to a consumer.",
+          "group": "Messaging",
+          "id": "queue",
+          "label": "Queue",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "deadLetter": {
+                "default": true,
+                "description": "Park messages that keep failing on a second queue",
+                "type": "boolean"
+              },
+              "fifo": {
+                "default": false,
+                "description": "Deliver messages in order exactly once",
+                "type": "boolean"
+              },
+              "retentionDays": {
+                "default": 4,
+                "description": "Days an unread message is kept",
+                "maximum": 14,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Service Bus",
+          "style": {
+            "color": "#FFB900",
+            "icon": "azure/service-bus",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "object storage",
+            "files",
+            "blob"
+          ],
+          "description": "Object storage for files.",
+          "group": "Storage",
+          "id": "bucket",
+          "label": "Bucket",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "public": {
+                "default": false,
+                "description": "Readable from the internet",
+                "type": "boolean"
+              },
+              "versioning": {
+                "default": true,
+                "description": "Keep previous versions of overwritten objects",
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Blob Storage",
+          "style": {
+            "color": "#6BB700",
+            "icon": "azure/storage-blob",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "redis",
+            "memory",
+            "session"
+          ],
+          "description": "An in-memory store for hot data.",
+          "group": "Databases",
+          "id": "cache",
+          "label": "Cache",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Cache for Redis",
+          "style": {
+            "color": "#7B3FE4",
+            "icon": "azure/cache-redis",
+            "shape": "cylinder"
+          },
+          "tier": "generates"
+        }
+      ],
+      "network": {
+        "color": "#0078D4",
+        "kind": "VNet"
+      },
+      "resourceGroup": {
+        "color": "#0078D4",
+        "kind": "Resource group"
+      }
+    },
+    "gcp": {
+      "accent": "#4285F4",
+      "entries": [
+        {
+          "aliases": [
+            "container",
+            "app",
+            "web"
+          ],
+          "description": "A container that keeps running behind a load balancer.",
+          "group": "Compute",
+          "id": "service",
+          "label": "Service",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables to set on the container",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "type": "object"
+              },
+              "image": {
+                "description": "Container image to run",
+                "examples": [
+                  "nginx:1.27"
+                ],
+                "type": "string"
+              },
+              "maxReplicas": {
+                "default": 2,
+                "description": "Most tasks to scale out to",
+                "minimum": 1,
+                "type": "integer"
+              },
+              "minReplicas": {
+                "default": 1,
+                "description": "Fewest tasks to keep running. Zero is allowed",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "port": {
+                "default": 8080,
+                "description": "Port the container listens on",
+                "maximum": 65535,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "public": {
+                "default": false,
+                "description": "Reachable from the internet",
+                "type": "boolean"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "image"
+            ],
+            "type": "object"
+          },
+          "resource": "Cloud Run",
+          "style": {
+            "color": "#34A853",
+            "icon": "gcp/cloud-run",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "serverless",
+            "handler",
+            "worker"
+          ],
+          "description": "Code that runs on demand, per request or per message.",
+          "group": "Compute",
+          "id": "function",
+          "label": "Function",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "env": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "default": {},
+                "description": "Environment variables to set on the function",
+                "propertyNames": {
+                  "pattern": "^[A-Z][A-Z0-9_]*$"
+                },
+                "type": "object"
+              },
+              "handler": {
+                "default": "index.handler",
+                "description": "Entry point the runtime calls",
+                "minLength": 1,
+                "type": "string"
+              },
+              "runtime": {
+                "default": "node",
+                "description": "Language runtime the code needs",
+                "enum": [
+                  "node",
+                  "python",
+                  "go"
+                ],
+                "type": "string"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              },
+              "timeoutSeconds": {
+                "default": 30,
+                "description": "Seconds a single invocation may run for",
+                "maximum": 900,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Cloud Functions",
+          "style": {
+            "color": "#34A853",
+            "icon": "gcp/cloud-functions",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "sql",
+            "postgres",
+            "mysql",
+            "relational"
+          ],
+          "description": "A managed relational database, Postgres or MySQL.",
+          "group": "Databases",
+          "id": "database",
+          "label": "Database",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "engine": {
+                "default": "postgres",
+                "description": "Database engine to run",
+                "enum": [
+                  "postgres",
+                  "mysql"
+                ],
+                "type": "string"
+              },
+              "highAvailability": {
+                "default": false,
+                "description": "Run a standby in a second availability zone",
+                "type": "boolean"
+              },
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              },
+              "storageGb": {
+                "default": 20,
+                "description": "Disk to allocate in gigabytes",
+                "minimum": 20,
+                "type": "integer"
+              },
+              "version": {
+                "description": "Engine version. Defaults to the newest supported one",
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Cloud SQL",
+          "style": {
+            "color": "#4285F4",
+            "icon": "gcp/cloud-sql",
+            "shape": "cylinder"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "api",
+            "http",
+            "ingress"
+          ],
+          "description": "The public entry point that routes to services and functions.",
+          "group": "Networking",
+          "id": "gateway",
+          "label": "Gateway",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "resource": "API Gateway",
+          "style": {
+            "color": "#4285F4",
+            "icon": "gcp/api-gateway",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "message",
+            "fifo",
+            "dead letter"
+          ],
+          "description": "Messages handed from a publisher to a consumer.",
+          "group": "Messaging",
+          "id": "queue",
+          "label": "Queue",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "deadLetter": {
+                "default": true,
+                "description": "Park messages that keep failing on a second queue",
+                "type": "boolean"
+              },
+              "fifo": {
+                "default": false,
+                "description": "Deliver messages in order exactly once",
+                "type": "boolean"
+              },
+              "retentionDays": {
+                "default": 4,
+                "description": "Days an unread message is kept",
+                "maximum": 14,
+                "minimum": 1,
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Pub/Sub",
+          "style": {
+            "color": "#F9AB00",
+            "icon": "gcp/pubsub",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "object storage",
+            "files",
+            "blob"
+          ],
+          "description": "Object storage for files.",
+          "group": "Storage",
+          "id": "bucket",
+          "label": "Bucket",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "public": {
+                "default": false,
+                "description": "Readable from the internet",
+                "type": "boolean"
+              },
+              "versioning": {
+                "default": true,
+                "description": "Keep previous versions of overwritten objects",
+                "type": "boolean"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Cloud Storage",
+          "style": {
+            "color": "#EA4335",
+            "icon": "gcp/cloud-storage",
+            "shape": "card"
+          },
+          "tier": "generates"
+        },
+        {
+          "aliases": [
+            "redis",
+            "memory",
+            "session"
+          ],
+          "description": "An in-memory store for hot data.",
+          "group": "Databases",
+          "id": "cache",
+          "label": "Cache",
+          "properties": {
+            "additionalProperties": false,
+            "properties": {
+              "size": {
+                "default": "small",
+                "description": "Memory and CPU tier",
+                "enum": [
+                  "small",
+                  "medium",
+                  "large"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "resource": "Memorystore",
+          "style": {
+            "color": "#4285F4",
+            "icon": "gcp/memorystore",
+            "shape": "cylinder"
+          },
+          "tier": "generates"
+        }
+      ],
+      "network": {
+        "color": "#4285F4",
+        "kind": "VPC network"
+      }
+    }
+  }
+}

@@ -524,8 +524,16 @@ export class Store {
       return Promise.resolve();
     }
     this.#record();
-    const name = `${type}-${nextIndex(project, type)}`;
-    const node: Node = { id: name, type, name, properties: defaultProperties(type) };
+    // A namespaced type such as aws/table names its nodes after the last segment, because
+    // a node name is kebab-case and a slash is not.
+    const base = type.split('/').pop() ?? type;
+    const name = `${base}-${nextIndex(project, type)}`;
+    const node: Node = {
+      id: name,
+      type,
+      name,
+      properties: defaultProperties(project.provider, type),
+    };
     const next: Project = { ...project, nodes: [...project.nodes, node] };
     this.project = next;
     this.positions = { ...this.positions, [name]: round(position) };

@@ -75,7 +75,7 @@ test('the bar names the project and its provider, and the canvas is on the page'
   await expect.element(screen.getByText('aws')).toBeInTheDocument();
 });
 
-test('the palette lists the seven node types from the schema', async () => {
+test('the palette lists what the provider offers, grouped in catalogue order', async () => {
   const screen = await show();
 
   const entries = screen.container.querySelectorAll('[data-node-type]');
@@ -83,11 +83,16 @@ test('the palette lists the seven node types from the schema', async () => {
     'service',
     'function',
     'database',
+    'cache',
     'gateway',
     'queue',
     'bucket',
-    'cache',
   ]);
+  expect(
+    [...screen.container.querySelectorAll('[data-palette-group]')].map((g) =>
+      g.getAttribute('data-palette-group'),
+    ),
+  ).toEqual(['Compute', 'Databases', 'Networking', 'Messaging', 'Storage']);
   for (const label of ['Service', 'Function', 'Database', 'Gateway', 'Queue', 'Bucket', 'Cache']) {
     await expect.element(screen.getByText(label, { exact: true })).toBeInTheDocument();
   }

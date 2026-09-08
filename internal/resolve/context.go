@@ -5,23 +5,26 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/mooncitizen/togen/internal/catalogue"
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
 type Context struct {
 	Project   *ir.Project
+	Catalogue *catalogue.Catalogue
 	Variables []ir.Variable
 	Outputs   []ir.Output
 	Errors    ir.Errors
 	Scratch   map[string]any
 
 	// Pointers, because a node resolver keeps one and mutates Args at finalise.
-	resources []*ir.Resource
-	data      []*ir.DataSource
-	providers []ir.Provider
-	declared  map[string]bool
-	handles   map[string]*Handle
-	routes    map[routeKey]string
+	resources    []*ir.Resource
+	data         []*ir.DataSource
+	providers    []ir.Provider
+	declared     map[string]bool
+	handles      map[string]*Handle
+	routes       map[routeKey]string
+	notGenerated []ir.NotGenerated
 }
 
 type routeKey struct {
@@ -32,13 +35,20 @@ type routeKey struct {
 
 func NewContext(p *ir.Project) *Context {
 	return &Context{
-		Project:  p,
-		Scratch:  map[string]any{},
-		declared: map[string]bool{},
-		handles:  map[string]*Handle{},
-		routes:   map[routeKey]string{},
+		Project:   p,
+		Catalogue: catalogue.Embedded(),
+		Scratch:   map[string]any{},
+		declared:  map[string]bool{},
+		handles:   map[string]*Handle{},
+		routes:    map[routeKey]string{},
 	}
 }
+
+func (c *Context) RecordNotGenerated(n ir.Node, resource string) {
+	c.notGenerated = append(c.notGenerated, ir.NotGenerated{NodeID: n.ID, Name: n.Name, Type: n.Type, Resource: resource})
+}
+
+func (c *Context) NotGenerated() []ir.NotGenerated { return c.notGenerated }
 
 func (c *Context) Prefix() string { return c.Project.Name + "-" + c.Project.Environment }
 

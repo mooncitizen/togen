@@ -90,18 +90,19 @@ func newRootCommand() *cobra.Command {
 	}
 
 	var target, out string
-	var force bool
+	var force, strict bool
 	generateCmd := &cobra.Command{
 		Use:   "generate",
 		Short: "Generate infrastructure code from togen/project.json",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return run(func(cwd string) cli.Result { return cli.Generate(cwd, target, out, force) })
+			return run(func(cwd string) cli.Result { return cli.Generate(cwd, target, out, force, strict) })
 		},
 	}
 	generateCmd.Flags().StringVar(&target, "target", "", "hcl, pulumi or cdktf")
 	generateCmd.Flags().StringVar(&out, "out", "", "output directory, default from togen.yml")
 	generateCmd.Flags().BoolVar(&force, "force", false, "replace the output directory even if it has files Togen did not write")
+	generateCmd.Flags().BoolVar(&strict, "strict", false, "fail instead of writing when a node draws but generates nothing")
 
 	var asJSON bool
 	costCmd := &cobra.Command{

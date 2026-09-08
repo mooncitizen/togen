@@ -1,0 +1,15 @@
+{
+  "provider": "azure",
+  "accent": "#0078D4",
+  "network": { "kind": "VNet", "color": "#0078D4" },
+  "resourceGroup": { "kind": "Resource group", "color": "#0078D4" },
+  "entries": [
+    { "id": "service", "tier": "generates", "resource": "Container Apps", "style": { "color": "#0078D4", "icon": "azure/container-apps", "shape": "card" } },
+    { "id": "function", "tier": "generates", "resource": "Functions", "style": { "color": "#0078D4", "icon": "azure/functions", "shape": "card" } },
+    { "id": "database", "tier": "generates", "resource": "Database for PostgreSQL", "style": { "color": "#7B3FE4", "icon": "azure/database-postgresql", "shape": "cylinder" } },
+    { "id": "gateway", "tier": "generates", "resource": "API Management", "style": { "color": "#0078D4", "icon": "azure/api-management", "shape": "card" } },
+    { "id": "queue", "tier": "generates", "resource": "Service Bus", "style": { "color": "#FFB900", "icon": "azure/service-bus", "shape": "card" } },
+    { "id": "bucket", "tier": "generates", "resource": "Blob Storage", "style": { "color": "#6BB700", "icon": "azure/storage-blob", "shape": "card" } },
+    { "id": "cache", "tier": "generates", "resource": "Cache for Redis", "style": { "color": "#7B3FE4", "icon": "azure/cache-redis", "shape": "cylinder" } }
+  ]
+}

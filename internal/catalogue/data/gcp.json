@@ -1,0 +1,14 @@
+{
+  "provider": "gcp",
+  "accent": "#4285F4",
+  "network": { "kind": "VPC network", "color": "#4285F4" },
+  "entries": [
+    { "id": "service", "tier": "generates", "resource": "Cloud Run", "style": { "color": "#34A853", "icon": "gcp/cloud-run", "shape": "card" } },
+    { "id": "function", "tier": "generates", "resource": "Cloud Functions", "style": { "color": "#34A853", "icon": "gcp/cloud-functions", "shape": "card" } },
+    { "id": "database", "tier": "generates", "resource": "Cloud SQL", "style": { "color": "#4285F4", "icon": "gcp/cloud-sql", "shape": "cylinder" } },
+    { "id": "gateway", "tier": "generates", "resource": "API Gateway", "style": { "color": "#4285F4", "icon": "gcp/api-gateway", "shape": "card" } },
+    { "id": "queue", "tier": "generates", "resource": "Pub/Sub", "style": { "color": "#F9AB00", "icon": "gcp/pubsub", "shape": "card" } },
+    { "id": "bucket", "tier": "generates", "resource": "Cloud Storage", "style": { "color": "#EA4335", "icon": "gcp/cloud-storage", "shape": "card" } },
+    { "id": "cache", "tier": "generates", "resource": "Memorystore", "style": { "color": "#4285F4", "icon": "gcp/memorystore", "shape": "cylinder" } }
+  ]
+}

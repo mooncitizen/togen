@@ -1,0 +1,14 @@
+{
+  "provider": "aws",
+  "accent": "#ED7100",
+  "network": { "kind": "VPC", "color": "#8C4FFF" },
+  "entries": [
+    { "id": "service", "tier": "generates", "resource": "ECS on Fargate", "style": { "color": "#ED7100", "icon": "aws/ecs", "shape": "card" } },
+    { "id": "function", "tier": "generates", "resource": "Lambda", "style": { "color": "#ED7100", "icon": "aws/lambda", "shape": "card" } },
+    { "id": "database", "tier": "generates", "resource": "RDS", "style": { "color": "#C925D1", "icon": "aws/rds", "shape": "cylinder" } },
+    { "id": "gateway", "tier": "generates", "resource": "API Gateway", "style": { "color": "#8C4FFF", "icon": "aws/api-gateway", "shape": "card" } },
+    { "id": "queue", "tier": "generates", "resource": "SQS", "style": { "color": "#E7157B", "icon": "aws/sqs", "shape": "card" } },
+    { "id": "bucket", "tier": "generates", "resource": "S3", "style": { "color": "#7AA116", "icon": "aws/s3", "shape": "card" } },
+    { "id": "cache", "tier": "generates", "resource": "ElastiCache", "style": { "color": "#C925D1", "icon": "aws/elasticache", "shape": "cylinder" } }
+  ]
+}

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mooncitizen/togen/internal/catalogue"
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
@@ -71,13 +72,17 @@ type NodeUsage struct {
 	NatGb       float64 `json:"natGb,omitempty" yaml:"natGb,omitempty" jsonschema:"minimum=0,description=Gigabytes the network's NAT gateway processes a month"`
 }
 
-// The keys each node type takes; a type missing here takes none.
-var UsageKeys = map[ir.NodeType][]string{
-	ir.NodeGateway:  {"requests"},
-	ir.NodeFunction: {"invocations", "durationMs"},
-	ir.NodeQueue:    {"messages"},
-	ir.NodeBucket:   {"storageGb", "egressGb", "requests"},
-	ir.NodeService:  {"egressGb", "requests"},
+// The keys each node type takes, from the catalogue; a type missing here takes none.
+var UsageKeys = usageKeys()
+
+func usageKeys() map[ir.NodeType][]string {
+	out := map[ir.NodeType][]string{}
+	for _, e := range catalogue.Embedded().All() {
+		if len(e.Usage) > 0 {
+			out[ir.NodeType(e.ID)] = e.Usage
+		}
+	}
+	return out
 }
 
 var NetworkKeys = []string{"natGb"}

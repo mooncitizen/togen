@@ -150,4 +150,14 @@ type Graph struct {
 	Resources        []Resource
 	Variables        []Variable
 	Outputs          []Output
+	// Nodes the provider draws but does not generate. Emitters ignore this; the CLI
+	// prints it so a missing resource is never a silent one.
+	NotGenerated []NotGenerated
+}
+
+type NotGenerated struct {
+	NodeID   string
+	Name     string
+	Type     NodeType
+	Resource string
 }

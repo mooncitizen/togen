@@ -3,10 +3,19 @@ package resolve
 import (
 	"fmt"
 
+	"github.com/mooncitizen/togen/internal/catalogue"
 	"github.com/mooncitizen/togen/internal/ir"
 )
 
-func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {
+type Option func(*Context)
+
+// The catalogue the run reads tiers from. Tests pass a fixture; everything else takes
+// the embedded data.
+func WithCatalogue(c *catalogue.Catalogue) Option {
+	return func(ctx *Context) { ctx.Catalogue = c }
+}
+
+func Run(p *ir.Project, prov Provider, opts ...Option) (*ir.Graph, error) {
 	project, err := ir.ApplyDefaults(p)
 	if err != nil {
 		return nil, &ResolveError{Errors: ir.Errors{{Message: err.Error()}}}
@@ -19,6 +28,9 @@ func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {
 	}
 
 	ctx := NewContext(project)
+	for _, opt := range opts {
+		opt(ctx)
+	}
 	ctx.RequireProvider(prov.ProviderBlock(project))
 	if vp, ok := prov.(VariableProvider); ok {
 		for _, v := range vp.Variables(project) {
@@ -40,6 +52,7 @@ func Run(p *ir.Project, prov Provider) (*ir.Graph, error) {
 		Resources:        ctx.Resources(),
 		Variables:        ctx.Variables,
 		Outputs:          ctx.Outputs,
+		NotGenerated:     ctx.NotGenerated(),
 	}
 	if errs := ir.ValidateGraph(g); len(errs) > 0 {
 		return nil, &ResolveError{Errors: errs}
@@ -61,6 +74,20 @@ func resolveAll(ctx *Context, prov Provider) (failure *ResolveError) {
 	}()
 
 	for _, n := range ctx.Project.Nodes {
+		entry, ok := ctx.Catalogue.Lookup(string(prov.Name()), string(n.Type))
+		if !ok {
+			ctx.Report(ir.ValidationError{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("node type '%s' is not available on %s", n.Type, prov.Name()),
+			})
+			continue
+		}
+		// A draw-only type has no resources, so its edges have nothing to connect and are
+		// dropped with it by the missing handle below.
+		if entry.Tier == catalogue.TierDraws {
+			ctx.RecordNotGenerated(n, entry.Resource)
+			continue
+		}
 		if h, ok := prov.ResolveNode(ctx, n); ok {
 			ctx.SetHandle(n.ID, h)
 		}
