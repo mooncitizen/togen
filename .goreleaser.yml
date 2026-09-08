@@ -27,6 +27,24 @@ archives:
       - NOTICE
       - README.md
 
+brews:
+  - name: togen
+    ids: [togen]
+    repository:
+      owner: mooncitizen
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://mooncitizen.github.io/togen"
+    description: "Sketch a system as boxes and edges, get a starting infrastructure repository"
+    license: "Apache-2.0"
+    commit_author:
+      name: mooncitizen
+      email: paul@gitglue.com
+    test: |
+      system "#{bin}/togen", "--version"
+
 checksum:
   name_template: checksums.txt
 
