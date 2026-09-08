@@ -51,17 +51,17 @@ func Detect() (Method, string, error) {
 	if err != nil {
 		resolved = exe
 	}
-	return classify(resolved, brewCellar()), resolved, nil
+	return classify(resolved, brewCellar), resolved, nil
 }
 
-func classify(path, cellar string) Method {
+func classify(path string, cellar func() string) Method {
 	if strings.HasPrefix(path, "/nix/store/") {
 		return MethodNix
 	}
 	if strings.Contains(path, string(os.PathSeparator)+filepath.Join("Cellar", "togen")+string(os.PathSeparator)) {
 		return MethodHomebrew
 	}
-	if cellar != "" && strings.HasPrefix(path, cellar+string(os.PathSeparator)) {
+	if prefix := cellar(); prefix != "" && strings.HasPrefix(path, prefix+string(os.PathSeparator)) {
 		return MethodHomebrew
 	}
 	if writable(filepath.Dir(path)) {

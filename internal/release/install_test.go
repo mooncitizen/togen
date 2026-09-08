@@ -18,7 +18,7 @@ func TestClassifyRecognisesNixAndHomebrew(t *testing.T) {
 		{"cellar for another formula", "/nonexistent-prefix/Cellar/jq/1.7/bin/togen", "", MethodUnknown},
 	}
 	for _, c := range cases {
-		if got := classify(c.path, c.cellar); got != c.want {
+		if got := classify(c.path, func() string { return c.cellar }); got != c.want {
 			t.Errorf("%s: classify(%q, %q) = %v, want %v", c.name, c.path, c.cellar, got, c.want)
 		}
 	}
@@ -26,7 +26,7 @@ func TestClassifyRecognisesNixAndHomebrew(t *testing.T) {
 
 func TestClassifyCallsAWritableDirectoryManaged(t *testing.T) {
 	dir := t.TempDir()
-	if got := classify(filepath.Join(dir, "togen"), ""); got != MethodManaged {
+	if got := classify(filepath.Join(dir, "togen"), func() string { return "" }); got != MethodManaged {
 		t.Errorf("classify = %v, want MethodManaged", got)
 	}
 }
@@ -40,7 +40,7 @@ func TestClassifyCallsAnUnwritableDirectoryUnknown(t *testing.T) {
 	if err := os.Mkdir(locked, 0o555); err != nil {
 		t.Fatal(err)
 	}
-	if got := classify(filepath.Join(locked, "togen"), ""); got != MethodUnknown {
+	if got := classify(filepath.Join(locked, "togen"), func() string { return "" }); got != MethodUnknown {
 		t.Errorf("classify = %v, want MethodUnknown", got)
 	}
 }
@@ -69,5 +69,22 @@ func TestDetectResolvesTheRunningBinary(t *testing.T) {
 	}
 	if method == MethodNix && !filepath.IsAbs(path) {
 		t.Errorf("path %q is not absolute", path)
+	}
+}
+
+func TestClassifyDoesNotAskBrewWhenThePathAlreadyDecides(t *testing.T) {
+	asked := false
+	probe := func() string {
+		asked = true
+		return ""
+	}
+	for _, path := range []string{"/nix/store/abc123-togen-0.2.0/bin/togen", "/opt/homebrew/Cellar/togen/0.2.0/bin/togen"} {
+		asked = false
+		if got := classify(path, probe); got == MethodUnknown {
+			t.Errorf("classify(%q) = MethodUnknown", got)
+		}
+		if asked {
+			t.Error("classify shelled out to brew for a path that already decides the method")
+		}
 	}
 }
