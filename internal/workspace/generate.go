@@ -18,6 +18,21 @@ type Generated struct {
 	Files []string `json:"files"`
 }
 
+type Written struct {
+	Targets      []Generated       `json:"targets"`
+	NotGenerated []ir.NotGenerated `json:"notGenerated,omitempty"`
+}
+
+type NotGeneratedError struct{ Nodes []ir.NotGenerated }
+
+func (e *NotGeneratedError) Error() string {
+	names := make([]string, len(e.Nodes))
+	for i, n := range e.Nodes {
+		names[i] = fmt.Sprintf("%s (%s)", n.Name, n.Type)
+	}
+	return "these nodes draw but generate nothing: " + strings.Join(names, ", ")
+}
+
 type StrangerError struct {
 	Dir       string
 	Strangers []string
@@ -29,7 +44,7 @@ func (e *StrangerError) Error() string {
 }
 
 // The second return is the deprecation note from the configuration, empty when there is none.
-func Generate(cwd, target, out string, force bool) ([]Generated, string, error) {
+func Generate(cwd, target, out string, force, strict bool) (*Written, string, error) {
 	config, note, err := LoadConfig(cwd)
 	if err != nil {
 		return nil, note, err
@@ -65,11 +80,15 @@ func Generate(cwd, target, out string, force bool) ([]Generated, string, error) 
 		return nil, note, err
 	}
 
+	if strict && len(graph.NotGenerated) > 0 {
+		return nil, note, &NotGeneratedError{Nodes: graph.NotGenerated}
+	}
+
 	outDir := config.OutDir
 	if out != "" {
 		outDir = out
 	}
-	var written []Generated
+	written := &Written{NotGenerated: graph.NotGenerated}
 	for _, t := range targets {
 		files, err := emitters[t](graph)
 		if err != nil {
@@ -89,7 +108,7 @@ func Generate(cwd, target, out string, force bool) ([]Generated, string, error) 
 		if err := writeOutputs(dir, files); err != nil {
 			return nil, note, err
 		}
-		written = append(written, Generated{Dir: shown, Files: sortedKeys(files)})
+		written.Targets = append(written.Targets, Generated{Dir: shown, Files: sortedKeys(files)})
 	}
 	return written, note, nil
 }

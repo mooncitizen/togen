@@ -2,6 +2,7 @@ package gcp
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/resolve"
@@ -45,28 +46,37 @@ func (provider) NameLimits() []resolve.NameLimit {
 	}
 }
 
-func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, bool) {
-	switch n.Type {
-	case ir.NodeGateway:
-		return resolveGateway(n), true
-	case ir.NodeFunction:
-		return resolveFunction(ctx, n), true
-	case ir.NodeService:
-		return resolveService(ctx, n), true
-	case ir.NodeDatabase:
-		return resolveDatabase(ctx, n), true
-	case ir.NodeQueue:
-		return resolveQueue(ctx, n), true
-	case ir.NodeBucket:
-		return resolveBucket(ctx, n), true
-	case ir.NodeCache:
-		return resolveCache(ctx, n), true
+// Every type the gcp catalogue says it generates has a function here, and a test holds
+// the two together.
+var resolvers = map[ir.NodeType]func(*resolve.Context, ir.Node) *resolve.Handle{
+	ir.NodeGateway:  func(_ *resolve.Context, n ir.Node) *resolve.Handle { return resolveGateway(n) },
+	ir.NodeFunction: resolveFunction,
+	ir.NodeService:  resolveService,
+	ir.NodeDatabase: resolveDatabase,
+	ir.NodeQueue:    resolveQueue,
+	ir.NodeBucket:   resolveBucket,
+	ir.NodeCache:    resolveCache,
+}
+
+func Resolvers() []ir.NodeType {
+	out := make([]ir.NodeType, 0, len(resolvers))
+	for t := range resolvers {
+		out = append(out, t)
 	}
-	ctx.Report(ir.ValidationError{
-		NodeID:  n.ID,
-		Message: fmt.Sprintf("node type '%s' is not supported by the gcp resolver yet", n.Type),
-	})
-	return nil, false
+	slices.Sort(out)
+	return out
+}
+
+func (provider) ResolveNode(ctx *resolve.Context, n ir.Node) (*resolve.Handle, bool) {
+	resolveNode, ok := resolvers[n.Type]
+	if !ok {
+		ctx.Report(ir.ValidationError{
+			NodeID:  n.ID,
+			Message: fmt.Sprintf("the gcp resolver has no function for '%s'", n.Type),
+		})
+		return nil, false
+	}
+	return resolveNode(ctx, n), true
 }
 
 func (provider) ResolveEdge(ctx *resolve.Context, e ir.Edge, from, to *resolve.Handle) {

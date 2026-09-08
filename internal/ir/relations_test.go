@@ -33,3 +33,21 @@ func TestLegalRelations(t *testing.T) {
 		})
 	}
 }
+
+// The table is derived from the roles a catalogue entry declares. This pins what it was
+// when it was written by hand, so the derivation is provably a refactor.
+func TestRelationRulesArePinned(t *testing.T) {
+	compute := []NodeType{NodeService, NodeFunction}
+	stores := []NodeType{NodeDatabase, NodeBucket, NodeCache}
+	want := map[Relation]RelationRule{
+		RelRoutes:    {From: []NodeType{NodeGateway}, To: compute},
+		RelCalls:     {From: compute, To: compute},
+		RelReads:     {From: compute, To: stores},
+		RelWrites:    {From: compute, To: stores},
+		RelPublishes: {From: compute, To: []NodeType{NodeQueue}},
+		RelConsumes:  {From: compute, To: []NodeType{NodeQueue}},
+	}
+	if diff := cmp.Diff(want, RelationRules()); diff != "" {
+		t.Errorf("relation rules (-want +got):\n%s", diff)
+	}
+}

@@ -168,6 +168,8 @@ names the snapshot. It is an estimate, never a quote.
 
 Milestone one. AWS, Google Cloud and Azure resolvers, Terraform HCL output,
 seven node types: gateway, function, service, database, queue, bucket, cache.
+What each provider offers is a catalogue file (`internal/catalogue/data/`), so
+a type is added as data plus a resolver rather than in nine places.
 
 `togen cost` bundles real prices for AWS and Azure. Google Cloud is not
 priced yet: every node returns `no gcp prices are bundled yet` and totals

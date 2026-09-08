@@ -2,7 +2,7 @@ import schema from '../../../schema/project.schema.json';
 import regionTable from '../../../schema/regions.json';
 import styleTable from '../../../schema/styles.json';
 
-import { catalogue } from './catalogue.ts';
+import { catalogueFor } from './catalogue.ts';
 import type { NodeType, Provider } from './types.ts';
 
 export type Region = { id: string; name: string };
@@ -24,10 +24,10 @@ export const palettes: Palette[] = providers.map((provider) => ({
   provider,
   label: labels[provider],
   accent: schemes[provider].accent,
-  swatches: catalogue.map((entry) => ({
+  swatches: catalogueFor(provider).map((entry) => ({
     type: entry.type,
-    color: schemes[provider].kinds[entry.type].color,
-    resource: schemes[provider].kinds[entry.type].resource,
+    color: entry.style.color,
+    resource: entry.resource,
   })),
 }));
 

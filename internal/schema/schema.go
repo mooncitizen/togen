@@ -11,9 +11,9 @@ import (
 
 	"github.com/invopop/jsonschema"
 
+	"github.com/mooncitizen/togen/internal/catalogue"
 	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
-	"github.com/mooncitizen/togen/internal/style"
 	"github.com/mooncitizen/togen/internal/workspace"
 )
 
@@ -24,10 +24,14 @@ const (
 )
 
 func Project() map[string]any {
-	nodeVariants := make([]any, 0, len(ir.NodeTypes))
-	for _, t := range ir.NodeTypes {
-		props, _ := ir.PropsFor(t)
-		ps := propsSchema(props)
+	entries := catalogue.Embedded().All()
+	nodeVariants := make([]any, 0, len(entries))
+	for _, e := range entries {
+		t := ir.NodeType(e.ID)
+		ps := e.Properties
+		if props, ok := ir.PropsFor(t); ok {
+			ps = propsSchema(props)
+		}
 		required := []string{"id", "type", "name"}
 		if _, ok := ps["required"]; ok {
 			required = append(required, "properties")
@@ -38,9 +42,9 @@ func Project() map[string]any {
 			"required":             required,
 			"properties": map[string]any{
 				"id":         described(nonEmptyString(), "Stable identifier edges point at"),
-				"type":       map[string]any{"const": string(t), "description": "Kind of thing this node is"},
+				"type":       map[string]any{"const": e.ID, "description": "Kind of thing this node is"},
 				"name":       described(kebab(32), "Human name used for resource names and outputs"),
-				"properties": described(ps, fmt.Sprintf("Settings for the %s", t)),
+				"properties": described(ps, fmt.Sprintf("Settings for the %s", e.ID)),
 			},
 		})
 	}
@@ -249,13 +253,13 @@ func keyedBy(fields map[string]any, name, keys, text string) {
 	entry["additionalProperties"] = false
 	props, _ := entry["properties"].(map[string]any)
 	if shape, ok := props["shape"].(map[string]any); ok {
-		shape["enum"] = anyValues(style.Shapes)
+		shape["enum"] = anyValues(catalogue.Shapes)
 	}
 	if icon, ok := props["icon"].(map[string]any); ok {
 		// The enum lets an editor complete the bundled ids; the pattern admits a file of the user's own.
 		delete(icon, "type")
 		icon["anyOf"] = []any{
-			enumOf(style.BundledIcons()),
+			enumOf(catalogue.Embedded().Icons()),
 			map[string]any{"type": "string", "pattern": iconPathPattern},
 		}
 	}
@@ -267,8 +271,46 @@ func keyedBy(fields map[string]any, name, keys, text string) {
 	}
 }
 
+// What each provider offers, for the studio's palette and for anyone reading the schemas.
+// The node properties come from the props structs where there are any, so a reader sees one
+// document rather than two halves.
+func Catalogue() map[string]any {
+	c := catalogue.Embedded()
+	providers := map[string]any{}
+	for _, p := range c.Providers() {
+		scheme, _ := c.Scheme(p)
+		entries := make([]any, 0, len(c.For(p)))
+		for _, e := range c.For(p) {
+			props := e.Properties
+			if structProps, ok := ir.PropsFor(ir.NodeType(e.ID)); ok {
+				props = propsSchema(structProps)
+			}
+			entry := map[string]any{
+				"id":          e.ID,
+				"label":       e.Label,
+				"group":       e.Group,
+				"description": e.Description,
+				"resource":    e.Resource,
+				"tier":        string(e.Tier),
+				"style":       toMap(e.Style),
+				"properties":  props,
+			}
+			if len(e.Aliases) > 0 {
+				entry["aliases"] = anyValues(e.Aliases)
+			}
+			entries = append(entries, entry)
+		}
+		provider := map[string]any{"accent": scheme.Accent, "network": toMap(scheme.Network), "entries": entries}
+		if scheme.ResourceGroup != nil {
+			provider["resourceGroup"] = toMap(*scheme.ResourceGroup)
+		}
+		providers[p] = provider
+	}
+	return map[string]any{"providers": providers}
+}
+
 func Styles() map[string]any {
-	return toMap(style.Schemes)
+	return toMap(catalogue.Embedded().Schemes())
 }
 
 func oneOfPattern[T ~string](values []T) string {
@@ -333,6 +375,7 @@ func Write(dir string) error {
 		{"relations.json", Relations()},
 		{"engines.json", Engines()},
 		{"styles.json", Styles()},
+		{"catalogue.json", Catalogue()},
 		{"regions.json", Regions()},
 	}
 	for _, f := range files {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { fly } from 'svelte/transition';
 
-  import { catalogue } from '../catalogue.ts';
+  import { catalogueFor } from '../catalogue.ts';
   import { getStore, overviewId } from '../store.svelte.ts';
   import type { Node } from '../types.ts';
   import ViewsIcon from './ViewsIcon.svelte';
@@ -12,7 +12,7 @@
   const members = $derived(store.visibleNodeIds);
   const total = $derived(store.project?.nodes.length ?? 0);
   const groups = $derived(
-    catalogue
+    catalogueFor(store.project?.provider ?? 'aws')
       .map((entry) => ({
         type: entry.type,
         label: entry.label,

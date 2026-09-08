@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/mooncitizen/togen/internal/ir"
 	"github.com/mooncitizen/togen/internal/workspace"
 )
 
@@ -76,7 +77,7 @@ func writeFileText(t *testing.T, path, text string) {
 
 func TestGenerateWritesHclFilesAndAManifest(t *testing.T) {
 	cwd := generateCwd(t)
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -117,23 +118,23 @@ func TestGenerateWritesHclFilesAndAManifest(t *testing.T) {
 
 func TestGenerateRegeneratesOverItsOwnOutput(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
-	if again := Generate(cwd, "", "", false); again.Code != 0 {
+	if again := Generate(cwd, "", "", false, false); again.Code != 0 {
 		t.Fatalf("second: %v", again.Lines)
 	}
 }
 
 func TestGenerateRefusesFilesItDidNotWrite(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	stranger := filepath.Join(cwd, "infra", "hcl", "extra.tf")
 	writeFileText(t, stranger, "resource \"x\" \"y\" {}\n")
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -151,11 +152,11 @@ func TestGenerateRefusesFilesItDidNotWrite(t *testing.T) {
 
 func TestGenerateReplacesTheDirectoryWithForce(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	writeFileText(t, filepath.Join(cwd, "infra", "hcl", "extra.tf"), "")
-	result := Generate(cwd, "", "", true)
+	result := Generate(cwd, "", "", true, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -167,7 +168,7 @@ func TestGenerateReplacesTheDirectoryWithForce(t *testing.T) {
 func TestGenerateRefusesUnknownFilesWithNoManifest(t *testing.T) {
 	cwd := generateCwd(t)
 	writeFileText(t, filepath.Join(cwd, "infra", "hcl", "mine.tf"), "")
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -178,7 +179,7 @@ func TestGenerateRefusesUnknownFilesWithNoManifest(t *testing.T) {
 
 func TestGenerateIgnoresTerraformWorkingFiles(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	out := filepath.Join(cwd, "infra", "hcl")
@@ -187,7 +188,7 @@ func TestGenerateIgnoresTerraformWorkingFiles(t *testing.T) {
 	}
 	writeFileText(t, filepath.Join(out, ".terraform.lock.hcl"), "")
 	writeFileText(t, filepath.Join(out, "terraform.tfstate"), "{}")
-	if result := Generate(cwd, "", "", false); result.Code != 0 {
+	if result := Generate(cwd, "", "", false, false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 }
@@ -195,7 +196,7 @@ func TestGenerateIgnoresTerraformWorkingFiles(t *testing.T) {
 func TestGenerateDoesNotRefuseStateAloneInAnUnmanagedDirectory(t *testing.T) {
 	cwd := generateCwd(t)
 	writeFileText(t, filepath.Join(cwd, "infra", "hcl", "terraform.tfstate"), `{"serial":1}`)
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -232,12 +233,12 @@ func expectTerraformFilesIntact(t *testing.T, out string) {
 
 func TestGenerateKeepsTerraformFilesOnAPlainRegenerate(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	out := filepath.Join(cwd, "infra", "hcl")
 	plantTerraformFiles(t, out)
-	if result := Generate(cwd, "", "", false); result.Code != 0 {
+	if result := Generate(cwd, "", "", false, false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	expectTerraformFilesIntact(t, out)
@@ -245,13 +246,13 @@ func TestGenerateKeepsTerraformFilesOnAPlainRegenerate(t *testing.T) {
 
 func TestGenerateKeepsTerraformFilesOnAForcedRegenerate(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	out := filepath.Join(cwd, "infra", "hcl")
 	plantTerraformFiles(t, out)
 	writeFileText(t, filepath.Join(out, "extra.tf"), "")
-	if result := Generate(cwd, "", "", true); result.Code != 0 {
+	if result := Generate(cwd, "", "", true, false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	if slices.Contains(readDirNames(t, out), "extra.tf") {
@@ -262,12 +263,12 @@ func TestGenerateKeepsTerraformFilesOnAForcedRegenerate(t *testing.T) {
 
 func TestGenerateRecoversFromAStaleTogenOld(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	stale := filepath.Join(cwd, "infra", "hcl.togen-old")
 	writeFileText(t, filepath.Join(stale, "stale.tf"), "")
-	if result := Generate(cwd, "", "", false); result.Code != 0 {
+	if result := Generate(cwd, "", "", false, false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	if _, err := os.Stat(stale); !os.IsNotExist(err) {
@@ -277,7 +278,7 @@ func TestGenerateRecoversFromAStaleTogenOld(t *testing.T) {
 
 func TestGenerateRecoversStateFromATogenOldBesideTheOutput(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	out := filepath.Join(cwd, "infra", "hcl")
@@ -285,7 +286,7 @@ func TestGenerateRecoversStateFromATogenOldBesideTheOutput(t *testing.T) {
 	writeFileText(t, filepath.Join(old, "terraform.tfstate"), `{"serial":11}`)
 	writeFileText(t, filepath.Join(old, "main.tf"), "stale")
 
-	if result := Generate(cwd, "", "", false); result.Code != 0 {
+	if result := Generate(cwd, "", "", false, false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	if got := readFileText(t, filepath.Join(out, "terraform.tfstate")); got != `{"serial":11}` {
@@ -301,14 +302,14 @@ func TestGenerateRecoversStateFromATogenOldBesideTheOutput(t *testing.T) {
 
 func TestGenerateKeepsTheLiveStateWhenATogenOldAlsoHasOne(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	out := filepath.Join(cwd, "infra", "hcl")
 	writeFileText(t, filepath.Join(out, "terraform.tfstate"), `{"serial":20}`)
 	writeFileText(t, filepath.Join(cwd, "infra", "hcl.togen-old", "terraform.tfstate"), `{"serial":11}`)
 
-	if result := Generate(cwd, "", "", false); result.Code != 0 {
+	if result := Generate(cwd, "", "", false, false); result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	if got := readFileText(t, filepath.Join(out, "terraform.tfstate")); got != `{"serial":20}` {
@@ -318,7 +319,7 @@ func TestGenerateKeepsTheLiveStateWhenATogenOldAlsoHasOne(t *testing.T) {
 
 func TestGenerateRecoversFromACrashBetweenTheSwapRenames(t *testing.T) {
 	cwd := generateCwd(t)
-	if first := Generate(cwd, "", "", false); first.Code != 0 {
+	if first := Generate(cwd, "", "", false, false); first.Code != 0 {
 		t.Fatalf("first: %v", first.Lines)
 	}
 	out := filepath.Join(cwd, "infra", "hcl")
@@ -328,7 +329,7 @@ func TestGenerateRecoversFromACrashBetweenTheSwapRenames(t *testing.T) {
 	}
 	writeFileText(t, filepath.Join(old, "terraform.tfstate"), `{"serial":9}`)
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -342,7 +343,7 @@ func TestGenerateRecoversFromACrashBetweenTheSwapRenames(t *testing.T) {
 
 func TestGenerateHonoursOutAndTarget(t *testing.T) {
 	cwd := generateCwd(t)
-	result := Generate(cwd, "hcl", "build", false)
+	result := Generate(cwd, "hcl", "build", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -360,7 +361,7 @@ func TestGenerateReportsValidationErrors(t *testing.T) {
 	project["edges"] = []any{map[string]any{"id": "e1", "from": "n1", "to": "zz", "relation": "routes"}}
 	writeProject(t, cwd, project)
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -374,7 +375,7 @@ func TestGenerateReportsValidationErrors(t *testing.T) {
 
 func TestGenerateReportsUnsupportedTarget(t *testing.T) {
 	cwd := generateCwd(t)
-	result := Generate(cwd, "pulumi", "", false)
+	result := Generate(cwd, "pulumi", "", false, false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -392,7 +393,7 @@ func TestGenerateWritesTheProviderAndItsVariableForAnEmptyGCPProject(t *testing.
 	project["edges"] = []any{}
 	writeProject(t, cwd, project)
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -418,7 +419,7 @@ func TestGenerateSurfacesResolverErrorsWithTheNode(t *testing.T) {
 		map[string]any{"id": "n9", "type": "bucket", "name": strings.Repeat("u", 30)})
 	writeProject(t, cwd, project)
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -450,7 +451,7 @@ func TestGenerateHonoursAFalseAgainstATrueDefault(t *testing.T) {
 		"edges": []any{},
 	})
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -484,7 +485,7 @@ func TestGenerateHonoursAFalseAgainstATrueDefaultForABucket(t *testing.T) {
 		"edges": []any{},
 	})
 
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -498,7 +499,7 @@ func TestGenerateHonoursAFalseAgainstATrueDefaultForABucket(t *testing.T) {
 func TestGenerateIgnoresABrokenViewsFile(t *testing.T) {
 	cwd := generateCwd(t)
 	writeFileText(t, workspace.ViewsPath(cwd), "{ not json")
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
@@ -512,7 +513,7 @@ func TestGenerateReportsAMissingProject(t *testing.T) {
 	if err := os.Remove(workspace.ProjectPath(cwd)); err != nil {
 		t.Fatal(err)
 	}
-	result := Generate(cwd, "", "", false)
+	result := Generate(cwd, "", "", false, false)
 	if result.Code != 1 {
 		t.Fatalf("code = %d, want 1", result.Code)
 	}
@@ -523,16 +524,30 @@ func TestGenerateReportsAMissingProject(t *testing.T) {
 
 func TestGenerateNotesTheLegacyConfig(t *testing.T) {
 	cwd := generateCwd(t)
-	if result := Generate(cwd, "", "", false); result.Note != "" {
+	if result := Generate(cwd, "", "", false, false); result.Note != "" {
 		t.Errorf("note = %q, want none", result.Note)
 	}
 
 	legacyConfig(t, cwd)
-	result := Generate(cwd, "", "", true)
+	result := Generate(cwd, "", "", true, false)
 	if result.Code != 0 {
 		t.Fatalf("code = %d, lines = %v", result.Code, result.Lines)
 	}
 	if result.Note != workspace.LegacyNote {
 		t.Errorf("note = %q, want %q", result.Note, workspace.LegacyNote)
+	}
+}
+
+func TestNotGeneratedLineNamesEveryDrawOnlyNode(t *testing.T) {
+	nodes := []ir.NotGenerated{
+		{NodeID: "n1", Name: "payments-table", Type: "aws/dynamodb", Resource: "DynamoDB"},
+		{NodeID: "n2", Name: "audit-trail", Type: "aws/kinesis", Resource: "Kinesis"},
+	}
+	want := "not generated (draws only): payments-table (aws/dynamodb), audit-trail (aws/kinesis)"
+	if got := notGeneratedLine(nodes); got != want {
+		t.Errorf("line = %q", got)
+	}
+	if got := notGeneratedLine(nil); got != "" {
+		t.Errorf("empty line = %q", got)
 	}
 }

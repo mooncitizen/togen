@@ -4,37 +4,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 )
 
+// The types whose properties are a Go struct, which is every type a resolver generates
+// from. A draw-only catalogue entry declares its properties as JSON Schema instead.
+var propsStructs = map[NodeType]func() any{
+	NodeService:  func() any { return &ServiceProps{} },
+	NodeFunction: func() any { return &FunctionProps{} },
+	NodeDatabase: func() any { return &DatabaseProps{} },
+	NodeGateway:  func() any { return &GatewayProps{} },
+	NodeQueue:    func() any { return &QueueProps{} },
+	NodeBucket:   func() any { return &BucketProps{} },
+	NodeCache:    func() any { return &CacheProps{} },
+}
+
 func PropsFor(t NodeType) (any, bool) {
-	switch t {
-	case NodeService:
-		return &ServiceProps{}, true
-	case NodeFunction:
-		return &FunctionProps{}, true
-	case NodeDatabase:
-		return &DatabaseProps{}, true
-	case NodeGateway:
-		return &GatewayProps{}, true
-	case NodeQueue:
-		return &QueueProps{}, true
-	case NodeBucket:
-		return &BucketProps{}, true
-	case NodeCache:
-		return &CacheProps{}, true
+	make, ok := propsStructs[t]
+	if !ok {
+		return nil, false
 	}
-	return nil, false
+	return make(), true
+}
+
+func TypesWithProps() []NodeType {
+	out := make([]NodeType, 0, len(propsStructs))
+	for t := range propsStructs {
+		out = append(out, t)
+	}
+	slices.Sort(out)
+	return out
 }
 
 func ApplyDefaults(p *Project) (*Project, error) {
 	out := *p
 	out.Nodes = make([]Node, len(p.Nodes))
 	for i, n := range p.Nodes {
+		// A draw-only type has no struct to default from, so its properties stand as
+		// written. The schema rejects a type no provider has before this runs.
 		props, ok := PropsFor(n.Type)
 		if !ok {
-			return nil, fmt.Errorf("node %s: unknown type %q", n.ID, n.Type)
+			out.Nodes[i] = n
+			continue
 		}
 		if err := setTagDefaults(props); err != nil {
 			return nil, err

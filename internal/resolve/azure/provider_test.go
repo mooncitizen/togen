@@ -288,9 +288,8 @@ func TestResolveRejectsOtherProviders(t *testing.T) {
 	}
 }
 
-// Every node type in the IR now resolves, so an unsupported one cannot be written into a
-// project any more: ApplyDefaults rejects an unknown type before the resolver sees it. The
-// report is still reachable through ResolveNode itself, which is where a new type will land.
+// A type the catalogue has not got never reaches ResolveNode: the run reports it first.
+// This is the guard for a catalogue that says a type generates when no function does it.
 func TestResolveReportsANodeTypeItDoesNotSupport(t *testing.T) {
 	ctx := newContext(t, nil)
 	handle, ok := New().ResolveNode(ctx, ir.Node{ID: "n9", Type: "cdn", Name: "edge"})
@@ -299,7 +298,7 @@ func TestResolveReportsANodeTypeItDoesNotSupport(t *testing.T) {
 	}
 	want := ir.Errors{{
 		NodeID:  "n9",
-		Message: "node type 'cdn' is not supported by the azure resolver yet",
+		Message: "the azure resolver has no function for 'cdn'",
 	}}
 	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)

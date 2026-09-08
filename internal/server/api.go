@@ -238,7 +238,7 @@ func (s *Server) postGenerate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	generated, _, err := workspace.Generate(s.dir, request.Target, "", false)
+	written, _, err := workspace.Generate(s.dir, request.Target, "", false, false)
 	if err != nil {
 		var stranger *workspace.StrangerError
 		if errors.As(err, &stranger) {
@@ -248,7 +248,7 @@ func (s *Server) postGenerate(w http.ResponseWriter, r *http.Request) {
 		writeRefusal(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"generated": generated})
+	writeJSON(w, http.StatusOK, map[string]any{"generated": written.Targets, "notGenerated": written.NotGenerated})
 }
 
 // The body is a sketch, name, provider, region and environment, or names a

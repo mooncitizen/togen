@@ -1,0 +1,67 @@
+{
+  "entries": [
+    {
+      "id": "service",
+      "label": "Service",
+      "group": "Compute",
+      "description": "A container that keeps running behind a load balancer.",
+      "aliases": ["container", "app", "web"],
+      "roles": ["compute"],
+      "usage": ["egressGb", "requests"]
+    },
+    {
+      "id": "function",
+      "label": "Function",
+      "group": "Compute",
+      "description": "Code that runs on demand, per request or per message.",
+      "aliases": ["serverless", "handler", "worker"],
+      "roles": ["compute"],
+      "usage": ["invocations", "durationMs"]
+    },
+    {
+      "id": "database",
+      "label": "Database",
+      "group": "Databases",
+      "description": "A managed relational database, Postgres or MySQL.",
+      "aliases": ["sql", "postgres", "mysql", "relational"],
+      "roles": ["store"],
+      "usage": []
+    },
+    {
+      "id": "gateway",
+      "label": "Gateway",
+      "group": "Networking",
+      "description": "The public entry point that routes to services and functions.",
+      "aliases": ["api", "http", "ingress"],
+      "roles": ["entry"],
+      "usage": ["requests"]
+    },
+    {
+      "id": "queue",
+      "label": "Queue",
+      "group": "Messaging",
+      "description": "Messages handed from a publisher to a consumer.",
+      "aliases": ["message", "fifo", "dead letter"],
+      "roles": ["messaging"],
+      "usage": ["messages"]
+    },
+    {
+      "id": "bucket",
+      "label": "Bucket",
+      "group": "Storage",
+      "description": "Object storage for files.",
+      "aliases": ["object storage", "files", "blob"],
+      "roles": ["store"],
+      "usage": ["storageGb", "egressGb", "requests"]
+    },
+    {
+      "id": "cache",
+      "label": "Cache",
+      "group": "Databases",
+      "description": "An in-memory store for hot data.",
+      "aliases": ["redis", "memory", "session"],
+      "roles": ["store"],
+      "usage": []
+    }
+  ]
+}

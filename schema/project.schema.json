@@ -127,6 +127,9 @@
                   },
                   "image": {
                     "description": "Container image to run",
+                    "examples": [
+                      "nginx:1.27"
+                    ],
                     "type": "string"
                   },
                   "maxReplicas": {

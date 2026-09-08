@@ -13,9 +13,9 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mooncitizen/togen/internal/catalogue"
 	"github.com/mooncitizen/togen/internal/cost"
 	"github.com/mooncitizen/togen/internal/ir"
-	"github.com/mooncitizen/togen/internal/style"
 )
 
 const (
@@ -50,9 +50,9 @@ type Style struct {
 }
 
 type NodeStyle struct {
-	Color string      `json:"color,omitempty" yaml:"color,omitempty" jsonschema:"pattern=^#[0-9a-fA-F]{6}$,description=Fill colour as #rrggbb"`
-	Icon  string      `json:"icon,omitempty"  yaml:"icon,omitempty"  jsonschema:"description=A bundled icon id such as aws/rds or a path relative to togen.yml"`
-	Shape style.Shape `json:"shape,omitempty" yaml:"shape,omitempty" jsonschema:"description=Outline the node is drawn with"`
+	Color string          `json:"color,omitempty" yaml:"color,omitempty" jsonschema:"pattern=^#[0-9a-fA-F]{6}$,description=Fill colour as #rrggbb"`
+	Icon  string          `json:"icon,omitempty"  yaml:"icon,omitempty"  jsonschema:"description=A bundled icon id such as aws/rds or a path relative to togen.yml"`
+	Shape catalogue.Shape `json:"shape,omitempty" yaml:"shape,omitempty" jsonschema:"description=Outline the node is drawn with"`
 }
 
 func DefaultConfig() Config {

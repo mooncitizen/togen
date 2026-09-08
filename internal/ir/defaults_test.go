@@ -81,10 +81,17 @@ func TestApplyDefaultsKeepsAFalseThatOverridesATrueDefault(t *testing.T) {
 	}
 }
 
-func TestApplyDefaultsRejectsUnknownNodeType(t *testing.T) {
-	p := &Project{Nodes: []Node{{ID: "n1", Type: "mainframe", Name: "big"}}}
-	if _, err := ApplyDefaults(p); err == nil {
-		t.Fatal("want an error for an unknown node type")
+// A type with no props struct is a draw-only catalogue entry, whose properties are the
+// user's to write and the schema's to check. Defaults leave them alone.
+func TestApplyDefaultsLeavesATypeWithNoPropsStructAlone(t *testing.T) {
+	raw := json.RawMessage(`{"billing":"on-demand"}`)
+	p := &Project{Nodes: []Node{{ID: "n1", Type: "aws/table", Name: "big", Properties: raw}}}
+	out, err := ApplyDefaults(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out.Nodes[0].Properties) != string(raw) {
+		t.Errorf("properties = %s", out.Nodes[0].Properties)
 	}
 }
 

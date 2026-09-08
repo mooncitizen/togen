@@ -1,3 +1,4 @@
+import { userEvent } from 'vitest/browser';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { overviewLayout, reset, serve, show } from '../../harness.ts';
@@ -51,3 +52,51 @@ test.each([
     expect(getComputedStyle(dot).backgroundColor).toBe(accent);
   },
 );
+
+test('the search box filters the palette by label, service name and alias', async () => {
+  serve(shop, placed);
+  const screen = await show();
+  const search = screen.container.querySelector<HTMLInputElement>('[data-palette-search]')!;
+
+  const shown = () =>
+    [...screen.container.querySelectorAll('[data-node-type]')].map((tile) =>
+      tile.getAttribute('data-node-type'),
+    );
+
+  await userEvent.fill(search, 'lambda');
+  expect(shown()).toEqual(['function']);
+
+  await userEvent.fill(search, 'Object storage');
+  expect(shown()).toEqual(['bucket']);
+
+  await userEvent.fill(search, 'redis');
+  expect(shown()).toEqual(['cache']);
+
+  await userEvent.fill(search, 'mainframe');
+  expect(shown()).toEqual([]);
+  await expect
+    .element(screen.getByText('Nothing on aws matches "mainframe".'))
+    .toBeInTheDocument();
+
+  await userEvent.fill(search, '');
+  expect(shown()).toHaveLength(7);
+});
+
+test('a group heading collapses its tiles and a search opens them again', async () => {
+  serve(shop, placed);
+  const screen = await show();
+
+  const compute = screen.container.querySelector<HTMLButtonElement>(
+    '[data-palette-group="Compute"]',
+  )!;
+  expect(compute.getAttribute('aria-expanded')).toBe('true');
+
+  await userEvent.click(compute);
+  expect(screen.container.querySelector('[data-node-type="service"]')).toBeNull();
+
+  await userEvent.fill(
+    screen.container.querySelector<HTMLInputElement>('[data-palette-search]')!,
+    'container',
+  );
+  expect(screen.container.querySelector('[data-node-type="service"]')).not.toBeNull();
+});

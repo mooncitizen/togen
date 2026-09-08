@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { entryFor } from '../catalogue.ts';
   import { kindsSnippet, nodesSnippet } from '../snippet.ts';
   import { getStore } from '../store.svelte.ts';
   import { resolveKind, resolveStyle, type Source } from '../style.ts';
@@ -15,6 +16,7 @@
   const kind = $derived(resolveKind(node.type, store.config, provider));
   const forNode = $derived(nodesSnippet(node, style));
   const forKind = $derived(kindsSnippet(node.type, kind));
+  const entry = $derived(entryFor(provider, node.type));
 
   const sources: Record<Source, string> = {
     node: 'node override',
@@ -28,7 +30,14 @@
     <Icon icon={style.icon} color={style.color} shape={style.shape} size={44} />
     <span class="flex min-w-0 flex-col leading-tight">
       <span class="truncate font-medium">{node.name}</span>
-      <span class="text-[11px] text-muted">{node.type}</span>
+      <span class="text-[11px] text-muted" data-node-resource>
+        {node.type}{entry === undefined ? '' : ` · ${entry.resource}`}
+      </span>
+      {#if entry?.tier === 'draws'}
+        <span class="text-[11px] text-faint" data-draws-note>
+          Drawn only. Generate writes nothing for this node.
+        </span>
+      {/if}
     </span>
   </div>
 

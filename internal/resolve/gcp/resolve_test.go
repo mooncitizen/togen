@@ -57,7 +57,7 @@ func TestResolveReportsANodeTypeItDoesNotSupport(t *testing.T) {
 	}
 	want := ir.Errors{{
 		NodeID:  "n9",
-		Message: "node type 'cdn' is not supported by the gcp resolver yet",
+		Message: "the gcp resolver has no function for 'cdn'",
 	}}
 	if diff := cmp.Diff(want, ctx.Errors); diff != "" {
 		t.Errorf("errors (-want +got):\n%s", diff)
