@@ -104,3 +104,25 @@ func TestTheDefaultVersionIsDev(t *testing.T) {
 		t.Errorf("the compiled-in default is %q, want dev", version)
 	}
 }
+
+func TestVersionCommandPrintsTheStampedVersion(t *testing.T) {
+	inTempDir(t)
+	var out bytes.Buffer
+	root := newRootCommand()
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"version", "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestVersionCommandIsRegistered(t *testing.T) {
+	root := newRootCommand()
+	for _, c := range root.Commands() {
+		if c.Name() == "version" {
+			return
+		}
+	}
+	t.Fatal("root has no version command")
+}

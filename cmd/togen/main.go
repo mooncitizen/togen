@@ -3,14 +3,20 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 
 	"github.com/mooncitizen/togen/internal/cli"
+	"github.com/mooncitizen/togen/internal/release"
 )
 
 // Stamped at link time by goreleaser.
-var version = "dev"
+var (
+	version = "dev"
+	commit  = "unknown"
+	date    = "unknown"
+)
 
 func main() {
 	root := newRootCommand()
@@ -107,7 +113,31 @@ func newRootCommand() *cobra.Command {
 	studioCmd.Flags().IntVar(&port, "port", 3000, "port to listen on, 0 for any free port")
 	studioCmd.Flags().BoolVar(&noOpen, "no-open", false, "do not open a browser")
 
-	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, simulateCmd, studioCmd)
+	var versionJSON bool
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version, how it was built and how it was installed",
+		Args:  cobra.NoArgs,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			method, path, err := release.Detect()
+			if err != nil {
+				path = "unknown"
+			}
+			result := cli.Version(cli.VersionInfo{
+				Version:  version,
+				Commit:   commit,
+				Date:     date,
+				Go:       runtime.Version(),
+				Platform: runtime.GOOS + "/" + runtime.GOARCH,
+				Install:  method.String(),
+				Path:     path,
+			}, versionJSON)
+			return emit(result)
+		},
+	}
+	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "print the version as JSON")
+
+	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, simulateCmd, studioCmd, versionCmd)
 	return root
 }
 
@@ -116,7 +146,10 @@ func run(command func(cwd string) cli.Result) error {
 	if err != nil {
 		return err
 	}
-	result := command(cwd)
+	return emit(command(cwd))
+}
+
+func emit(result cli.Result) error {
 	if result.Note != "" {
 		_, _ = fmt.Fprintln(os.Stderr, result.Note)
 	}
