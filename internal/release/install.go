@@ -21,7 +21,7 @@ const (
 func (m Method) String() string {
 	switch m {
 	case MethodManaged:
-		return "install script or direct download"
+		return "managed"
 	case MethodHomebrew:
 		return "homebrew"
 	case MethodNix:

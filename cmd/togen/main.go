@@ -48,7 +48,11 @@ func newRootCommand() *cobra.Command {
 			if err != nil {
 				return
 			}
-			notice := release.Check(cmd.Context(), newReleaseClient(), path, version, time.Now())
+			method, _, err := release.Detect()
+			if err != nil {
+				method = release.MethodUnknown
+			}
+			notice := release.Check(cmd.Context(), newReleaseClient(), path, version, method, time.Now())
 			if notice == nil {
 				return
 			}
@@ -204,9 +208,13 @@ func updateCheckWanted(cmd *cobra.Command) bool {
 	if !stderrIsTerminal() {
 		return false
 	}
-	switch cmd.Name() {
-	case "upgrade", "version", "help":
-		return false
+	// completion's shell subcommands (zsh, bash, ...) run as cmd.Name() themselves,
+	// so completion is only visible by walking up to their parent.
+	for c := cmd; c != nil; c = c.Parent() {
+		switch c.Name() {
+		case "upgrade", "version", "help", "completion", cobra.ShellCompRequestCmd, cobra.ShellCompNoDescRequestCmd:
+			return false
+		}
 	}
 	if flag := cmd.Flags().Lookup("json"); flag != nil && flag.Changed {
 		return false

@@ -24,7 +24,7 @@ togen upgrade
 
 What it does depends on how togen was installed, which `togen version` reports.
 
-**Install script or direct download.** It downloads the archive for your platform, verifies it against `checksums.txt`, and replaces the running binary with the one inside. If anything fails before the final step, the binary you have is untouched.
+**Managed (install script or direct download), which `togen version` reports as `managed`.** It downloads the archive for your platform, verifies it against `checksums.txt`, and replaces the running binary with the one inside. If anything fails before the final step, the binary you have is untouched.
 
 **Homebrew.** It refuses, and prints `brew upgrade mooncitizen/tap/togen`. Overwriting a Cellar binary would leave it out of step with the formula.
 

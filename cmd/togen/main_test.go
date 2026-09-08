@@ -205,6 +205,8 @@ func TestUpdateCheckIsSuppressed(t *testing.T) {
 		{name: "json output", stamped: "0.1.0", terminal: true, setup: func(t *testing.T) { execute(t, "init", "--name", "shop") }, args: []string{"cost", "--json"}},
 		{name: "the version command", stamped: "0.1.0", terminal: true, args: []string{"version"}},
 		{name: "the help command", stamped: "0.1.0", terminal: true, args: []string{"help"}},
+		{name: "the completion command", stamped: "0.1.0", terminal: true, args: []string{"completion", "zsh"}},
+		{name: "shell completion requests", stamped: "0.1.0", terminal: true, args: []string{"__complete", "init", ""}},
 		// upgrade --check calls client.Latest itself to resolve the release to report;
 		// that call is expected. What is suppressed is a second call from the daily check.
 		{name: "the upgrade command", stamped: "0.1.0", terminal: true, args: []string{"upgrade", "--check"}, wantCalls: 1},

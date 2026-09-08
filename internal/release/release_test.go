@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestNewerComparesRegardlessOfTheLeadingV(t *testing.T) {
@@ -119,6 +120,37 @@ func TestDownloadReturnsTheBody(t *testing.T) {
 		t.Fatal(err)
 	}
 	if string(raw) != "payload" {
+		t.Errorf("body = %q", raw)
+	}
+}
+
+// A download's context must stay alive past Download's own return, since the
+// caller reads and closes the body afterwards. A deadline tied to Download's
+// call frame (for instance a deferred cancel inside it) would abort a slow
+// body mid-read even though the overall budget was nowhere near spent.
+func TestDownloadBodyOutlivesTheCallToDownload(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/slow", func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "part-one-")
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		time.Sleep(200 * time.Millisecond)
+		_, _ = io.WriteString(w, "part-two")
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	body, err := newClientAt(server.URL).Download(context.Background(), server.URL+"/slow")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = body.Close() }()
+	raw, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "part-one-part-two" {
 		t.Errorf("body = %q", raw)
 	}
 }

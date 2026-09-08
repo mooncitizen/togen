@@ -57,7 +57,7 @@ func NewClient() Client {
 }
 
 func newClientAt(base string) *githubClient {
-	return &githubClient{base: base, http: &http.Client{Timeout: 60 * time.Second}}
+	return &githubClient{base: base, http: &http.Client{}}
 }
 
 func (c *githubClient) Latest(ctx context.Context) (Release, error) {
@@ -101,18 +101,39 @@ func (c *githubClient) fetch(ctx context.Context, url string) (Release, error) {
 	return rel, nil
 }
 
+// The archive is around 10MB, so the request needs a much longer budget than
+// the 3 second metadata calls in fetch. That budget has to cover the body
+// read too, which happens after this method returns, so the cancel func is
+// not deferred here: it is handed to the returned reader and fires when the
+// caller closes it, not when Download itself returns.
+const downloadTimeout = 10 * time.Minute
+
 func (c *githubClient) Download(ctx context.Context, url string) (io.ReadCloser, error) {
+	ctx, cancel := context.WithTimeout(ctx, downloadTimeout)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		_ = resp.Body.Close()
+		cancel()
 		return nil, fmt.Errorf("github answered %s for %s", resp.Status, url)
 	}
-	return resp.Body, nil
+	return &cancelOnClose{ReadCloser: resp.Body, cancel: cancel}, nil
+}
+
+type cancelOnClose struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (c *cancelOnClose) Close() error {
+	defer c.cancel()
+	return c.ReadCloser.Close()
 }
