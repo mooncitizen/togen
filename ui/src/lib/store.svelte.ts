@@ -1,5 +1,5 @@
 import { getContext, setContext } from 'svelte';
-import type { BuiltInEdge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
+import type { Edge as FlowEdge, Node as FlowNode } from '@xyflow/svelte';
 
 import {
   ApiError,
@@ -19,6 +19,7 @@ import {
 } from './api.ts';
 import { defaultProperties } from './catalogue.ts';
 import { subtotalOf } from './cost.ts';
+import { bandFor, labelBudget, lanesFor, offsetsFor, textureFor } from './edges.ts';
 import { autoLayout } from './layout.ts';
 import { instant, rateLabel, run, secondsPerMonth } from './simulate.ts';
 import { resolveStyle, type Resolved } from './style.ts';
@@ -103,6 +104,10 @@ export class Store {
   viewport = $state.raw<Viewport>({ x: 0, y: 0, zoom: 1 });
   selectedNodeId = $state.raw<string | null>(null);
   selectedEdgeId = $state.raw<string | null>(null);
+
+  // What the pointer is over, which the canvas lifts out of the rest. Falls back
+  // to the selection so a chosen card keeps its subgraph lit once the pointer leaves.
+  hoveredNodeId = $state.raw<string | null>(null);
   error = $state.raw<ApiError | null>(null);
   notice = $state.raw<string | null>(null);
   ready = $state(false);
@@ -152,6 +157,7 @@ export class Store {
     return project.nodes.flatMap((node) => {
       const errors = counted[node.id] ?? 0;
       const rate = this.simulating ? (this.rates.nodes[node.id] ?? 0) : null;
+      const faded = this.focusId !== null && !this.focusRing.has(node.id);
       if (visible.has(node.id)) {
         return [
           this.#card(
@@ -160,7 +166,7 @@ export class Store {
             errors,
             styled(node),
             subtotalOf(this.cost, node),
-            false,
+            faded,
             rate,
           ),
         ];
@@ -182,21 +188,70 @@ export class Store {
     });
   });
 
+  readonly focusId: string | null = $derived(this.hoveredNodeId ?? this.selectedNodeId);
+
+  // The focused card and everything one relation away from it. Nothing else is
+  // hidden, only dropped back, so the path keeps its context.
+  readonly focusRing: Set<string> = $derived.by(() => {
+    const focus = this.focusId;
+    if (focus === null) {
+      return new Set<string>();
+    }
+    const ring = new Set([focus]);
+    for (const edge of this.project?.edges ?? []) {
+      if (edge.from === focus) {
+        ring.add(edge.to);
+      }
+      if (edge.to === focus) {
+        ring.add(edge.from);
+      }
+    }
+    return ring;
+  });
+
   readonly flowEdges: FlowEdge[] = $derived.by(() => {
     const counted = tally(this.problems, 'edgeId');
     const visible = this.visibleNodeIds;
-    return (this.project?.edges ?? [])
-      .filter((edge) => visible.has(edge.from) && visible.has(edge.to))
-      .map((edge) => ({
+    const drawn = (this.project?.edges ?? []).filter(
+      (edge) => visible.has(edge.from) && visible.has(edge.to),
+    );
+    const at = (id: string) => this.positions[id] ?? origin;
+    const offsets = offsetsFor(drawn, (id) => at(id).y);
+    const lanes = lanesFor(drawn, (edge) => (at(edge.from).x + at(edge.to).x) / 2);
+    const rates = this.rates.edges;
+    const busiest = Object.values(rates).reduce((a, b) => Math.max(a, b), 0);
+    const focus = this.focusId;
+    // Past the budget the resting canvas shows no chips at all: the rate is on the
+    // cards, which do not collide, and focus brings the rest back one subgraph at a time.
+    const spare = drawn.length <= labelBudget;
+    return drawn.map((edge) => {
+      const offset = offsets[edge.id];
+      const lit = focus === null || edge.from === focus || edge.to === focus;
+      const text = this.simulating ? edgeLabel(edge, this.simulation, this.rates) : edge.relation;
+      return {
         id: edge.id,
         source: edge.from,
         target: edge.to,
-        label: this.simulating ? edgeLabel(edge, this.simulation, this.rates) : edge.relation,
+        label: offset.paired || (focus === null ? spare : lit) ? text : undefined,
         selected: edge.id === this.selectedEdgeId,
-        class: edge.id in counted ? 'togen-edge-error' : undefined,
-        type: 'smoothstep',
-        pathOptions: { borderRadius: 4 },
-      }));
+        class: [
+          edge.id in counted ? 'togen-edge-error' : '',
+          `togen-edge-${textureFor(edge.relation)}`,
+          lit ? '' : 'togen-edge-dim',
+        ]
+          .filter((name) => name !== '')
+          .join(' '),
+        type: 'togen',
+        data: {
+          texture: textureFor(edge.relation),
+          band: bandFor(rates[edge.id] ?? 0, busiest),
+          lane: lanes[edge.id] ?? 0,
+          pair: offset.pair,
+          source: offset.source,
+          target: offset.target,
+        },
+      };
+    });
   });
 
   readonly simulating: boolean = $derived(this.simulation.sources.length > 0);
@@ -609,6 +664,10 @@ export class Store {
     if (id !== null) {
       this.selectedEdgeId = null;
     }
+  }
+
+  hover(id: string | null): void {
+    this.hoveredNodeId = id;
   }
 
   selectEdge(id: string | null): void {

@@ -21,11 +21,13 @@
   import NodeCard from './NodeCard.svelte';
   import Particles from './Particles.svelte';
   import RelationMenu from './RelationMenu.svelte';
+  import TogenEdge from './TogenEdge.svelte';
   import ViewsIcon from './ViewsIcon.svelte';
 
   const store = getStore();
   const flow = useSvelteFlow();
   const nodeTypes = { togen: NodeCard };
+  const edgeTypes = { togen: TogenEdge };
 
   let nodes = $state.raw<Node[]>([]);
   let edges = $state.raw<Edge[]>([]);
@@ -189,6 +191,7 @@
         bind:nodes
         bind:edges
         {nodeTypes}
+        {edgeTypes}
         {isValidConnection}
         deleteKey={null}
         initialViewport={store.viewport}
@@ -196,6 +199,8 @@
         ondrop={drop}
         onnodedragstop={dragStop}
         onnodeclick={({ node }) => store.select(node.id)}
+        onnodepointerenter={({ node }) => store.hover(node.id)}
+        onnodepointerleave={() => store.hover(null)}
         onedgeclick={({ edge }) => store.selectEdge(edge.id)}
         onpaneclick={() => store.clearSelection()}
         onconnect={connect}

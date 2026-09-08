@@ -57,6 +57,7 @@
   --togen-accent: #35c2b0;
   --togen-accent-text: #0b1512;
   --togen-edge: #5c6573;
+  --togen-edge-strong: #798494;
   --togen-edge-label: #1b212a;
   --togen-ok: #4ade80;
   --togen-warn: #f59e0b;
@@ -86,6 +87,7 @@
   --togen-accent: #0f8f80;
   --togen-accent-text: #ffffff;
   --togen-edge: #a8a29e;
+  --togen-edge-strong: #857f7b;
   --togen-edge-label: #ffffff;
   --togen-ok: #15803d;
   --togen-warn: #b45309;
@@ -116,6 +118,7 @@
   --color-accent: var(--togen-accent);
   --color-accent-text: var(--togen-accent-text);
   --color-edge: var(--togen-edge);
+  --color-edge-strong: var(--togen-edge-strong);
   --color-edge-label: var(--togen-edge-label);
   --color-ok: var(--togen-ok);
   --color-warn: var(--togen-warn);
@@ -148,7 +151,6 @@ body {
   --xy-edge-stroke-width: 1.25;
   --xy-edge-stroke-selected: var(--togen-selection);
   --togen-edge-error-stroke: var(--togen-err);
-  --togen-edge-error-width: 2;
   --xy-connectionline-stroke: var(--togen-edge);
   --xy-connectionline-stroke-width: 1.25;
   --xy-edge-label-background-color: var(--togen-edge-label);
@@ -204,20 +206,82 @@ body {
   border-radius: 8px;
 }
 
+/* The label is an anchor, not the chip: it is placed where the stroke ends and the
+   chip hangs off its right edge, so a run reads line, chip, head, gap, card. */
 .svelte-flow__edge-label {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.togen-chip {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
   padding: 0 7px;
   line-height: 16px;
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: 10.5px;
+  color: var(--xy-edge-label-color);
+  background: var(--xy-edge-label-background-color);
   border: 1px solid var(--togen-border);
   border-radius: 999px;
 }
 
-.svelte-flow__edge.togen-edge-error .svelte-flow__edge-path {
-  stroke: var(--togen-edge-error-stroke);
-  stroke-width: var(--togen-edge-error-width);
+/* Painted twice: the casing is the canvas colour, so a crossing reads as over
+   and under without spending any hue. */
+.togen-edge-casing {
+  fill: none;
+  stroke: var(--togen-canvas);
+  stroke-linecap: round;
 }
 
-.svelte-flow__edge[style*='--togen-edge-weight'] path.svelte-flow__edge-path {
-  stroke-width: calc(var(--togen-edge-weight) * 1px);
+.togen-edge-head {
+  fill: var(--xy-edge-stroke);
+  stroke: var(--xy-edge-stroke);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+}
+
+/* A broken stroke lays down less ink than a solid one, so it is lifted to read
+   at the same weight rather than as a fainter relation. */
+.svelte-flow__edge.togen-edge-dashed .svelte-flow__edge-path,
+.svelte-flow__edge.togen-edge-dotted .svelte-flow__edge-path {
+  stroke: var(--togen-edge-strong);
+}
+
+.svelte-flow__edge.togen-edge-dashed .togen-edge-head,
+.svelte-flow__edge.togen-edge-dotted .togen-edge-head {
+  fill: var(--togen-edge-strong);
+  stroke: var(--togen-edge-strong);
+}
+
+.svelte-flow__edge.selected .svelte-flow__edge-path,
+.svelte-flow__edge.selected .togen-edge-head {
+  stroke: var(--xy-edge-stroke-selected);
+}
+
+.svelte-flow__edge.selected .togen-edge-head {
+  fill: var(--xy-edge-stroke-selected);
+}
+
+/* Out of focus, not out of the picture: still readable as context. Focus is the
+   editor's, like selection, so it comes off while the canvas is copied. */
+.svelte-flow:not([data-exporting]) .svelte-flow__edge.togen-edge-dim {
+  opacity: 0.28;
+}
+
+.svelte-flow:not([data-exporting]) .svelte-flow__edge.togen-edge-dim.togen-edge-dotted {
+  opacity: 0.4;
+}
+
+.svelte-flow__edge.togen-edge-error .svelte-flow__edge-path {
+  stroke: var(--togen-edge-error-stroke);
+}
+
+.svelte-flow__edge.togen-edge-error .togen-edge-head {
+  fill: var(--togen-edge-error-stroke);
+  stroke: var(--togen-edge-error-stroke);
 }

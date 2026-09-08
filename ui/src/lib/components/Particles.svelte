@@ -91,17 +91,6 @@
     return 4 - 2.8 * share;
   }
 
-  // A weight per edge for the reduced-motion reading, applied by a stroke-width rule
-  // in app.css. Reading paths waits for the edges to be in the DOM to carry it.
-  $effect(() => {
-    if (!still || Object.keys(paths).length === 0) {
-      return;
-    }
-    for (const edge of shares) {
-      const el = document.querySelector<HTMLElement>(`.svelte-flow__edge[data-id="${edge.id}"]`);
-      el?.style.setProperty('--togen-edge-weight', String(1 + 2 * edge.share));
-    }
-  });
 </script>
 
 {#if !still}
