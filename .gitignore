@@ -18,4 +18,5 @@ site/dist/
 site/.astro/
 site/node_modules/
 site/public/images/
+site/public/install.sh
 site/src/content/docs/reference/catalogue/

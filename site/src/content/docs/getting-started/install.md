@@ -3,7 +3,25 @@ title: Install
 description: Get the togen binary onto your machine.
 ---
 
-Togen is a single binary. There is no account, no service to sign up to, and nothing it needs to phone home to.
+Togen is a single binary. There is no account and no service to sign up to. It checks GitHub once a day for a newer release and tells you if there is one; nothing about your project is sent, and `TOGEN_NO_UPDATE_CHECK=1` turns it off. See [upgrading](/togen/getting-started/upgrading/) for what the check does and what `togen upgrade` does about it.
+
+## Homebrew
+
+```bash
+brew install mooncitizen/tap/togen
+```
+
+## Install script
+
+```bash
+curl -fsSL https://mooncitizen.github.io/togen/install.sh | sh
+```
+
+It downloads the release archive for your platform, verifies it against `checksums.txt`, and installs to `$HOME/.local/bin`, adding that directory to your `PATH` in `.zshrc`, `.bashrc` or `.profile` if it is not there already. `TOGEN_INSTALL_DIR` picks a different directory, `TOGEN_VERSION` picks a different release, and `--no-profile` leaves your shell configuration alone:
+
+```bash
+curl -fsSL https://mooncitizen.github.io/togen/install.sh | sh -s -- --no-profile
+```
 
 ## Release binary
 
@@ -14,6 +32,14 @@ tar xzf togen_<os>_<arch>.tar.gz
 ```
 
 Put the `togen` binary it contains on your `PATH`. This is the build to use: it embeds the studio's canvas, so `togen studio` serves the real thing.
+
+macOS binaries are not signed, so a direct download is quarantined by Gatekeeper. Clear it once:
+
+```bash
+xattr -d com.apple.quarantine ./togen
+```
+
+Homebrew strips the quarantine attribute itself, so a `brew install` needs nothing.
 
 ## go install
 
@@ -47,5 +73,5 @@ The binary lands at `bin/togen`.
 ## Check it worked
 
 ```bash
-togen --version
+togen version
 ```

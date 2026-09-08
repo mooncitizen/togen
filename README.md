@@ -24,14 +24,24 @@ Terraform HCL.
 
 ## Install
 
-Download a binary from
-[releases](https://github.com/mooncitizen/togen/releases):
+```bash
+brew install mooncitizen/tap/togen
+```
+
+or, without Homebrew:
 
 ```bash
-curl -fsSL https://github.com/mooncitizen/togen/releases/latest/download/togen_$(uname -s | tr A-Z a-z)_$(uname -m | sed s/x86_64/amd64/).tar.gz | tar xz togen
-sudo install -m 0755 togen /usr/local/bin/togen
-togen --version
+curl -fsSL https://mooncitizen.github.io/togen/install.sh | sh
 ```
+
+or download an archive for your platform from the
+[releases page](https://github.com/mooncitizen/togen/releases). macOS
+binaries are unsigned, so clear the quarantine flag with
+`xattr -d com.apple.quarantine ./togen` after extracting.
+
+`togen upgrade` moves you to the latest release, or tells you the right
+command for your package manager. Togen checks for one once a day;
+`TOGEN_NO_UPDATE_CHECK=1` stops it.
 
 Or with Go, if you only want the CLI:
 

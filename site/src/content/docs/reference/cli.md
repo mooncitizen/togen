@@ -3,7 +3,7 @@ title: CLI
 description: Every togen command and every flag, with defaults and an example.
 ---
 
-`togen --version` prints the build's version and exits. Every other command reads and writes files under the current directory; none of them talk to the network.
+Every command reads and writes files under the current directory. Most of them also make one request a day to check for a new release; see [upgrading](/togen/getting-started/upgrading/) for that check and for what `togen upgrade` does.
 
 ## init
 
@@ -89,3 +89,33 @@ togen studio --port 3000
 ```
 
 See [the studio](/togen/guides/the-studio/) for a tour, and [the studio API](/togen/reference/api/) for scripting against it directly.
+
+## version
+
+Print the version, how it was built and how it was installed.
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--json` | `false` | print the version as JSON |
+
+```bash
+togen version
+```
+
+See [upgrading](/togen/getting-started/upgrading/) for what each field means.
+
+## upgrade
+
+Replace this binary with the latest release.
+
+| Flag | Default | Meaning |
+| --- | --- | --- |
+| `--check` | `false` | report the latest release without installing it |
+| `--yes` | `false` | do not ask before replacing the binary |
+| `--version` | (empty, falls back to the latest release) | install this tag instead |
+
+```bash
+togen upgrade
+```
+
+What happens depends on how togen was installed: a Homebrew or Nix install refuses and names the command to use instead. See [upgrading](/togen/getting-started/upgrading/) for the full behaviour and the daily check that suggests it.

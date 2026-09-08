@@ -9,6 +9,8 @@ const catalogueFrom = resolve(root, 'docs/catalogue');
 const catalogueTo = resolve(site, 'src/content/docs/reference/catalogue');
 const imagesFrom = resolve(root, 'docs/images');
 const imagesTo = resolve(site, 'public/images');
+const installFrom = resolve(root, 'scripts/install.sh');
+const installTo = resolve(site, 'public/install.sh');
 
 const repo = 'https://github.com/mooncitizen/togen/blob/main/docs/catalogue';
 
@@ -72,5 +74,11 @@ async function images() {
   console.log(`images: ${count} files`);
 }
 
+async function install() {
+  await cp(installFrom, installTo);
+  console.log('install.sh: copied');
+}
+
 await catalogue();
 await images();
+await install();
