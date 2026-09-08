@@ -44,10 +44,10 @@ func TestComparableRejectsDevelopmentBuilds(t *testing.T) {
 }
 
 func TestAssetNameMatchesTheGoreleaserTemplate(t *testing.T) {
-	if got := AssetName("v0.2.0", "darwin", "arm64"); got != "togen_0.2.0_darwin_arm64.tar.gz" {
+	if got := AssetName("darwin", "arm64"); got != "togen_darwin_arm64.tar.gz" {
 		t.Errorf("AssetName = %q", got)
 	}
-	if got := AssetName("0.2.0", "linux", "amd64"); got != "togen_0.2.0_linux_amd64.tar.gz" {
+	if got := AssetName("linux", "amd64"); got != "togen_linux_amd64.tar.gz" {
 		t.Errorf("AssetName = %q", got)
 	}
 }
@@ -56,7 +56,7 @@ func stubGitHub(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	body := `{"tag_name":"v0.2.0","assets":[
-		{"name":"togen_0.2.0_darwin_arm64.tar.gz","browser_download_url":"https://example.test/a.tar.gz"},
+		{"name":"togen_darwin_arm64.tar.gz","browser_download_url":"https://example.test/a.tar.gz"},
 		{"name":"checksums.txt","browser_download_url":"https://example.test/checksums.txt"}]}`
 	mux.HandleFunc("/repos/mooncitizen/togen/releases/latest", func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, body)

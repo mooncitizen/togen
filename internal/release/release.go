@@ -43,8 +43,8 @@ func Newer(current, latest string) bool {
 	return semver.Compare(Normalise(current), Normalise(latest)) < 0
 }
 
-func AssetName(version, goos, goarch string) string {
-	return fmt.Sprintf("togen_%s_%s_%s.tar.gz", strings.TrimPrefix(Normalise(version), "v"), goos, goarch)
+func AssetName(goos, goarch string) string {
+	return fmt.Sprintf("togen_%s_%s.tar.gz", goos, goarch)
 }
 
 type githubClient struct {
