@@ -37,7 +37,7 @@ func CachePath() (string, error) {
 	return filepath.Join(dir, "togen", "version-check.json"), nil
 }
 
-func Check(ctx context.Context, client Client, cachePath, current string, method Method, now time.Time) *Notice {
+func Check(ctx context.Context, client Client, cachePath, current string, method func() Method, now time.Time) *Notice {
 	state, fresh := readCheckState(cachePath, now)
 	if !fresh {
 		rel, err := client.Latest(ctx)
@@ -50,7 +50,7 @@ func Check(ctx context.Context, client Client, cachePath, current string, method
 	if !Newer(current, state.Latest) {
 		return nil
 	}
-	return &Notice{Current: current, Latest: state.Latest, Method: method}
+	return &Notice{Current: current, Latest: state.Latest, Method: method()}
 }
 
 func readCheckState(path string, now time.Time) (checkState, bool) {

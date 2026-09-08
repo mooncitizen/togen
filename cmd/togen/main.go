@@ -48,9 +48,12 @@ func newRootCommand() *cobra.Command {
 			if err != nil {
 				return
 			}
-			method, _, err := release.Detect()
-			if err != nil {
-				method = release.MethodUnknown
+			method := func() release.Method {
+				method, _, err := release.Detect()
+				if err != nil {
+					return release.MethodUnknown
+				}
+				return method
 			}
 			notice := release.Check(cmd.Context(), newReleaseClient(), path, version, method, time.Now())
 			if notice == nil {

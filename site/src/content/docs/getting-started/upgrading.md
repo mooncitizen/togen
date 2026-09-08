@@ -14,7 +14,7 @@ Nothing about your project is sent, and no account is involved. The check does n
 - `CI` is set, so pipelines never see it;
 - standard error is not a terminal, so pipes, redirects and scripts never see it;
 - you passed `--json`;
-- you ran `togen version`, `togen upgrade` or `togen help`.
+- you ran `togen version`, `togen upgrade`, `togen help` or `togen completion`.
 
 ## togen upgrade
 

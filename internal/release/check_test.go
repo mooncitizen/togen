@@ -39,7 +39,7 @@ func cacheIn(t *testing.T) string {
 func TestCheckFetchesAndReportsANewerRelease(t *testing.T) {
 	client := &countingClient{tag: "v0.3.0"}
 	path := cacheIn(t)
-	notice := Check(context.Background(), client, path, "0.2.0", MethodHomebrew, time.Now())
+	notice := Check(context.Background(), client, path, "0.2.0", func() Method { return MethodHomebrew }, time.Now())
 	if notice == nil {
 		t.Fatal("want a notice")
 	}
@@ -56,7 +56,7 @@ func TestCheckFetchesAndReportsANewerRelease(t *testing.T) {
 
 func TestCheckIsSilentWhenTheLatestIsNotNewer(t *testing.T) {
 	client := &countingClient{tag: "v0.2.0"}
-	if notice := Check(context.Background(), client, cacheIn(t), "0.2.0", MethodUnknown, time.Now()); notice != nil {
+	if notice := Check(context.Background(), client, cacheIn(t), "0.2.0", func() Method { return MethodUnknown }, time.Now()); notice != nil {
 		t.Errorf("notice = %+v, want nil", notice)
 	}
 }
@@ -76,7 +76,7 @@ func TestCheckUsesTheCacheWithinADay(t *testing.T) {
 	}
 
 	client := &countingClient{tag: "v0.9.0"}
-	notice := Check(context.Background(), client, path, "0.2.0", MethodUnknown, now)
+	notice := Check(context.Background(), client, path, "0.2.0", func() Method { return MethodUnknown }, now)
 	if notice == nil || notice.Latest != "v0.3.0" {
 		t.Fatalf("notice = %+v, want the cached v0.3.0", notice)
 	}
@@ -100,7 +100,7 @@ func TestCheckRefetchesAfterADay(t *testing.T) {
 	}
 
 	client := &countingClient{tag: "v0.9.0"}
-	notice := Check(context.Background(), client, path, "0.2.0", MethodUnknown, now)
+	notice := Check(context.Background(), client, path, "0.2.0", func() Method { return MethodUnknown }, now)
 	if notice == nil || notice.Latest != "v0.9.0" {
 		t.Fatalf("notice = %+v, want the refetched v0.9.0", notice)
 	}
@@ -124,7 +124,7 @@ func TestCheckRefetchesWhenTheCacheIsStampedInTheFuture(t *testing.T) {
 	}
 
 	client := &countingClient{tag: "v0.9.0"}
-	notice := Check(context.Background(), client, path, "0.2.0", MethodUnknown, now)
+	notice := Check(context.Background(), client, path, "0.2.0", func() Method { return MethodUnknown }, now)
 	if notice == nil || notice.Latest != "v0.9.0" {
 		t.Fatalf("notice = %+v, want the refetched v0.9.0", notice)
 	}
@@ -136,7 +136,7 @@ func TestCheckRefetchesWhenTheCacheIsStampedInTheFuture(t *testing.T) {
 func TestCheckTreatsAFailedRequestAsNoInformation(t *testing.T) {
 	client := &countingClient{err: context.DeadlineExceeded}
 	path := cacheIn(t)
-	if notice := Check(context.Background(), client, path, "0.2.0", MethodUnknown, time.Now()); notice != nil {
+	if notice := Check(context.Background(), client, path, "0.2.0", func() Method { return MethodUnknown }, time.Now()); notice != nil {
 		t.Errorf("notice = %+v, want nil", notice)
 	}
 	if _, err := os.Stat(path); err != nil {
@@ -153,11 +153,26 @@ func TestCheckIgnoresAnUnreadableCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	client := &countingClient{tag: "v0.3.0"}
-	if notice := Check(context.Background(), client, path, "0.2.0", MethodUnknown, time.Now()); notice == nil {
+	if notice := Check(context.Background(), client, path, "0.2.0", func() Method { return MethodUnknown }, time.Now()); notice == nil {
 		t.Fatal("want a notice after a corrupt cache is discarded")
 	}
 	if client.calls != 1 {
 		t.Errorf("calls = %d, want 1", client.calls)
+	}
+}
+
+func TestCheckDoesNotResolveTheInstallMethodWithoutANotice(t *testing.T) {
+	asked := false
+	method := func() Method {
+		asked = true
+		return MethodManaged
+	}
+	client := &countingClient{tag: "v0.2.0"}
+	if notice := Check(context.Background(), client, cacheIn(t), "0.2.0", method, time.Now()); notice != nil {
+		t.Fatalf("notice = %+v, want nil", notice)
+	}
+	if asked {
+		t.Error("Check resolved the install method when it had no notice to print")
 	}
 }
 
