@@ -126,3 +126,19 @@ func TestVersionCommandIsRegistered(t *testing.T) {
 	}
 	t.Fatal("root has no version command")
 }
+
+func TestUpgradeCommandIsRegisteredWithItsFlags(t *testing.T) {
+	root := newRootCommand()
+	for _, c := range root.Commands() {
+		if c.Name() != "upgrade" {
+			continue
+		}
+		for _, flag := range []string{"check", "yes", "version"} {
+			if c.Flags().Lookup(flag) == nil {
+				t.Errorf("upgrade has no --%s", flag)
+			}
+		}
+		return
+	}
+	t.Fatal("root has no upgrade command")
+}

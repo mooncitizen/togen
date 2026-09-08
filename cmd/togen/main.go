@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,9 +21,11 @@ var (
 	date    = "unknown"
 )
 
+var newReleaseClient = release.NewClient
+
 func main() {
 	root := newRootCommand()
-	if err := root.Execute(); err != nil {
+	if err := root.ExecuteContext(context.Background()); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -137,8 +142,55 @@ func newRootCommand() *cobra.Command {
 	}
 	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "print the version as JSON")
 
-	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, simulateCmd, studioCmd, versionCmd)
+	var upgradeCheck, upgradeYes bool
+	var upgradeVersion string
+	upgradeCmd := &cobra.Command{
+		Use:   "upgrade",
+		Short: "Replace this binary with the latest release",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			method, path, err := release.Detect()
+			if err != nil {
+				return err
+			}
+			opts := cli.UpgradeOptions{
+				Current: version,
+				Version: upgradeVersion,
+				Check:   upgradeCheck,
+				Yes:     upgradeYes,
+				Method:  method,
+				Path:    path,
+			}
+			if stderrIsTerminal() {
+				opts.Confirm = confirm
+			}
+			return emit(cli.Upgrade(cmd.Context(), newReleaseClient(), opts))
+		},
+	}
+	upgradeCmd.Flags().BoolVar(&upgradeCheck, "check", false, "report the latest release without installing it")
+	upgradeCmd.Flags().BoolVar(&upgradeYes, "yes", false, "do not ask before replacing the binary")
+	upgradeCmd.Flags().StringVar(&upgradeVersion, "version", "", "install this tag instead of the latest")
+
+	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, simulateCmd, studioCmd, versionCmd, upgradeCmd)
 	return root
+}
+
+var stderrIsTerminal = func() bool {
+	info, err := os.Stderr.Stat()
+	if err != nil {
+		return false
+	}
+	return info.Mode()&os.ModeCharDevice != 0
+}
+
+func confirm(prompt string) bool {
+	_, _ = fmt.Fprintf(os.Stderr, "%s [y/N] ", prompt)
+	answer, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		return false
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "y" || answer == "yes"
 }
 
 func run(command func(cwd string) cli.Result) error {
