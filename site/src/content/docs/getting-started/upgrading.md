@@ -30,6 +30,8 @@ What it does depends on how togen was installed, which `togen version` reports.
 
 **Nix.** It refuses. The store is read only; update the flake input instead.
 
+**A path togen cannot write to.** This is what a manually downloaded binary sitting in a root-owned directory like `/usr/local/bin` looks like. Togen prints that it cannot write to that path and cannot replace itself, and tells you to reinstall it the way you installed it.
+
 `--check` reports the installed and latest versions and does nothing else. `--version v0.1.0` installs a specific tag, so a bad release can be stepped back from. `--yes` skips the confirmation, and without a terminal togen refuses unless you pass it.
 
 ## togen version

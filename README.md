@@ -17,10 +17,11 @@ queue, a bucket. Togen resolves that into a provider's idea of the same
 system and writes plain Terraform into your repository. There is no runtime
 and nothing to keep installed; delete Togen and the code still works.
 
-It runs on your machine: no account, no sign-in, no network call when it
-generates, including the cost estimate, which is priced from a snapshot
-bundled in the binary. AWS, Google Cloud and Azure. Seven node types.
-Terraform HCL.
+It runs on your machine: no account, no sign-in, and generating never sends
+your project anywhere, including the cost estimate, which is priced from a
+snapshot bundled in the binary. Togen does check GitHub once a day for a new
+release; `TOGEN_NO_UPDATE_CHECK=1` turns that off. AWS, Google Cloud and
+Azure. Seven node types. Terraform HCL.
 
 ## Install
 

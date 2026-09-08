@@ -118,4 +118,4 @@ Replace this binary with the latest release.
 togen upgrade
 ```
 
-What happens depends on how togen was installed: a Homebrew or Nix install refuses and names the command to use instead. See [upgrading](/togen/getting-started/upgrading/) for the full behaviour and the daily check that suggests it.
+What happens depends on how togen was installed: a Homebrew or Nix install refuses and names the command to use instead, and an install at a path togen cannot write to (for example a manually placed binary in a root-owned directory) refuses and tells you to reinstall it the way you installed it. See [upgrading](/togen/getting-started/upgrading/) for the full behaviour and the daily check that suggests it.
