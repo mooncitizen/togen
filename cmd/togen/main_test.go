@@ -165,15 +165,16 @@ func (r *recordingClient) Download(context.Context, string) (io.ReadCloser, erro
 func withUpdateCheck(t *testing.T, stamped string, terminal bool) *recordingClient {
 	t.Helper()
 	client := &recordingClient{}
-	previousVersion, previousTerminal, previousClient := version, stderrIsTerminal, newReleaseClient
+	previousVersion, previousTerminal, previousClient, previousCachePath := version, stderrIsTerminal, newReleaseClient, releaseCachePath
 	version = stamped
 	stderrIsTerminal = func() bool { return terminal }
 	newReleaseClient = func() release.Client { return client }
+	cachePath := filepath.Join(t.TempDir(), "version-check.json")
+	releaseCachePath = func() (string, error) { return cachePath, nil }
 	t.Setenv("TOGEN_NO_UPDATE_CHECK", "")
 	t.Setenv("CI", "")
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Cleanup(func() {
-		version, stderrIsTerminal, newReleaseClient = previousVersion, previousTerminal, previousClient
+		version, stderrIsTerminal, newReleaseClient, releaseCachePath = previousVersion, previousTerminal, previousClient, previousCachePath
 	})
 	return client
 }
@@ -203,6 +204,7 @@ func TestUpdateCheckIsSuppressed(t *testing.T) {
 		{name: "in CI", stamped: "0.1.0", terminal: true, env: map[string]string{"CI": "true"}, args: []string{"init", "--name", "shop"}},
 		{name: "json output", stamped: "0.1.0", terminal: true, setup: func(t *testing.T) { execute(t, "init", "--name", "shop") }, args: []string{"cost", "--json"}},
 		{name: "the version command", stamped: "0.1.0", terminal: true, args: []string{"version"}},
+		{name: "the help command", stamped: "0.1.0", terminal: true, args: []string{"help"}},
 		// upgrade --check calls client.Latest itself to resolve the release to report;
 		// that call is expected. What is suppressed is a second call from the daily check.
 		{name: "the upgrade command", stamped: "0.1.0", terminal: true, args: []string{"upgrade", "--check"}, wantCalls: 1},

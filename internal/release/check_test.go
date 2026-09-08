@@ -109,6 +109,30 @@ func TestCheckRefetchesAfterADay(t *testing.T) {
 	}
 }
 
+func TestCheckRefetchesWhenTheCacheIsStampedInTheFuture(t *testing.T) {
+	path := cacheIn(t)
+	now := time.Now()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(map[string]any{"checkedAt": now.Add(time.Hour), "latest": "v0.3.0"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	client := &countingClient{tag: "v0.9.0"}
+	notice := Check(context.Background(), client, path, "0.2.0", now)
+	if notice == nil || notice.Latest != "v0.9.0" {
+		t.Fatalf("notice = %+v, want the refetched v0.9.0", notice)
+	}
+	if client.calls != 1 {
+		t.Errorf("calls = %d, want 1 for a cache stamped in the future", client.calls)
+	}
+}
+
 func TestCheckTreatsAFailedRequestAsNoInformation(t *testing.T) {
 	client := &countingClient{err: context.DeadlineExceeded}
 	path := cacheIn(t)

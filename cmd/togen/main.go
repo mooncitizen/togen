@@ -23,6 +23,7 @@ var (
 )
 
 var newReleaseClient = release.NewClient
+var releaseCachePath = release.CachePath
 
 func main() {
 	root := newRootCommand()
@@ -43,7 +44,7 @@ func newRootCommand() *cobra.Command {
 			if !updateCheckWanted(cmd) {
 				return
 			}
-			path, err := release.CachePath()
+			path, err := releaseCachePath()
 			if err != nil {
 				return
 			}

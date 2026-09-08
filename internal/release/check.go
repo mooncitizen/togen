@@ -29,16 +29,10 @@ type checkState struct {
 	Latest    string    `json:"latest"`
 }
 
-// XDG_CACHE_HOME is checked explicitly because os.UserCacheDir only honours
-// it on Linux, and tests need to redirect the cache on every platform.
 func CachePath() (string, error) {
-	dir := os.Getenv("XDG_CACHE_HOME")
-	if dir == "" {
-		var err error
-		dir, err = os.UserCacheDir()
-		if err != nil {
-			return "", err
-		}
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
 	}
 	return filepath.Join(dir, "togen", "version-check.json"), nil
 }
@@ -72,7 +66,8 @@ func readCheckState(path string, now time.Time) (checkState, bool) {
 	if err := json.Unmarshal(raw, &state); err != nil {
 		return checkState{}, false
 	}
-	return state, now.Sub(state.CheckedAt) < checkInterval
+	age := now.Sub(state.CheckedAt)
+	return state, age >= 0 && age < checkInterval
 }
 
 // A failure to write the cache is ignored on purpose: a read-only cache
