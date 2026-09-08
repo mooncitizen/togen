@@ -2,12 +2,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mooncitizen/togen/internal/release"
 )
 
 func inTempDir(t *testing.T) string {
@@ -141,4 +144,87 @@ func TestUpgradeCommandIsRegisteredWithItsFlags(t *testing.T) {
 		return
 	}
 	t.Fatal("root has no upgrade command")
+}
+
+type recordingClient struct{ calls int }
+
+func (r *recordingClient) Latest(context.Context) (release.Release, error) {
+	r.calls++
+	return release.Release{Tag: "v99.0.0"}, nil
+}
+
+func (r *recordingClient) Get(context.Context, string) (release.Release, error) {
+	r.calls++
+	return release.Release{}, nil
+}
+
+func (r *recordingClient) Download(context.Context, string) (io.ReadCloser, error) {
+	return nil, nil
+}
+
+func withUpdateCheck(t *testing.T, stamped string, terminal bool) *recordingClient {
+	t.Helper()
+	client := &recordingClient{}
+	previousVersion, previousTerminal, previousClient := version, stderrIsTerminal, newReleaseClient
+	version = stamped
+	stderrIsTerminal = func() bool { return terminal }
+	newReleaseClient = func() release.Client { return client }
+	t.Setenv("TOGEN_NO_UPDATE_CHECK", "")
+	t.Setenv("CI", "")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Cleanup(func() {
+		version, stderrIsTerminal, newReleaseClient = previousVersion, previousTerminal, previousClient
+	})
+	return client
+}
+
+func TestUpdateCheckRunsOnAnOrdinaryCommand(t *testing.T) {
+	inTempDir(t)
+	client := withUpdateCheck(t, "0.1.0", true)
+	execute(t, "init", "--name", "shop")
+	if client.calls != 1 {
+		t.Errorf("calls = %d, want 1", client.calls)
+	}
+}
+
+func TestUpdateCheckIsSuppressed(t *testing.T) {
+	cases := []struct {
+		name      string
+		stamped   string
+		terminal  bool
+		env       map[string]string
+		setup     func(t *testing.T)
+		args      []string
+		wantCalls int
+	}{
+		{name: "a dev build", stamped: "dev", terminal: true, args: []string{"init", "--name", "shop"}},
+		{name: "no terminal", stamped: "0.1.0", terminal: false, args: []string{"init", "--name", "shop"}},
+		{name: "opted out", stamped: "0.1.0", terminal: true, env: map[string]string{"TOGEN_NO_UPDATE_CHECK": "1"}, args: []string{"init", "--name", "shop"}},
+		{name: "in CI", stamped: "0.1.0", terminal: true, env: map[string]string{"CI": "true"}, args: []string{"init", "--name", "shop"}},
+		{name: "json output", stamped: "0.1.0", terminal: true, setup: func(t *testing.T) { execute(t, "init", "--name", "shop") }, args: []string{"cost", "--json"}},
+		{name: "the version command", stamped: "0.1.0", terminal: true, args: []string{"version"}},
+		// upgrade --check calls client.Latest itself to resolve the release to report;
+		// that call is expected. What is suppressed is a second call from the daily check.
+		{name: "the upgrade command", stamped: "0.1.0", terminal: true, args: []string{"upgrade", "--check"}, wantCalls: 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			inTempDir(t)
+			if c.setup != nil {
+				c.setup(t)
+			}
+			client := withUpdateCheck(t, c.stamped, c.terminal)
+			for k, v := range c.env {
+				t.Setenv(k, v)
+			}
+			root := newRootCommand()
+			root.SetOut(io.Discard)
+			root.SetErr(io.Discard)
+			root.SetArgs(c.args)
+			_ = root.ExecuteContext(context.Background())
+			if client.calls != c.wantCalls {
+				t.Errorf("calls = %d, want %d", client.calls, c.wantCalls)
+			}
+		})
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -38,6 +39,23 @@ func newRootCommand() *cobra.Command {
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		PersistentPostRun: func(cmd *cobra.Command, _ []string) {
+			if !updateCheckWanted(cmd) {
+				return
+			}
+			path, err := release.CachePath()
+			if err != nil {
+				return
+			}
+			notice := release.Check(cmd.Context(), newReleaseClient(), path, version, time.Now())
+			if notice == nil {
+				return
+			}
+			_, _ = fmt.Fprintln(os.Stderr)
+			for _, line := range notice.Lines() {
+				_, _ = fmt.Fprintln(os.Stderr, line)
+			}
+		},
 	}
 
 	var initProvider, initName string
@@ -173,6 +191,26 @@ func newRootCommand() *cobra.Command {
 
 	root.AddCommand(initCmd, validateCmd, generateCmd, costCmd, simulateCmd, studioCmd, versionCmd, upgradeCmd)
 	return root
+}
+
+func updateCheckWanted(cmd *cobra.Command) bool {
+	if !release.Comparable(version) {
+		return false
+	}
+	if os.Getenv("TOGEN_NO_UPDATE_CHECK") != "" || os.Getenv("CI") != "" {
+		return false
+	}
+	if !stderrIsTerminal() {
+		return false
+	}
+	switch cmd.Name() {
+	case "upgrade", "version", "help":
+		return false
+	}
+	if flag := cmd.Flags().Lookup("json"); flag != nil && flag.Changed {
+		return false
+	}
+	return true
 }
 
 var stderrIsTerminal = func() bool {

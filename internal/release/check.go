@@ -1,0 +1,89 @@
+package release
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+)
+
+const checkInterval = 24 * time.Hour
+
+type Notice struct {
+	Current string
+	Latest  string
+	Method  Method
+}
+
+func (n Notice) Lines() []string {
+	return []string{
+		fmt.Sprintf("A new version of togen is available: %s -> %s", Normalise(n.Current), Normalise(n.Latest)),
+		fmt.Sprintf("Run `%s` to update, or set TOGEN_NO_UPDATE_CHECK=1 to stop checking.", n.Method.UpgradeCommand()),
+	}
+}
+
+type checkState struct {
+	CheckedAt time.Time `json:"checkedAt"`
+	Latest    string    `json:"latest"`
+}
+
+// XDG_CACHE_HOME is checked explicitly because os.UserCacheDir only honours
+// it on Linux, and tests need to redirect the cache on every platform.
+func CachePath() (string, error) {
+	dir := os.Getenv("XDG_CACHE_HOME")
+	if dir == "" {
+		var err error
+		dir, err = os.UserCacheDir()
+		if err != nil {
+			return "", err
+		}
+	}
+	return filepath.Join(dir, "togen", "version-check.json"), nil
+}
+
+func Check(ctx context.Context, client Client, cachePath, current string, now time.Time) *Notice {
+	state, fresh := readCheckState(cachePath, now)
+	if !fresh {
+		rel, err := client.Latest(ctx)
+		if err == nil {
+			state.Latest = rel.Tag
+		}
+		state.CheckedAt = now
+		writeCheckState(cachePath, state)
+	}
+	if !Newer(current, state.Latest) {
+		return nil
+	}
+	method, _, err := Detect()
+	if err != nil {
+		method = MethodUnknown
+	}
+	return &Notice{Current: current, Latest: state.Latest, Method: method}
+}
+
+func readCheckState(path string, now time.Time) (checkState, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return checkState{}, false
+	}
+	var state checkState
+	if err := json.Unmarshal(raw, &state); err != nil {
+		return checkState{}, false
+	}
+	return state, now.Sub(state.CheckedAt) < checkInterval
+}
+
+// A failure to write the cache is ignored on purpose: a read-only cache
+// directory should cost a user nothing but an extra request a day.
+func writeCheckState(path string, state checkState) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return
+	}
+	raw, err := json.Marshal(state)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(path, raw, 0o600)
+}
