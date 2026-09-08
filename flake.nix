@@ -41,6 +41,9 @@
 
             # tasks
             just
+
+            # scripts
+            shellcheck
           ];
 
           shellHook = ''

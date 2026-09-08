@@ -15,6 +15,7 @@ mkdir -p "$TF_PLUGIN_CACHE_DIR"
 status=0
 temp_dirs=()
 
+# shellcheck disable=SC2317 # only called via the EXIT trap below
 cleanup() {
   for dir in ${temp_dirs[@]+"${temp_dirs[@]}"}; do
     rm -rf "$dir" 2>/dev/null || true

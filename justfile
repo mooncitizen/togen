@@ -30,9 +30,10 @@ fmt:
 test:
     go test ./...
 
-# golangci-lint over every package.
+# golangci-lint over every package and shellcheck over the shell scripts.
 lint:
     golangci-lint run ./...
+    shellcheck scripts/*.sh
 
 # Build the canvas and then the binary that embeds it.
 build: ui build-cli
